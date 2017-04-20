@@ -37,9 +37,17 @@ resolver: lts-8.11
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
+- location:
+    git: git@github.com:isheff/EasyX509.git
+    commit: 01a40cf10689552b946dd43cbfb1b961397bb957
+- location:
+    git: git@github.com:isheff/thrift.git
+    commit: 043a4fb23311ef9302f1c5ac9910c207ed68a5dd # this is actually a local commit. You have to download the latest, and git mv Thrift.cabal thrift.cabal
+  subdirs:
+  - lib/hs
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps: [SHA2-0.2.5,AES-0.2.9,crypto-pubkey-openssh-0.2.7,type-iso-0.1.0.0,numericpeano-0.2.0.0]
 
 # Override default flag values for local packages and extra-deps
 flags: {}

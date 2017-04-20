@@ -2,12 +2,12 @@ name:                hetcons
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/hetcons#readme
-license:             BSD3
+homepage:            https://github.com/isheff/hetcons#readme
+license:             MIT
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2017 Author name here
+author:              Isaac Sheff
+maintainer:          isheff@cs.cornell.edu
+copyright:           2017 Isaac Sheff
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -15,8 +15,29 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
+                     , src/Thrift/gen-hs
   exposed-modules:     Lib
+                     -- BEGIN THRIFT GENERATED SOURCE
+                     , Hetcons_Consts
+                     , Hetcons_Observer
+                     , Hetcons_Observer_Client
+                     , Hetcons_Observer_Iface
+                     , Hetcons_Participant
+                     , Hetcons_Participant_Client
+                     , Hetcons_Participant_Iface
+                     , Hetcons_Types
+                     -- END THRIFT GENERATED SOURCE
   build-depends:       base >= 4.7 && < 5
+                     , EasyX509
+                     , thrift >= 1.0.0
+                     -- BEGIN THRIFT REQUIREMENTS
+                     , QuickCheck
+                     , vector
+                     , unordered-containers
+                     , text
+                     , hashable
+                     , bytestring
+                     -- END THRIFT REQUIREMENTS
   default-language:    Haskell2010
 
 executable hetcons-exe
