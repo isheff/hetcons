@@ -59,8 +59,7 @@ struct Hash_Type_Descriptor {
   2: optional Hash_Sha2_Descriptor sha2,
   3: optional Hash_Sha3_Descriptor sha3
 }
-const Hash_Type_Descriptor SUPPORTED_HASH_TYPE_DESCRIPTOR = { 'sha2' : SUPPORTED_HASH_SHA2_DESCRIPTOR,
-                                                              'sha3' : SUPPORTED_HASH_SHA3_DESCRIPTOR }
+const Hash_Type_Descriptor SUPPORTED_HASH_TYPE_DESCRIPTOR = { 'sha2' : SUPPORTED_HASH_SHA2_DESCRIPTOR }
 exception No_Supported_Hash_Type_Descriptor_Provided {
   1: optional Hash_Type_Descriptor offending_hash_type_descriptor,
   2: optional Hash_Type_Descriptor supported_hash_type_descriptor,
@@ -136,8 +135,7 @@ struct Crypto_ID_Type_Descriptor {
   1: optional Public_Crypto_Key_Type_Descriptor public_crypto_key,
   2: optional Crypto_ID_Hash_Type_Descriptor    crypto_id_hash
 }
-const Crypto_ID_Type_Descriptor SUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR = {'public_crypto_key':SUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR,
-                                                                       'crypto_id_hash':SUPPORTED_CRYPTO_ID_HASH_TYPE_DESCRIPTOR}
+const Crypto_ID_Type_Descriptor SUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR = {'public_crypto_key':SUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR}
 exception No_Supported_Crypto_ID_Type_Descriptor_Provided {
   1: optional Crypto_ID_Type_Descriptor offending_crypto_id_type_descriptor,
   2: optional Crypto_ID_Type_Descriptor supported_crypto_id_type_descriptor,

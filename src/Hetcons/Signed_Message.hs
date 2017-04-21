@@ -2,6 +2,7 @@
 
 module Hetcons.Signed_Message
     ( verify
+    , sign
     ) where
 
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
