@@ -31,6 +31,8 @@ library
                      -- END THRIFT GENERATED SOURCE
   build-depends:       base >= 4.7 && < 5
                      , cereal
+                     , mtl
+                     , either
                      , EasyX509
                      , cryptonite
                      -- BEGIN THRIFT REQUIREMENTS
@@ -55,6 +57,8 @@ executable hetcons-exe
 test-suite hetcons-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
+  other-modules:       Test.Hetcons_Exception
+                     , Test.Signed_Message
   main-is:             Spec.hs
   build-depends:       base
                      , hetcons
