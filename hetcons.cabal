@@ -17,6 +17,8 @@ library
   hs-source-dirs:      src
                      , src/Thrift/gen-hs
   exposed-modules:     Lib
+                     , Hetcons.Hetcons_Exception
+                     , Hetcons.Signed_Message
                      -- BEGIN THRIFT GENERATED SOURCE
                      , Hetcons_Consts
                      , Hetcons_Observer
@@ -28,9 +30,11 @@ library
                      , Hetcons_Types
                      -- END THRIFT GENERATED SOURCE
   build-depends:       base >= 4.7 && < 5
+                     , cereal
                      , EasyX509
-                     , thrift >= 1.0.0
+                     , cryptonite
                      -- BEGIN THRIFT REQUIREMENTS
+                     , thrift >= 1.0.0
                      , QuickCheck
                      , vector
                      , unordered-containers
