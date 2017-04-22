@@ -9,7 +9,10 @@ import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Support
                                                    ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
                                                    ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
                                                    ,Hetcons_Exception_Invalid_Signed_Hash))
-import Hetcons.Signed_Message (sign
+import Hetcons.Signed_Message (Verified
+                                 ,signed
+                                 ,original
+                              ,sign
                               ,verify)
 
 
@@ -65,9 +68,9 @@ signed_message_tests = TestList [
   ,TestLabel "verify that we can sign and verify a thing" (
      TestCase (
        do { signed <- sample_message
-          ; assertEqual "could not verify" (Right $ Right sample_payload) $ mapRight verify signed
+          ; assertEqual "could not verify" (Right $ Right sample_payload) $ mapRight ((mapRight original).verify) signed
           ; return ()}))
-  ,TestLabel "verify that we can sign and verify a thing" (
+  ,TestLabel "verify that we can't verify incorrect signatures" (
      TestCase (
        do { signed <- sample_message
           ; let borked_message = mapRight (\x -> x {
@@ -80,6 +83,6 @@ signed_message_tests = TestList [
                                                 ,ByteString.drop 43 s]
                       })}) signed
           ; assertEqual "verified a signature which should not have worked" (Right True) $ mapRight isLeft
-               ((mapRight verify borked_message) :: Either Hetcons_Exception (Either Hetcons_Exception Integer))
+               ((mapRight verify borked_message) :: Either Hetcons_Exception (Either Hetcons_Exception (Verified Integer)))
           ; return ()}))
   ]

@@ -1,8 +1,13 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Hetcons.Signed_Message
     ( verify
     , sign
+    , Verified
+       ,original
+       ,signed
     ) where
 
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
@@ -94,28 +99,57 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                         ,no_Supported_Crypto_ID_Type_Descriptor_Provided_supported_crypto_id_type_descriptor
                         ,no_Supported_Crypto_ID_Type_Descriptor_Provided_explanation
                         ,default_No_Supported_Crypto_ID_Type_Descriptor_Provided
+                     ,Proposal_1a
+                        ,encode_Proposal_1a
+                        ,decode_Proposal_1a
                      )
 
-import           Control.Monad.Error    ()
 import           Crypto.Hash.Algorithms (SHA224(SHA224)
                                         ,SHA256(SHA256)
                                         ,SHA384(SHA384)
                                         ,SHA512(SHA512))
+import           Control.Monad          (liftM, liftM2, mapM_)
+import           Control.Monad.Error    ()
 import           Crypto.Random          (DRG)
+import           Data.ByteString.Lazy   (unpack)
 import           Data.Either.Combinators(mapLeft)
 import           Data.Foldable          (null
                                         ,maximum)
+import           GHC.Generics           (Generic)
 import           Data.HashSet           (HashSet
                                         ,intersection
                                         ,singleton)
 import qualified Data.HashSet as HashSet(map)
+import           Data.Typeable          (Typeable )
 import           Data.Serialize         (Serialize
+                                        ,get
+                                        ,put
                                         ,encodeLazy
                                         ,decodeLazy)
+import           Data.Serialize.Get     (remaining, getLazyByteString)
+import           Data.Serialize.Put     (putWord8)
 import           Data.Text.Lazy         (pack)
 import qualified EasyX509       as X509 (sign
                                         ,verify
                                         ,Signer)
+import           Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
+import           Thrift.Transport.Empty (EmptyTransport(EmptyTransport))
+
+
+data (Show a, Eq a, Typeable a, Serialize a) => Verified a = Verified {
+   original :: a
+  ,signed   :: Signed_Message
+  } deriving (Show,Eq,Typeable)
+
+
+
+
+instance Serialize Proposal_1a where
+  put = (mapM_ putWord8) . unpack . (encode_Proposal_1a (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Proposal_1a (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
+
 
 sha2_length :: (Integral a, Num b) => HashSet a -> Either Hetcons_Exception b
 sha2_length length_set =
@@ -129,9 +163,9 @@ sha2_length length_set =
          else Right $ fromIntegral $ maximum lengths
 
 
-verify :: Serialize a => Signed_Message -> Either Hetcons_Exception a
+verify :: (Serialize a, Show a, Eq a, Typeable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
 -- In the case where everything's done correctly:
-verify Signed_Message
+verify signed_message@Signed_Message
        {signed_Message_payload = payload
        ,signed_Message_signature =
           signed_hash@Signed_Hash
@@ -162,7 +196,7 @@ verify Signed_Message
                Left $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
                   unparsable_Hashable_Message_message = payload
                  ,unparsable_Hashable_Message_explanation = Just "I was unable to parse this message payload"}
-             (Right x) -> Right x}
+             (Right x) -> Right Verified { original = x, signed = signed_message }}
 
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
 verify Signed_Message
