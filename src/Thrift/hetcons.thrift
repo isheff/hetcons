@@ -294,7 +294,9 @@ exception Invalid_Proposal_1a {
 
 /////////////////////////////////  2a  ///////////////////////////////
 
-typedef set<Signed_Message /* Phase_1b */> Phase_2a
+struct Phase_2a {
+  1: set<Signed_Message /* Phase_1b */> phase_1bs
+}
 // This can be said to "contain" a timestampted value, which is deduced deterministically from the 1b messages contained
 
 
@@ -303,14 +305,19 @@ typedef set<Signed_Message /* Phase_1b */> Phase_2a
 
 struct Phase_1b { // remember, this will be wrapped in a Signed_Message
  1: Signed_Message proposal, // wraps a Proposal_1a
- 2: set<Phase_2a>  conflicting_phase2as // past phase2a s which contain a conflicting value.
+ 2: set<Signed_Message /*Phase_1a*/>  conflicting_phase2as // past phase2a s which contain a conflicting value.
 }
 
 
 //////////////////////////////////  2b  ////////////////////////////////////
-typedef Phase_2a Phase_2b // remember, this will be wrapped in a Signed_Message
+struct Phase_2b {
+  1: set<Signed_Message /* Phase_1b */> phase_1bs
+}
+// remember, this will be wrapped in a Signed_Message
 
-typedef set<Signed_Message /* Phase_2b */> Proof_of_Consensus
+struct Proof_of_Consensus {
+  1: set<Signed_Message /* Phase_2b */> phase_2bs
+}
 // ultimately contains a value, proof of the whole consensus process which consented to that value, and optionally the observer graph defining the necessary quorums
 
 

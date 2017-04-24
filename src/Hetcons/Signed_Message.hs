@@ -1,13 +1,22 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Hetcons.Signed_Message
     ( verify
     , sign
-    , Verified
+    , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
+    , non_recursive
+    , Recursive_1b
+    , Recursive_2a
+    , Recursive_2b
+    , Recursive_Proof_of_Consensus
     ) where
 
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
@@ -102,6 +111,26 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                      ,Proposal_1a
                         ,encode_Proposal_1a
                         ,decode_Proposal_1a
+                     ,Phase_1b
+                        ,phase_1b_proposal
+                        ,phase_1b_conflicting_phase2as
+                        ,encode_Phase_1b
+                        ,decode_Phase_1b
+                     ,Phase_2a
+                        ,phase_2a_phase_1bs
+                        ,default_Phase_2a
+                        ,encode_Phase_2a
+                        ,decode_Phase_2a
+                     ,Phase_2b
+                        ,phase_2b_phase_1bs
+                        ,default_Phase_2b
+                        ,encode_Phase_2b
+                        ,decode_Phase_2b
+                     ,Proof_of_Consensus
+                        ,proof_of_Consensus_phase_2bs
+                        ,default_Proof_of_Consensus
+                        ,encode_Proof_of_Consensus
+                        ,decode_Proof_of_Consensus
                      )
 
 import           Crypto.Hash.Algorithms (SHA224(SHA224)
@@ -111,13 +140,17 @@ import           Crypto.Hash.Algorithms (SHA224(SHA224)
 import           Control.Monad          (liftM, liftM2, mapM_)
 import           Control.Monad.Error    ()
 import           Crypto.Random          (DRG)
-import           Data.ByteString.Lazy   (unpack)
+import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
 import           Data.Foldable          (null
                                         ,maximum)
 import           GHC.Generics           (Generic)
+import           Data.Hashable          (Hashable
+                                        ,hashWithSalt)
 import           Data.HashSet           (HashSet
                                         ,intersection
+                                        ,toList
+                                        ,fromList
                                         ,singleton)
 import qualified Data.HashSet as HashSet(map)
 import           Data.Typeable          (Typeable )
@@ -129,26 +162,135 @@ import           Data.Serialize         (Serialize
 import           Data.Serialize.Get     (remaining, getLazyByteString)
 import           Data.Serialize.Put     (putWord8)
 import           Data.Text.Lazy         (pack)
+import           Data.Traversable       (mapM)
 import qualified EasyX509       as X509 (sign
                                         ,verify
                                         ,Signer)
 import           Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
 import           Thrift.Transport.Empty (EmptyTransport(EmptyTransport))
 
-
-data (Show a, Eq a, Typeable a, Serialize a) => Verified a = Verified {
-   original :: a
-  ,signed   :: Signed_Message
-  } deriving (Show,Eq,Typeable)
-
-
-
-
 instance Serialize Proposal_1a where
   put = (mapM_ putWord8) . unpack . (encode_Proposal_1a (BinaryProtocol EmptyTransport))
   get = liftM (decode_Proposal_1a (BinaryProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
+
+instance Serialize Phase_1b where
+  put = (mapM_ putWord8) . unpack . (encode_Phase_1b (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Phase_1b (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
+
+instance Serialize Phase_2a where
+  put = (mapM_ putWord8) . unpack . (encode_Phase_2a (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Phase_2a (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
+
+instance Serialize Phase_2b where
+  put = (mapM_ putWord8) . unpack . (encode_Phase_2b (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Phase_2b (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
+
+instance Serialize Proof_of_Consensus where
+  put = (mapM_ putWord8) . unpack . (encode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
+
+ -- | For storing data we've verified to be correctly signed
+ -- | Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
+ -- | Note that we do not export any constructors for Verified.
+ -- | The only way data should end up in this type is if it's passed through the Verify function.
+data (Parsable a) => Verified a = Verified {
+   verified_original :: a
+  ,verified_signed   :: Signed_Message
+  }
+instance (Parsable a) => Eq (Verified a) where
+  (==) x y = (signed x) == (signed y)
+instance (Parsable a) => Hashable (Verified a) where
+  hashWithSalt i = hashWithSalt i . signed
+
+
+original :: (Parsable a) => Verified a -> a
+original = verified_original
+
+signed :: (Parsable a) => Verified a -> Signed_Message
+signed = verified_signed
+
+
+class Recursive a b where
+  non_recursive :: b -> a
+
+instance Recursive Proposal_1a Proposal_1a where
+  non_recursive = id
+
+
+data Recursive_1b = Recursive_1b {
+   recursive_1b_non_recursive :: Phase_1b
+  ,recursive_1b_proposal :: Verified Proposal_1a
+  ,recursive_1b_conflicting_phase2as :: (HashSet (Verified Recursive_2a))
+  }
+
+instance Recursive Phase_1b Recursive_1b where
+  non_recursive = recursive_1b_non_recursive
+
+newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b))
+instance Recursive Phase_2a Recursive_2a where
+  non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
+
+newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b))
+instance Recursive Phase_2b Recursive_2b where
+  non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
+
+newtype Recursive_Proof_of_Consensus = Recursive_Proof_of_Consensus (HashSet (Verified Recursive_2b))
+instance Recursive Proof_of_Consensus Recursive_Proof_of_Consensus where
+  non_recursive (Recursive_Proof_of_Consensus x) = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = HashSet.map signed x}
+
+
+class Parsable a where
+  parse :: ByteString -> Either Hetcons_Exception a
+
+instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
+  parse payload =
+    case decodeLazy payload of
+      (Left e) ->
+        Left $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
+           unparsable_Hashable_Message_message = payload
+          ,unparsable_Hashable_Message_explanation = Just "I was unable to parse this message payload"}
+      (Right x) -> Right x
+
+instance {-# OVERLAPPING #-} Parsable Recursive_1b where
+  parse payload =
+    do { non_recursive <- parse payload
+       ; proposal <- verify $ phase_1b_proposal non_recursive
+       ; conflicting_phase2as <- mapM verify $ toList $ phase_1b_conflicting_phase2as non_recursive
+       ; return Recursive_1b {
+              recursive_1b_non_recursive = non_recursive
+             ,recursive_1b_proposal = proposal
+             ,recursive_1b_conflicting_phase2as = fromList conflicting_phase2as}}
+
+instance {-# OVERLAPPING #-} Parsable Recursive_2a where
+  parse payload =
+    do { non_recursive <- parse payload
+       ; set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
+       ; return $ Recursive_2a $ fromList set}
+
+instance {-# OVERLAPPING #-} Parsable Recursive_2b where
+  parse payload =
+    do { non_recursive <- parse payload
+       ; set <- mapM verify $ toList $ phase_2b_phase_1bs non_recursive
+       ; return $ Recursive_2b $ fromList set}
+
+instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
+  parse payload =
+    do { non_recursive <- parse payload
+       ; set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
+       ; return $ Recursive_Proof_of_Consensus $ fromList set}
+
+
+
 
 
 sha2_length :: (Integral a, Num b) => HashSet a -> Either Hetcons_Exception b
@@ -163,7 +305,7 @@ sha2_length length_set =
          else Right $ fromIntegral $ maximum lengths
 
 
-verify :: (Serialize a, Show a, Eq a, Typeable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
+verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
 -- In the case where everything's done correctly:
 verify signed_message@Signed_Message
        {signed_Message_payload = payload
@@ -191,12 +333,9 @@ verify signed_message@Signed_Message
               invalid_Signed_Hash_signed_hash = signed_hash
              ,invalid_Signed_Hash_explanation = Just $ pack e}
          Nothing ->
-           case decodeLazy payload of
-             (Left e) ->
-               Left $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
-                  unparsable_Hashable_Message_message = payload
-                 ,unparsable_Hashable_Message_explanation = Just "I was unable to parse this message payload"}
-             (Right x) -> Right Verified { original = x, signed = signed_message }}
+           case parse payload of
+             (Left  e) -> Left e
+             (Right x) -> Right Verified { verified_original = x, verified_signed = signed_message }}
 
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
 verify Signed_Message
