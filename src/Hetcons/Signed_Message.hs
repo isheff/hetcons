@@ -14,9 +14,12 @@ module Hetcons.Signed_Message
        ,signed
     , non_recursive
     , Recursive_1b
-    , Recursive_2a
+       ,recursive_1b_proposal
+       ,recursive_1b_conflicting_phase2as
+    , Recursive_2a (Recursive_2a )
     , Recursive_2b
     , Recursive_Proof_of_Consensus
+    , Parsable
     ) where
 
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
@@ -138,7 +141,7 @@ import           Crypto.Hash.Algorithms (SHA224(SHA224)
                                         ,SHA384(SHA384)
                                         ,SHA512(SHA512))
 import           Control.Monad          (liftM, liftM2, mapM_)
-import           Control.Monad.Error    ()
+import           Control.Monad.Except   ()
 import           Crypto.Random          (DRG)
 import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
@@ -169,30 +172,40 @@ import qualified EasyX509       as X509 (sign
 import           Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
 import           Thrift.Transport.Empty (EmptyTransport(EmptyTransport))
 
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
 instance Serialize Proposal_1a where
   put = (mapM_ putWord8) . unpack . (encode_Proposal_1a (BinaryProtocol EmptyTransport))
   get = liftM (decode_Proposal_1a (BinaryProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
 instance Serialize Phase_1b where
   put = (mapM_ putWord8) . unpack . (encode_Phase_1b (BinaryProtocol EmptyTransport))
   get = liftM (decode_Phase_1b (BinaryProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
 instance Serialize Phase_2a where
   put = (mapM_ putWord8) . unpack . (encode_Phase_2a (BinaryProtocol EmptyTransport))
   get = liftM (decode_Phase_2a (BinaryProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
 instance Serialize Phase_2b where
   put = (mapM_ putWord8) . unpack . (encode_Phase_2b (BinaryProtocol EmptyTransport))
   get = liftM (decode_Phase_2b (BinaryProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
 instance Serialize Proof_of_Consensus where
   put = (mapM_ putWord8) . unpack . (encode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
   get = liftM (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport)) (
@@ -213,20 +226,31 @@ instance (Parsable a) => Hashable (Verified a) where
   hashWithSalt i = hashWithSalt i . signed
 
 
+-- | An accessor function for the `verified_original' field of Verified s.
+-- | We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
 original :: (Parsable a) => Verified a -> a
 original = verified_original
 
+-- | An accessor function for the `verified_signed field of Verified s.
+-- | We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
 signed :: (Parsable a) => Verified a -> Signed_Message
 signed = verified_signed
 
 
+-- | We want to parse incoming messages into their `recursive' version, which is to say we will verify that message, and also any messages its carrying in any of their fields, and store the original signed messages as well as the parsed data structures.
+-- | However, sometimes it's useful to have access to the basic thrift data structure.
+-- | This function should grand that access.
 class Recursive a b where
   non_recursive :: b -> a
 
+-- | Proposal_1a s carry no signed messages within them, therefore their recursive version is themselves.
 instance Recursive Proposal_1a Proposal_1a where
   non_recursive = id
 
 
+
+-- | Phase_1b s carry 1a and 2a messages with them.
+-- | Recursive_1b s carry parsed and verified versions of these.
 data Recursive_1b = Recursive_1b {
    recursive_1b_non_recursive :: Phase_1b
   ,recursive_1b_proposal :: Verified Proposal_1a
@@ -236,31 +260,47 @@ data Recursive_1b = Recursive_1b {
 instance Recursive Phase_1b Recursive_1b where
   non_recursive = recursive_1b_non_recursive
 
+
+-- | Phase_2a s carry phase 1b messages with them.
+-- | Recursive_2a s carry parsed and verified versions of these.
 newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b))
 instance Recursive Phase_2a Recursive_2a where
   non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
 
+
+-- | Phase_2b s carry signed 1b messages with them.
+-- | Recursive_2bs carry parsed and verified versions of these.
 newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b))
 instance Recursive Phase_2b Recursive_2b where
   non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
 
+-- | Proof_of_Consensus messages carry signed 2b messages with them.
+-- | Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
 newtype Recursive_Proof_of_Consensus = Recursive_Proof_of_Consensus (HashSet (Verified Recursive_2b))
 instance Recursive Proof_of_Consensus Recursive_Proof_of_Consensus where
   non_recursive (Recursive_Proof_of_Consensus x) = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = HashSet.map signed x}
 
 
+-- | We have messages serialized for transport within Signed_Messages.
+-- | However, deserializing them into their thrift data structures is not enough, if we want to recursively parse and verify the signed messags they carry within themselves.
+-- | Therefore, we create the Parsable class for stuff which might require such recursive verification.
 class Parsable a where
+  -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
+  -- | Of course, this depends on the type of the object.
   parse :: ByteString -> Either Hetcons_Exception a
 
+-- | By default, anythign serializable is simply deserialized.
+-- | the only possible error is if parsing fails
 instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
   parse payload =
     case decodeLazy payload of
       (Left e) ->
         Left $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
            unparsable_Hashable_Message_message = payload
-          ,unparsable_Hashable_Message_explanation = Just "I was unable to parse this message payload"}
+          ,unparsable_Hashable_Message_explanation = Just $ pack $ "I was unable to parse this message payload:\n" ++ e}
       (Right x) -> Right x
 
+-- | For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
 instance {-# OVERLAPPING #-} Parsable Recursive_1b where
   parse payload =
     do { non_recursive <- parse payload
@@ -271,18 +311,21 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1b where
              ,recursive_1b_proposal = proposal
              ,recursive_1b_conflicting_phase2as = fromList conflicting_phase2as}}
 
+-- | for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_2a where
   parse payload =
     do { non_recursive <- parse payload
        ; set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
        ; return $ Recursive_2a $ fromList set}
 
+-- | for a 2b message, we parse the original message, and verify the 1b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_2b where
   parse payload =
     do { non_recursive <- parse payload
        ; set <- mapM verify $ toList $ phase_2b_phase_1bs non_recursive
        ; return $ Recursive_2b $ fromList set}
 
+-- | For a Proof_of_Consensus message, we parse the original message, and verify the 2b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
   parse payload =
     do { non_recursive <- parse payload
@@ -293,6 +336,7 @@ instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
 
 
 
+-- | returns the correct (longest allowed) sha2 length to use given a set of possible lengths, or an exception
 sha2_length :: (Integral a, Num b) => HashSet a -> Either Hetcons_Exception b
 sha2_length length_set =
   let hash_sha2_descriptor = HashSet.map fromIntegral length_set
@@ -305,6 +349,9 @@ sha2_length length_set =
          else Right $ fromIntegral $ maximum lengths
 
 
+-- | This is the only way to construct a Verified object.
+-- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+-- | Otherwise, you get an exception.
 verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
 -- In the case where everything's done correctly:
 verify signed_message@Signed_Message
@@ -414,6 +461,7 @@ verify Signed_Message
 
 
 
+-- | builds a Signed_Message given a signing key, a matching certificate, something serializable, etc.
 sign ::(Serialize serialize, X509.Signer signer, DRG gen) =>
        Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> serialize -> Either Hetcons_Exception Signed_Message
 -- | If everything is correct, and we've got just an x509 public key

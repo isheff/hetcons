@@ -13,7 +13,12 @@ import Hetcons.Signed_Message (Verified
                                  ,signed
                                  ,original
                               ,sign
-                              ,verify)
+                              ,verify
+                              ,Recursive_2a (Recursive_2a )
+                              ,recursive_1b_proposal
+                              ,recursive_1b_conflicting_phase2as
+                              ,Parsable
+                              ,non_recursive)
 
 
 import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
@@ -32,31 +37,80 @@ import Hetcons_Types (Signed_Message
                      ,default_Crypto_ID
                      ,public_Crypto_Key_public_crypto_key_x509
                      ,signed_Message_payload
-                     ,default_Descriptor_Does_Not_Match_Hash_Sha2)
+                     ,default_Descriptor_Does_Not_Match_Hash_Sha2
+                     ,Proposal_1a
+                        ,proposal_1a_value
+                        ,proposal_1a_timestamp
+                        ,default_Proposal_1a
+                     ,Value
+                        ,value_value_payload
+                        ,value_slot
+                        ,default_Value
+                     ,Phase_1b
+                        ,phase_1b_proposal
+                        ,phase_1b_conflicting_phase2as
+                        ,default_Phase_1b
+                     ,Phase_2a
+                        ,phase_2a_phase_1bs
+                        ,default_Phase_2a
+                     )
 
-import Crypto.Random (getSystemDRG)
+import           Control.Monad (join)
+import           Control.Monad.Except   (runExceptT)
+import Control.Monad.Trans.Except (except)
+import Crypto.Random (getSystemDRG, DRG, withDRG)
 import qualified Data.ByteString.Lazy as ByteString (readFile, concat, take, drop, singleton, index)
 import Data.Either.Combinators (isLeft)
 import Data.Either.Combinators (mapRight)
-import           Data.Serialize         (decodeLazy)
+import           Data.HashSet           (fromList,toList)
+import Data.List (head)
+import           Data.Serialize         (Serialize
+                                           ,decodeLazy)
 import Test.HUnit (Test(TestList,
                         TestLabel,
                         TestCase)
                   ,assertEqual
                   ,assertBool)
 
+
+doubleGen :: (DRG g) => g -> (g,g)
+doubleGen g = withDRG g (return g)
+
+listGen :: (DRG g) => g -> [g]
+listGen g = g:(listGen (snd (withDRG g (return ()))))
+
+
 sample_payload :: Integer
 sample_payload = 1337
 
 sample_message :: IO (Either Hetcons_Exception Signed_Message)
-sample_message =
+sample_message = sample_sign sample_payload
+
+
+sample_sign :: (Serialize a) => a -> IO (Either Hetcons_Exception Signed_Message)
+sample_sign payload =
   do { gen <- getSystemDRG
      ; cert <- ByteString.readFile "test/cert.pem"
      ; private <- ByteString.readFile "test/key.pem"
      ; let crypto_id = default_Crypto_ID {crypto_ID_public_crypto_key =
                           Just (default_Public_Crypto_Key {
                             public_Crypto_Key_public_crypto_key_x509 = Just cert})}
-     ; return $ sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen sample_payload}
+     ; return $ sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen payload}
+
+
+sample_1a :: Proposal_1a
+sample_1a = default_Proposal_1a {
+               proposal_1a_value = default_Value {
+                                      value_value_payload = ByteString.singleton 42
+                                     ,value_slot = 6}
+              ,proposal_1a_timestamp = 1111111}
+
+
+
+deStupidify :: (Monad m) => Either a (m b) -> (m (Either a b))
+deStupidify (Left  x) = return (Left x)
+deStupidify (Right x) = do { y <- x
+                           ; return (Right y)}
 
 
 signed_message_tests = TestList [
@@ -85,4 +139,67 @@ signed_message_tests = TestList [
           ; assertEqual "verified a signature which should not have worked" (Right True) $ mapRight isLeft
                ((mapRight verify borked_message) :: Either Hetcons_Exception (Either Hetcons_Exception (Verified Integer)))
           ; return ()}))
+  ,TestLabel "verify that we can sign and parse a 1A message" (
+     TestCase (
+       do { signed <- sample_sign sample_1a
+          ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right sample_1a)
+               $ mapRight ((mapRight ((non_recursive :: Proposal_1a -> Proposal_1a).original)).verify) signed
+          ; return ()}))
+  ,TestLabel "verify that we can sign and parse a 1B message" (
+     TestCase (
+       do { signed_1a <- sample_sign sample_1a
+          ; let payload = (mapRight (\x -> default_Phase_1b { phase_1b_proposal = x }) signed_1a) :: Either Hetcons_Exception Phase_1b
+          ; signed <- fmap join $ deStupidify $ mapRight sample_sign payload
+          ; assertEqual "failed to verify a signed phase_1b" (Right sample_1a)
+               $ mapRight (original.recursive_1b_proposal.original) $ join $ mapRight (verify) signed
+          ; return ()}))
+  ,TestLabel "verify that we can sign and parse a 2A message" (
+     TestCase (
+       do { gen <- getSystemDRG
+          ; let l_gen = listGen gen
+          ; cert <- ByteString.readFile "test/cert.pem"
+          ; private <- ByteString.readFile "test/key.pem"
+          ; let crypto_id = default_Crypto_ID {crypto_ID_public_crypto_key =
+                               Just (default_Public_Crypto_Key {
+                                 public_Crypto_Key_public_crypto_key_x509 = Just cert})}
+          ; let gen_sign_1a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) :: (DRG gen) => gen -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_1b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) :: (DRG gen) => gen -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_2a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) :: (DRG gen) => gen -> Phase_2a -> (Either Hetcons_Exception Signed_Message)
+          ; let result = do { signed_1a <- gen_sign_1a (l_gen!!0) sample_1a
+                            ; let phase_1b = default_Phase_1b { phase_1b_proposal = signed_1a }
+                            ; signed_1b_1 <- gen_sign_1b (l_gen!!1) phase_1b
+                            ; signed_1b_2 <- gen_sign_1b (l_gen!!2) phase_1b
+                            ; let phase_2a = default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
+                            ; signed <- gen_sign_2a (l_gen!!3) phase_2a
+                            ; verified <- verify signed
+                            ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2a x) -> x).original) verified)
+                            }
+          ; assertEqual "failed to verify a signed phase_2a" (Right sample_1a) result
+          ; return ()}))
+  ,TestLabel "verify that we can sign and parse a 1B message with 2A messages inside of it" (
+     TestCase (
+       do { gen <- getSystemDRG
+          ; let l_gen = listGen gen
+          ; cert <- ByteString.readFile "test/cert.pem"
+          ; private <- ByteString.readFile "test/key.pem"
+          ; let crypto_id = default_Crypto_ID {crypto_ID_public_crypto_key =
+                               Just (default_Public_Crypto_Key {
+                                 public_Crypto_Key_public_crypto_key_x509 = Just cert})}
+          ; let gen_sign_1a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) :: (DRG gen) => gen -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_1b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) :: (DRG gen) => gen -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_2a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) :: (DRG gen) => gen -> Phase_2a -> (Either Hetcons_Exception Signed_Message)
+          ; let result = do { signed_1a <- gen_sign_1a (l_gen!!0) sample_1a
+                            ; let phase_1b = default_Phase_1b { phase_1b_proposal = signed_1a }
+                            ; signed_1b_1 <- gen_sign_1b (l_gen!!1) phase_1b
+                            ; signed_1b_2 <- gen_sign_1b (l_gen!!2) phase_1b
+                            ; let phase_2a = default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
+                            ; signed_2a_1 <- gen_sign_2a (l_gen!!3) default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
+                            ; signed_2a_2 <- gen_sign_2a (l_gen!!4) default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1]}
+                            ; signed <- gen_sign_1b (l_gen!!5) phase_1b {phase_1b_conflicting_phase2as = fromList [signed_2a_1, signed_2a_2]}
+                            ; verified <- verify signed
+                            ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2a x) -> x).original.head.toList.recursive_1b_conflicting_phase2as.original) verified)
+                            }
+          ; assertEqual "failed to verify a signed phase_1a with 2b messages inside of it" (Right sample_1a) result
+          ; return ()}))
+
   ]
