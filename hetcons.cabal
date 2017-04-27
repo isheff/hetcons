@@ -17,8 +17,13 @@ library
   hs-source-dirs:      src
                      , src/Thrift/gen-hs
   exposed-modules:     Lib
+                     , Hetcons.Contains_Value
                      , Hetcons.Hetcons_Exception
+                     , Hetcons.Hetcons_State
+                     , Hetcons.Phase_2a
+                     , Hetcons.Quorums
                      , Hetcons.Signed_Message
+                     , Hetcons.Value
                      -- BEGIN THRIFT GENERATED SOURCE
                      , Hetcons_Consts
                      , Hetcons_Observer
@@ -33,6 +38,7 @@ library
                      , cereal
                      , mtl
                      , either
+                     , stm
                      , EasyX509
                      , cryptonite
                      -- BEGIN THRIFT REQUIREMENTS

@@ -14,6 +14,7 @@ import Hetcons.Signed_Message (Verified
                                  ,original
                               ,sign
                               ,verify
+                              ,Recursive_1a
                               ,Recursive_2a (Recursive_2a )
                               ,recursive_1b_proposal
                               ,recursive_1b_conflicting_phase2as
@@ -42,6 +43,10 @@ import Hetcons_Types (Signed_Message
                         ,proposal_1a_value
                         ,proposal_1a_timestamp
                         ,default_Proposal_1a
+                        ,proposal_1a_observers
+                     ,Observers
+                        ,default_Observers
+                        ,observers_observer_quorums
                      ,Value
                         ,value_value_payload
                         ,value_slot
@@ -62,6 +67,7 @@ import Crypto.Random (getSystemDRG, DRG, withDRG)
 import qualified Data.ByteString.Lazy as ByteString (readFile, concat, take, drop, singleton, index)
 import Data.Either.Combinators (isLeft)
 import Data.Either.Combinators (mapRight)
+import           Data.HashMap.Lazy           (empty)
 import           Data.HashSet           (fromList,toList)
 import Data.List (head)
 import           Data.Serialize         (Serialize
@@ -103,7 +109,9 @@ sample_1a = default_Proposal_1a {
                proposal_1a_value = default_Value {
                                       value_value_payload = ByteString.singleton 42
                                      ,value_slot = 6}
-              ,proposal_1a_timestamp = 1111111}
+              ,proposal_1a_timestamp = 1111111
+              ,proposal_1a_observers = Just default_Observers {
+                                         observers_observer_quorums = Just empty}}
 
 
 
@@ -143,7 +151,7 @@ signed_message_tests = TestList [
      TestCase (
        do { signed <- sample_sign sample_1a
           ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right sample_1a)
-               $ mapRight ((mapRight ((non_recursive :: Proposal_1a -> Proposal_1a).original)).verify) signed
+               $ mapRight ((mapRight ((non_recursive :: Recursive_1a -> Proposal_1a).original)).verify) signed
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 1B message" (
      TestCase (
@@ -151,7 +159,7 @@ signed_message_tests = TestList [
           ; let payload = (mapRight (\x -> default_Phase_1b { phase_1b_proposal = x }) signed_1a) :: Either Hetcons_Exception Phase_1b
           ; signed <- fmap join $ deStupidify $ mapRight sample_sign payload
           ; assertEqual "failed to verify a signed phase_1b" (Right sample_1a)
-               $ mapRight (original.recursive_1b_proposal.original) $ join $ mapRight (verify) signed
+               $ mapRight (non_recursive.original.recursive_1b_proposal.original) $ join $ mapRight (verify) signed
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 2A message" (
      TestCase (
@@ -174,7 +182,7 @@ signed_message_tests = TestList [
                             ; verified <- verify signed
                             ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2a x) -> x).original) verified)
                             }
-          ; assertEqual "failed to verify a signed phase_2a" (Right sample_1a) result
+          ; assertEqual "failed to verify a signed phase_2a" (Right sample_1a) $ mapRight non_recursive result
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 1B message with 2A messages inside of it" (
      TestCase (
@@ -199,7 +207,7 @@ signed_message_tests = TestList [
                             ; verified <- verify signed
                             ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2a x) -> x).original.head.toList.recursive_1b_conflicting_phase2as.original) verified)
                             }
-          ; assertEqual "failed to verify a signed phase_1a with 2b messages inside of it" (Right sample_1a) result
+          ; assertEqual "failed to verify a signed phase_1a with 2b messages inside of it" (Right sample_1a) $ mapRight non_recursive result
           ; return ()}))
 
   ]

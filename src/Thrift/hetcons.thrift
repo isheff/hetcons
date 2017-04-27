@@ -299,6 +299,12 @@ struct Phase_2a {
 }
 // This can be said to "contain" a timestampted value, which is deduced deterministically from the 1b messages contained
 
+// For instance, if multiple different values are included in the phase 1b messages
+exception Invalid_Phase_2a {
+  1: Phase_2a offending_phase_2a
+  3: optional string explanation
+}
+
 
 
 /////////////////////////////////  1b  ///////////////////////////////
@@ -315,11 +321,22 @@ struct Phase_2b {
 }
 // remember, this will be wrapped in a Signed_Message
 
+// For instance, if multiple different values are included in the phase 1b messages
+exception Invalid_Phase_2b {
+  1: Phase_2b offending_phase_2b
+  3: optional string explanation
+}
+
 struct Proof_of_Consensus {
   1: set<Signed_Message /* Phase_2b */> phase_2bs
 }
 // ultimately contains a value, proof of the whole consensus process which consented to that value, and optionally the observer graph defining the necessary quorums
 
+// For instance, if multiple different values are included in the phase 2b messages
+exception Invalid_Proof_of_Consensus {
+  1: Proof_of_Consensus offending_proof_of_consensus
+  3: optional string explanation
+}
 
 
 
@@ -352,7 +369,10 @@ service Hetcons_Participant {
                             16:Unparsable_Hashable_Message                             unparsable_hashable_message,
                             17:Invalid_Address                                         invalid_address,
                             18:Impossible_Observer_Graph                               impossible_observer_graph,
-                            19:Invalid_Proposal_1a                                     invalid_proposal_1a)
+                            19:Invalid_Proposal_1a                                     invalid_proposal_1a
+                            20:Invalid_Phase_2a                                        invalid_Phase_2a
+                            21:Invalid_Phase_2b                                        invalid_Phase_2b
+                            22:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 
    void phase_1b (1:Signed_Message/*Phase_1b*/ phase_1b_message)
                     throws (1: No_Supported_Hash_Sha2_Descriptor_Provided              no_supported_hash_sha2_descriptor_provided,
@@ -373,7 +393,10 @@ service Hetcons_Participant {
                             16:Unparsable_Hashable_Message                             unparsable_hashable_message,
                             17:Invalid_Address                                         invalid_address,
                             18:Impossible_Observer_Graph                               impossible_observer_graph,
-                            19:Invalid_Proposal_1a                                     invalid_proposal_1a)
+                            19:Invalid_Proposal_1a                                     invalid_proposal_1a
+                            20:Invalid_Phase_2a                                        invalid_Phase_2a
+                            21:Invalid_Phase_2b                                        invalid_Phase_2b
+                            22:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 }
 
 service Hetcons_Observer {
@@ -397,5 +420,8 @@ service Hetcons_Observer {
                             16:Unparsable_Hashable_Message                             unparsable_hashable_message,
                             17:Invalid_Address                                         invalid_address,
                             18:Impossible_Observer_Graph                               impossible_observer_graph,
-                            19:Invalid_Proposal_1a                                     invalid_proposal_1a)
+                            19:Invalid_Proposal_1a                                     invalid_proposal_1a
+                            20:Invalid_Phase_2a                                        invalid_Phase_2a
+                            21:Invalid_Phase_2b                                        invalid_Phase_2b
+                            22:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 }

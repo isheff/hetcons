@@ -12,13 +12,17 @@ module Hetcons.Signed_Message
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
-    , non_recursive
+    , Recursive
+       ,non_recursive
+    , Recursive_1a(Recursive_1a)
+       ,recursive_1a_non_recursive
+       ,recursive_1a_filled_in
     , Recursive_1b
        ,recursive_1b_proposal
        ,recursive_1b_conflicting_phase2as
     , Recursive_2a (Recursive_2a )
-    , Recursive_2b
-    , Recursive_Proof_of_Consensus
+    , Recursive_2b (Recursive_2b )
+    , Recursive_Proof_of_Consensus (Recursive_Proof_of_Consensus)
     , Parsable
     ) where
 
@@ -30,7 +34,12 @@ import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Support
                                                    ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
                                                    ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
                                                    ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Invalid_Signed_Hash))
+                                                   ,Hetcons_Exception_Invalid_Signed_Hash
+                                                   ,Hetcons_Exception_Invalid_Proposal_1a
+                                                   ,Hetcons_Exception_Invalid_Phase_2a
+                                                   ,Hetcons_Exception_Invalid_Phase_2b
+                                                   ,Hetcons_Exception_Invalid_Proof_of_Consensus))
+import Hetcons.Quorums (verify_quorums)
 
 import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
                      ,sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
@@ -111,7 +120,20 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                         ,no_Supported_Crypto_ID_Type_Descriptor_Provided_supported_crypto_id_type_descriptor
                         ,no_Supported_Crypto_ID_Type_Descriptor_Provided_explanation
                         ,default_No_Supported_Crypto_ID_Type_Descriptor_Provided
+                     ,Invalid_Phase_2a
+                        ,invalid_Phase_2a_offending_phase_2a
+                        ,invalid_Phase_2a_explanation
+                        ,default_Invalid_Phase_2a
+                     ,Invalid_Phase_2b
+                        ,invalid_Phase_2b_offending_phase_2b
+                        ,invalid_Phase_2b_explanation
+                        ,default_Invalid_Phase_2b
+                     ,Invalid_Proof_of_Consensus
+                        ,invalid_Proof_of_Consensus_offending_proof_of_consensus
+                        ,invalid_Proof_of_Consensus_explanation
+                        ,default_Invalid_Proof_of_Consensus
                      ,Proposal_1a
+                        ,proposal_1a_observers
                         ,encode_Proposal_1a
                         ,decode_Proposal_1a
                      ,Phase_1b
@@ -141,11 +163,12 @@ import           Crypto.Hash.Algorithms (SHA224(SHA224)
                                         ,SHA384(SHA384)
                                         ,SHA512(SHA512))
 import           Control.Monad          (liftM, liftM2, mapM_)
-import           Control.Monad.Except   ()
+import           Control.Monad.Except   (throwError)
 import           Crypto.Random          (DRG)
 import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
 import           Data.Foldable          (null
+                                        ,length
                                         ,maximum)
 import           GHC.Generics           (Generic)
 import           Data.Hashable          (Hashable
@@ -156,6 +179,7 @@ import           Data.HashSet           (HashSet
                                         ,fromList
                                         ,singleton)
 import qualified Data.HashSet as HashSet(map)
+import           Data.List              (head)
 import           Data.Typeable          (Typeable )
 import           Data.Serialize         (Serialize
                                         ,get
@@ -224,6 +248,8 @@ instance (Parsable a) => Eq (Verified a) where
   (==) x y = (signed x) == (signed y)
 instance (Parsable a) => Hashable (Verified a) where
   hashWithSalt i = hashWithSalt i . signed
+instance (Parsable a, Show a) => Show (Verified a) where
+  show = ("VERIFIED:  " ++) . show . original
 
 
 -- | An accessor function for the `verified_original' field of Verified s.
@@ -243,9 +269,17 @@ signed = verified_signed
 class Recursive a b where
   non_recursive :: b -> a
 
--- | Proposal_1a s carry no signed messages within them, therefore their recursive version is themselves.
-instance Recursive Proposal_1a Proposal_1a where
-  non_recursive = id
+
+
+-- | Proposal_1a s carry no signed messages within them, but their recursive version can fill in some stuff, like quorums
+data Recursive_1a = Recursive_1a {
+   recursive_1a_non_recursive ::Proposal_1a
+  ,recursive_1a_filled_in :: Proposal_1a
+  } deriving (Show, Eq)
+instance Hashable Recursive_1a where
+  hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Proposal_1a)
+instance Recursive Proposal_1a Recursive_1a where
+  non_recursive = recursive_1a_non_recursive
 
 
 
@@ -253,9 +287,12 @@ instance Recursive Proposal_1a Proposal_1a where
 -- | Recursive_1b s carry parsed and verified versions of these.
 data Recursive_1b = Recursive_1b {
    recursive_1b_non_recursive :: Phase_1b
-  ,recursive_1b_proposal :: Verified Proposal_1a
+  ,recursive_1b_proposal :: Verified Recursive_1a
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified Recursive_2a))
-  }
+  } deriving (Eq)
+instance Show Recursive_1b
+instance Hashable Recursive_1b where
+  hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Phase_1b)
 
 instance Recursive Phase_1b Recursive_1b where
   non_recursive = recursive_1b_non_recursive
@@ -263,14 +300,18 @@ instance Recursive Phase_1b Recursive_1b where
 
 -- | Phase_2a s carry phase 1b messages with them.
 -- | Recursive_2a s carry parsed and verified versions of these.
-newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b))
+newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b)) deriving (Eq, Show)
+instance Hashable Recursive_2a where
+  hashWithSalt s (Recursive_2a x) = hashWithSalt s x
 instance Recursive Phase_2a Recursive_2a where
   non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
 
 
 -- | Phase_2b s carry signed 1b messages with them.
 -- | Recursive_2bs carry parsed and verified versions of these.
-newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b))
+newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b)) deriving (Eq, Show)
+instance Hashable Recursive_2b where
+  hashWithSalt s (Recursive_2b x) = hashWithSalt s x
 instance Recursive Phase_2b Recursive_2b where
   non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
 
@@ -300,6 +341,17 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
           ,unparsable_Hashable_Message_explanation = Just $ pack $ "I was unable to parse this message payload:\n" ++ e}
       (Right x) -> Right x
 
+-- TODO: For a 1A object, we should check it's Observers field, and verify that it exists, and populate the quorums field. This involves verifying that the observer graph is legit.
+
+-- | For a 1a object, we verify observer graph, and fill in quorums
+instance {-# OVERLAPPING #-} Parsable Recursive_1a where
+  parse payload =
+    do { non_recursive <- parse payload
+       ; filled_in <- verify_quorums non_recursive
+       ; return Recursive_1a {
+              recursive_1a_non_recursive = non_recursive
+       ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}}}
+
 -- | For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
 instance {-# OVERLAPPING #-} Parsable Recursive_1b where
   parse payload =
@@ -315,22 +367,37 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1b where
 instance {-# OVERLAPPING #-} Parsable Recursive_2a where
   parse payload =
     do { non_recursive <- parse payload
-       ; set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
-       ; return $ Recursive_2a $ fromList set}
+       ; l_set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
+       ; let set = fromList l_set
+       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
+            then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
+                                 invalid_Phase_2a_offending_phase_2a = non_recursive
+                                ,invalid_Phase_2a_explanation = Just "More than 1 proposal value present."}
+            else return $ Recursive_2a set}
 
 -- | for a 2b message, we parse the original message, and verify the 1b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_2b where
   parse payload =
     do { non_recursive <- parse payload
-       ; set <- mapM verify $ toList $ phase_2b_phase_1bs non_recursive
-       ; return $ Recursive_2b $ fromList set}
+       ; l_set <- mapM verify $ toList $ phase_2b_phase_1bs non_recursive
+       ; let set = fromList l_set
+       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
+            then throwError $ Hetcons_Exception_Invalid_Phase_2b default_Invalid_Phase_2b {
+                                 invalid_Phase_2b_offending_phase_2b = non_recursive
+                                ,invalid_Phase_2b_explanation = Just "More than 1 proposal value present."}
+            else return $ Recursive_2b set}
 
 -- | For a Proof_of_Consensus message, we parse the original message, and verify the 2b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
   parse payload =
     do { non_recursive <- parse payload
-       ; set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
-       ; return $ Recursive_Proof_of_Consensus $ fromList set}
+       ; l_set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
+       ; let set = fromList l_set
+       ; if (length (HashSet.map (recursive_1b_proposal . original . head . toList . (\(Recursive_2b x) -> x) . original) set)) > 1
+            then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
+                                 invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
+                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 proposal value present."}
+            else return $ Recursive_Proof_of_Consensus set}
 
 
 

@@ -19,7 +19,10 @@ module Hetcons.Hetcons_Exception
                       ,Hetcons_Exception_Unparsable_Hashable_Message
                       ,Hetcons_Exception_Invalid_Address
                       ,Hetcons_Exception_Impossible_Observer_Graph
-                      ,Hetcons_Exception_Invalid_Proposal_1a)
+                      ,Hetcons_Exception_Invalid_Proposal_1a
+                      ,Hetcons_Exception_Invalid_Phase_2a
+                      ,Hetcons_Exception_Invalid_Phase_2b
+                      ,Hetcons_Exception_Invalid_Proof_of_Consensus)
     ) where
 
 
@@ -50,6 +53,9 @@ import Hetcons_Types (No_Supported_Hash_Sha2_Descriptor_Provided
                      ,Invalid_Address
                      ,Impossible_Observer_Graph
                      ,Invalid_Proposal_1a
+                     ,Invalid_Phase_2a
+                     ,Invalid_Phase_2b
+                     ,Invalid_Proof_of_Consensus
                      )
 
 -- | This is a wrapper datatype which exists primarily because I don't like Haskell's Control.Exception s, but Thrift does.
@@ -79,6 +85,9 @@ data Hetcons_Exception =
   | Hetcons_Exception_Invalid_Address                                         Invalid_Address
   | Hetcons_Exception_Impossible_Observer_Graph                               Impossible_Observer_Graph
   | Hetcons_Exception_Invalid_Proposal_1a                                     Invalid_Proposal_1a
+  | Hetcons_Exception_Invalid_Phase_2a                                        Invalid_Phase_2a
+  | Hetcons_Exception_Invalid_Phase_2b                                        Invalid_Phase_2b
+  | Hetcons_Exception_Invalid_Proof_of_Consensus                              Invalid_Proof_of_Consensus
   deriving (Show,Eq,Generic,Typeable)
 
 instance Exception Hetcons_Exception where
@@ -101,6 +110,9 @@ instance Exception Hetcons_Exception where
   toException (Hetcons_Exception_Invalid_Address x) = toException x
   toException (Hetcons_Exception_Impossible_Observer_Graph x) = toException x
   toException (Hetcons_Exception_Invalid_Proposal_1a x) = toException x
+  toException (Hetcons_Exception_Invalid_Phase_2a x) = toException x
+  toException (Hetcons_Exception_Invalid_Phase_2b x) = toException x
+  toException (Hetcons_Exception_Invalid_Proof_of_Consensus x) = toException x
   displayException (Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided x) = displayException x
   displayException (Hetcons_Exception_Descriptor_Does_Not_Match_Hash_Sha2 x) = displayException x
   displayException (Hetcons_Exception_No_Supported_Hash_Sha3_Descriptor_Provided x) = displayException x
@@ -120,6 +132,9 @@ instance Exception Hetcons_Exception where
   displayException (Hetcons_Exception_Invalid_Address x) = displayException x
   displayException (Hetcons_Exception_Impossible_Observer_Graph x) = displayException x
   displayException (Hetcons_Exception_Invalid_Proposal_1a x) = displayException x
+  displayException (Hetcons_Exception_Invalid_Phase_2a x) = displayException x
+  displayException (Hetcons_Exception_Invalid_Phase_2b x) = displayException x
+  displayException (Hetcons_Exception_Invalid_Proof_of_Consensus x) = displayException x
   fromException x = foldr (\g old ->let new = g x in if new == Nothing then old else new)
                           Nothing
                           -- The below code is even dumber than the rest of this file, but it's a different fromException every time.
@@ -141,5 +156,8 @@ instance Exception Hetcons_Exception where
                           ,(liftM Hetcons_Exception_Unparsable_Hashable_Message) . fromException
                           ,(liftM Hetcons_Exception_Invalid_Address) . fromException
                           ,(liftM Hetcons_Exception_Impossible_Observer_Graph) . fromException
-                          ,(liftM Hetcons_Exception_Invalid_Proposal_1a) . fromException]
+                          ,(liftM Hetcons_Exception_Invalid_Proposal_1a) . fromException
+                          ,(liftM Hetcons_Exception_Invalid_Phase_2a) . fromException
+                          ,(liftM Hetcons_Exception_Invalid_Phase_2b) . fromException
+                          ,(liftM Hetcons_Exception_Invalid_Proof_of_Consensus) . fromException]
 
