@@ -17,7 +17,7 @@ module Hetcons.Signed_Message
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
-    , Recursive_1b
+    , Recursive_1b(Recursive_1b)
        ,recursive_1b_proposal
        ,recursive_1b_conflicting_phase2as
     , Recursive_2a (Recursive_2a )

@@ -27,7 +27,7 @@ import Hetcons_Types  (Value
                          ,observers_observer_quorums
                       )
 
-import Data.Foldable (toList, length)
+import Data.Foldable (toList, length, foldr)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashMap.Lazy (HashMap, mapWithKey, filterWithKey)
 import Data.HashSet (HashSet
@@ -35,6 +35,8 @@ import Data.HashSet (HashSet
                        ,intersection
                        ,fromList
                        ,toMap
+                       ,singleton
+                       ,empty
                        )
 import Data.List (head)
 
@@ -49,3 +51,6 @@ verify_quorums x@(Proposal_1a { proposal_1a_observers = Just (Observers {observe
            ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects featuring quorums."}
 verify_quorums (Proposal_1a { proposal_1a_observers = Just x }) = Right x
 -- TODO: accept observer graphs, and calculate the appropriate quorums here
+
+
+
