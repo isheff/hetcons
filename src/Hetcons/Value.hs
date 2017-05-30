@@ -21,6 +21,7 @@ import Data.HashSet (HashSet)
 -- | Does this set of entities contain conflicitng values?
 -- | In this case, do any two of them have the same value_slot?
 conflicts :: (Contains_Value a) => (HashSet a) -> Bool
+-- Are there the same number of values in this set as there are distinct slot numbers?
 conflicts s = (length s) /= (length (HashSet.map (value_slot . extract_value) s))
 
 -- | TODO: figure out what should even be done here
