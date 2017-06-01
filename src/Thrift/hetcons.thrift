@@ -313,6 +313,11 @@ struct Phase_1b { // remember, this will be wrapped in a Signed_Message
  1: Signed_Message proposal, // wraps a Proposal_1a
  2: set<Signed_Message /*Phase_1a*/>  conflicting_phase2as // past phase2a s which contain a conflicting value.
 }
+// For instance, if the included phase2as don't actually conflict
+exception Invalid_Phase_1b {
+  1: Phase_1b offending_phase_1b
+  3: optional string explanation
+}
 
 
 //////////////////////////////////  2b  ////////////////////////////////////
@@ -370,9 +375,10 @@ service Hetcons_Participant {
                             17:Invalid_Address                                         invalid_address,
                             18:Impossible_Observer_Graph                               impossible_observer_graph,
                             19:Invalid_Proposal_1a                                     invalid_proposal_1a
-                            20:Invalid_Phase_2a                                        invalid_Phase_2a
-                            21:Invalid_Phase_2b                                        invalid_Phase_2b
-                            22:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
+                            20:Invalid_Phase_1b                                        invalid_Phase_1b
+                            21:Invalid_Phase_2a                                        invalid_Phase_2a
+                            22:Invalid_Phase_2b                                        invalid_Phase_2b
+                            23:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 
    void phase_1b (1:Signed_Message/*Phase_1b*/ phase_1b_message)
                     throws (1: No_Supported_Hash_Sha2_Descriptor_Provided              no_supported_hash_sha2_descriptor_provided,
@@ -394,9 +400,10 @@ service Hetcons_Participant {
                             17:Invalid_Address                                         invalid_address,
                             18:Impossible_Observer_Graph                               impossible_observer_graph,
                             19:Invalid_Proposal_1a                                     invalid_proposal_1a
-                            20:Invalid_Phase_2a                                        invalid_Phase_2a
-                            21:Invalid_Phase_2b                                        invalid_Phase_2b
-                            22:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
+                            20:Invalid_Phase_1b                                        invalid_Phase_1b
+                            21:Invalid_Phase_2a                                        invalid_Phase_2a
+                            22:Invalid_Phase_2b                                        invalid_Phase_2b
+                            23:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 }
 
 service Hetcons_Observer {
@@ -421,7 +428,8 @@ service Hetcons_Observer {
                             17:Invalid_Address                                         invalid_address,
                             18:Impossible_Observer_Graph                               impossible_observer_graph,
                             19:Invalid_Proposal_1a                                     invalid_proposal_1a
-                            20:Invalid_Phase_2a                                        invalid_Phase_2a
-                            21:Invalid_Phase_2b                                        invalid_Phase_2b
-                            22:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
+                            20:Invalid_Phase_1b                                        invalid_Phase_1b
+                            21:Invalid_Phase_2a                                        invalid_Phase_2a
+                            22:Invalid_Phase_2b                                        invalid_Phase_2b
+                            23:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 }

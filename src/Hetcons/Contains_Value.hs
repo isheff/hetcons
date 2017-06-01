@@ -90,7 +90,6 @@ instance {-# OVERLAPPING #-} Contains_Value Proposal_1a where
 instance {-# OVERLAPPING #-} Contains_Value Recursive_1a where
   extract_value = extract_value . recursive_1a_filled_in
 
-{--
 -- | The "value" carried by a 1b is actually tricky: it may be set by the 2a s carried within.
 -- | This relies on having already checked that the phase_2as do indeed conflict with the given 1b
 instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
@@ -99,17 +98,15 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
                   ,recursive_1b_proposal = proposal})
     = if null phase_2as
          then extract_value proposal
-         else extract_value (proposal, maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y)) phase_2as)
+         else extract_value $ maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y)) phase_2as
 
 -- | The "value" carried by a 2a is actually tricky:
-instance {-# OVERLAPPING #-} (Contains_1a a) => Contains_Value (a, Recursive_2a) where
-  extract_value (p (Recursive_2a x)) =
-    let observer_quorums = extract_observer_quorums p
-        extract_value $ head $ toList x
+-- | This relies on this 2a already having been verified to ensure that, for instance, all 1bs within have the same value
+instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
+  extract_value (Recursive_2a x) = extract_value $ head $ toList x
 
-instance {-# OVERLAPPING #-} (Contains_1a a) => Contains_Value (a, Verified Recursive_2a) where
-  extract_value (x, y) = extract_value (x, original y)
 
+{--
 instance {-# OVERLAPPING #-} Contains_Value Recursive_2b where
   extract_value (Recursive_2b x) = extract_value $ Recursive_2a x
 instance {-# OVERLAPPING #-} Contains_Value Recursive_Proof_of_Consensus where

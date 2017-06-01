@@ -11,6 +11,7 @@ import Hetcons.Contains_Value (Contains_Value
                               ,Ballot
                                  ,extract_ballot)
 import Hetcons.Hetcons_Exception (Hetcons_Exception())
+import Hetcons.Hetcons_State (state_by_observers)
 import Hetcons.Signed_Message (Recursive_1b
                                  ,recursive_1b_proposal
                                  ,recursive_1b_conflicting_phase2as
@@ -63,12 +64,13 @@ import Data.List (head)
 import Data.Maybe (catMaybes)
 import Data.Ord (compare)
 
--- | Assembles 2as from the given 1bs that share the same BALLOT (nothing to do with quorums)
+-- | Assembles 2as from the given 1bs that share the same BALLOT and COG (nothing to do with quorums)
 potential_2as  ::  (HashSet (Verified Recursive_1b)) -> (HashSet (Recursive_2a))
 potential_2as received_1bs =
-  (HashSet.map (\phase_1b -> (Recursive_2a -- 2as assembled from all existing 1bs that share the same BALLOT
+  (HashSet.map (\phase_1b -> (Recursive_2a -- 2as assembled from all existing 1bs that share the same BALLOT and COG
     (HashSet.filter
-      (((extract_ballot phase_1b) == ) . extract_ballot)
+      (\x -> (((extract_ballot phase_1b) == (extract_ballot x)) &&
+              (((proposal_1a_observers . extract_1a) phase_1b) == ((proposal_1a_observers . extract_1a) x))))
       received_1bs)))
     received_1bs)
 

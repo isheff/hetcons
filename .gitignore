@@ -18,3 +18,5 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 src/Thrift/gen-hs/*
+codex.tags
+hscope.out

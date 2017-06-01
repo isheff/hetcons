@@ -7,8 +7,10 @@ module Hetcons.Hetcons_State
     , modify
     , read
     , modify_and_read
+    , state_by_observers
     ) where
 
+import Hetcons.Contains_Value (extract_1a)
 import Hetcons.Hetcons_Exception (Hetcons_Exception())
 import Hetcons.Signed_Message (Verified
                               ,Recursive_1b)
@@ -40,15 +42,18 @@ import Data.HashSet (HashSet
 type Hetcons_State = HashSet (Verified Recursive_1b)
 type Hetcons_State_Var = TVar Hetcons_State
 
+-- | Subsets of the proposals which have the same COG, for each COG in the Hetcons_State
+state_by_observers :: Hetcons_State -> (HashSet (Hetcons_State))
+state_by_observers s =
+  (HashSet.map (\x -> (HashSet.filter ((x ==) . proposal_1a_observers . extract_1a) s)) -- 1bs per COG
+               (HashSet.map (proposal_1a_observers . extract_1a) s)) -- all the COGs
+
 -- | Are there any conflicting proposals in this state?
 -- | Bear in mind that two proposals with different COGs NEVER CONFLICT.
 -- | We make no guarantees about different COGs.
 -- | This is not implemented in a computationally efficient manner.
 conflicting_state :: Hetcons_State -> Bool
-conflicting_state s =
-  any conflicts  -- Subsets of the proposals which have the same COG, for each COG in the Hetcons_State
-      (HashSet.map (\x -> (HashSet.filter ((x ==) . proposal_1a_observers . recursive_1a_filled_in . recursive_1b_proposal) s)) -- 1bs per COG
-                   (HashSet.map (proposal_1a_observers . recursive_1a_filled_in . recursive_1b_proposal) s)) -- all the COGs
+conflicting_state = (any conflicts) . state_by_observers
 
 new_Hetcons_State :: (Foldable t) => (t (Verified Recursive_1b)) -> IO Hetcons_State_Var
 new_Hetcons_State = atomically . newTVar . fromList . toList

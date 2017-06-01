@@ -53,6 +53,7 @@ import Hetcons_Types (No_Supported_Hash_Sha2_Descriptor_Provided
                      ,Invalid_Address
                      ,Impossible_Observer_Graph
                      ,Invalid_Proposal_1a
+                     ,Invalid_Phase_1b
                      ,Invalid_Phase_2a
                      ,Invalid_Phase_2b
                      ,Invalid_Proof_of_Consensus
@@ -85,6 +86,7 @@ data Hetcons_Exception =
   | Hetcons_Exception_Invalid_Address                                         Invalid_Address
   | Hetcons_Exception_Impossible_Observer_Graph                               Impossible_Observer_Graph
   | Hetcons_Exception_Invalid_Proposal_1a                                     Invalid_Proposal_1a
+  | Hetcons_Exception_Invalid_Phase_1b                                        Invalid_Phase_1b
   | Hetcons_Exception_Invalid_Phase_2a                                        Invalid_Phase_2a
   | Hetcons_Exception_Invalid_Phase_2b                                        Invalid_Phase_2b
   | Hetcons_Exception_Invalid_Proof_of_Consensus                              Invalid_Proof_of_Consensus
@@ -110,6 +112,7 @@ instance Exception Hetcons_Exception where
   toException (Hetcons_Exception_Invalid_Address x) = toException x
   toException (Hetcons_Exception_Impossible_Observer_Graph x) = toException x
   toException (Hetcons_Exception_Invalid_Proposal_1a x) = toException x
+  toException (Hetcons_Exception_Invalid_Phase_1b x) = toException x
   toException (Hetcons_Exception_Invalid_Phase_2a x) = toException x
   toException (Hetcons_Exception_Invalid_Phase_2b x) = toException x
   toException (Hetcons_Exception_Invalid_Proof_of_Consensus x) = toException x
@@ -132,6 +135,7 @@ instance Exception Hetcons_Exception where
   displayException (Hetcons_Exception_Invalid_Address x) = displayException x
   displayException (Hetcons_Exception_Impossible_Observer_Graph x) = displayException x
   displayException (Hetcons_Exception_Invalid_Proposal_1a x) = displayException x
+  displayException (Hetcons_Exception_Invalid_Phase_1b x) = displayException x
   displayException (Hetcons_Exception_Invalid_Phase_2a x) = displayException x
   displayException (Hetcons_Exception_Invalid_Phase_2b x) = displayException x
   displayException (Hetcons_Exception_Invalid_Proof_of_Consensus x) = displayException x
@@ -157,6 +161,7 @@ instance Exception Hetcons_Exception where
                           ,(liftM Hetcons_Exception_Invalid_Address) . fromException
                           ,(liftM Hetcons_Exception_Impossible_Observer_Graph) . fromException
                           ,(liftM Hetcons_Exception_Invalid_Proposal_1a) . fromException
+                          ,(liftM Hetcons_Exception_Invalid_Phase_1b) . fromException
                           ,(liftM Hetcons_Exception_Invalid_Phase_2a) . fromException
                           ,(liftM Hetcons_Exception_Invalid_Phase_2b) . fromException
                           ,(liftM Hetcons_Exception_Invalid_Proof_of_Consensus) . fromException]

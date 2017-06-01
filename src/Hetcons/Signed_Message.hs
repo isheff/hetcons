@@ -36,6 +36,7 @@ import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Support
                                                    ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
                                                    ,Hetcons_Exception_Invalid_Signed_Hash
                                                    ,Hetcons_Exception_Invalid_Proposal_1a
+                                                   ,Hetcons_Exception_Invalid_Phase_1b
                                                    ,Hetcons_Exception_Invalid_Phase_2a
                                                    ,Hetcons_Exception_Invalid_Phase_2b
                                                    ,Hetcons_Exception_Invalid_Proof_of_Consensus))
@@ -120,6 +121,10 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                         ,no_Supported_Crypto_ID_Type_Descriptor_Provided_supported_crypto_id_type_descriptor
                         ,no_Supported_Crypto_ID_Type_Descriptor_Provided_explanation
                         ,default_No_Supported_Crypto_ID_Type_Descriptor_Provided
+                     ,Invalid_Phase_1b
+                        ,invalid_Phase_1b_offending_phase_1b
+                        ,invalid_Phase_1b_explanation
+                        ,default_Invalid_Phase_1b
                      ,Invalid_Phase_2a
                         ,invalid_Phase_2a_offending_phase_2a
                         ,invalid_Phase_2a_explanation
@@ -352,16 +357,75 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1a where
               recursive_1a_non_recursive = non_recursive
        ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}}}
 
+well_formed_1b :: Recursive_1b -> Either Hetcons_Exception ()
+well_formed_1b Recursive_1b {
+                  recursive_1b_non_recursive = non_recursive
+                 ,recursive_1b_proposal = proposal
+                 ,recursive_1b_conflicting_phase2as = conflicting_phase2as})
+  = let proposal_quorums  = proposal_1a_observers $ recursive_1a_filled_in $ original proposal
+        phase2a_quorums x = proposal_1a_observers $ recursive_1a_filled_in $ original $ recursive_1b_proposal $ head $ toList $ original x
+     in do { mapM_ (\x -> if proposal_quorums /= (phase2a_quorums x)
+                         then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
+                                invalid_Phase_1b_offending_phase_1b = non_recursive
+                                ,invalid_Phase_1b_explanation = "not all contained phase_2as had the same quorums as this phase_1b"
+                                })
+                         else if not $ conflicts $ fromList [original proposal, original $ recursive_1b_proposal $ head $ toList $ original x]
+                                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
+                                        invalid_Phase_1b_offending_phase_1b = non_recursive
+                                        ,invalid_Phase_1b_explanation = "not all contained phase_2as conflict with the proposal"
+                                        })
+                                 else ())
+               $ toList conflicting_phase2as
+            ; return ()}
+
+
+
 -- | For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
+-- | We're also going to verify the 1b's well-formedness, because that has to happen somewhere.
 instance {-# OVERLAPPING #-} Parsable Recursive_1b where
   parse payload =
-    do { non_recursive <- parse payload
+    do { non_recursive <- parse payload -- (Either Hetcons_Exception) Monad
        ; proposal <- verify $ phase_1b_proposal non_recursive
        ; conflicting_phase2as <- mapM verify $ toList $ phase_1b_conflicting_phase2as non_recursive
-       ; return Recursive_1b {
-              recursive_1b_non_recursive = non_recursive
-             ,recursive_1b_proposal = proposal
-             ,recursive_1b_conflicting_phase2as = fromList conflicting_phase2as}}
+       ; let r1b = Recursive_1b {
+                      recursive_1b_non_recursive = non_recursive
+                     ,recursive_1b_proposal = proposal
+                     ,recursive_1b_conflicting_phase2as = fromList conflicting_phase2as}
+       ; well_formed_1b r1b
+       ; return r1b}
+
+well_formed_2a :: Recursive_2a -> Either Hetcons_Exception ()
+well_formed_2a r2a@(Recursive_2a s) =
+  do { if 1 /= (length $ HashSet.map extract_value s)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = "there were 1bs with different values in this 2a, or no 1bs at all"})
+          else ()
+     ; if 1 /= (length $ HashSet.map extract_observers s)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = "there were 1bs with different observers in this 2a"})
+          else ()
+     ; if Nothing == (extract_observers r2a)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = "the observers are not provided"})
+          else ()
+     ; observers <- extract_observers r2a
+     ; if Nothing == observers_observer_quorums observers
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = "at this time, we require that observer quorums be listed by participant ID"})
+          else ()
+     ; quorums_crypto_ids <- (HashSet.map participant_ID_crypto_id) $ unions $ elems $ observers_observer_quorums observers
+     ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
+     ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = "this set of 1bs does not satisfy any known quorum"})
+          else ()
+     ; return ()
+     }
 
 -- | for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_2a where
@@ -373,7 +437,9 @@ instance {-# OVERLAPPING #-} Parsable Recursive_2a where
             then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
                                  invalid_Phase_2a_offending_phase_2a = non_recursive
                                 ,invalid_Phase_2a_explanation = Just "More than 1 proposal value present."}
-            else return $ Recursive_2a set}
+            else ()
+       ; well_formed_2a $ Recursive_2a set
+       ; return $ Recursive_2a set}
 
 -- | for a 2b message, we parse the original message, and verify the 1b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_2b where
