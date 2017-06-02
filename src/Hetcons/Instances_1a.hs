@@ -22,6 +22,11 @@ import Hetcons_Types (Proposal_1a, proposal_1a_observers)
 import Data.Hashable (Hashable, hashWithSalt)
 
 
+instance Hashable Recursive_1a where
+  hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Proposal_1a)
+
+instance Recursive Proposal_1a Recursive_1a where
+  non_recursive = recursive_1a_non_recursive
 
 -- TODO: For a 1A object, we should check it's Observers field, and verify that it exists, and populate the quorums field. This involves verifying that the observer graph is legit.
 

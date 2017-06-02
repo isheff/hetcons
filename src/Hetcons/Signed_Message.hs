@@ -239,7 +239,9 @@ class Recursive a b where
 data Recursive_1a = Recursive_1a {
    recursive_1a_non_recursive ::Proposal_1a
   ,recursive_1a_filled_in :: Proposal_1a
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
+instance Serialize Recursive_1a -- I'm not clear on why this is necessary, but the compiler asks for it to derive Eq for Recursive_1b
+
 
 
 
@@ -249,14 +251,16 @@ data Recursive_1b = Recursive_1b {
    recursive_1b_non_recursive :: Phase_1b
   ,recursive_1b_proposal :: Verified Recursive_1a
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified Recursive_2a))
-  } deriving (Eq)
+  } deriving (Eq, Generic)
 instance Show Recursive_1b
+instance Serialize Recursive_1b -- I'm not clear on why this is necessary, but the compiler asks for it to derive Eq for Recursive_2a
 
 
 
 -- | Phase_2a s carry phase 1b messages with them.
 -- | Recursive_2a s carry parsed and verified versions of these.
 newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b)) deriving (Eq, Show)
+instance Serialize Recursive_2a -- I'm not clear on why this is necessary, but the compiler asks for it to derive Eq for Recursive_1b
 
 
 -- | Phase_2b s carry signed 1b messages with them.
