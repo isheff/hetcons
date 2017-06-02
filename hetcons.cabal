@@ -20,8 +20,12 @@ library
                      , Hetcons.Contains_Value
                      , Hetcons.Hetcons_Exception
                      , Hetcons.Hetcons_State
-                     , Hetcons.Phase_2a
+                     , Hetcons.Instances_1a
+                     , Hetcons.Instances_1b_2a
+                     , Hetcons.Instances_2b
+                     , Hetcons.Instances_Proof_of_Consensus
                      , Hetcons.Quorums
+                     , Hetcons.Serializable
                      , Hetcons.Signed_Message
                      , Hetcons.Value
                      -- BEGIN THRIFT GENERATED SOURCE
