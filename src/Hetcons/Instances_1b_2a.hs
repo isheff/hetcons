@@ -18,20 +18,17 @@ import Hetcons.Contains_Value (
     , Ballot
         ,extract_ballot
     )
-import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
-                                                   ,Hetcons_Exception_Unparsable_Hashable_Message
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
-                                                   ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Invalid_Signed_Hash
-                                                   ,Hetcons_Exception_Invalid_Proposal_1a
-                                                   ,Hetcons_Exception_Invalid_Phase_1b
-                                                   ,Hetcons_Exception_Invalid_Phase_2a
-                                                   ,Hetcons_Exception_Invalid_Phase_2b
-                                                   ,Hetcons_Exception_Invalid_Proof_of_Consensus))
+import Hetcons.Hetcons_Exception (
+     Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
+                      ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
+                      ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
+                      ,Hetcons_Exception_Invalid_Signed_Hash
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
+                      ,Hetcons_Exception_Unparsable_Hashable_Message
+                      ,Hetcons_Exception_Invalid_Phase_1b)
+    )
 import Hetcons.Instances_1a ()
 import Hetcons.Quorums (verify_quorums)
 import Hetcons.Signed_Message
@@ -46,13 +43,16 @@ import Hetcons.Signed_Message
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
     , Recursive_1b(Recursive_1b)
+       ,recursive_1b_non_recursive
        ,recursive_1b_proposal
        ,recursive_1b_conflicting_phase2as
     , Recursive_2a (Recursive_2a )
     , Recursive_2b (Recursive_2b )
     , Recursive_Proof_of_Consensus (Recursive_Proof_of_Consensus)
     , Parsable
+       ,parse
     )
+import Hetcons.Value (conflicts)
 
 import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
                      ,sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
@@ -232,25 +232,22 @@ instance Recursive Phase_2a Recursive_2a where
 
 
 well_formed_1b :: Recursive_1b -> Either Hetcons_Exception ()
-well_formed_1b Recursive_1b {
+well_formed_1b (Recursive_1b {
                   recursive_1b_non_recursive = non_recursive
                  ,recursive_1b_proposal = proposal
                  ,recursive_1b_conflicting_phase2as = conflicting_phase2as})
-  = let proposal_quorums  = proposal_1a_observers $ recursive_1a_filled_in $ original proposal
-        phase2a_quorums x = proposal_1a_observers $ recursive_1a_filled_in $ original $ recursive_1b_proposal $ head $ toList $ original x
-     in do { mapM_ (\x -> if proposal_quorums /= (phase2a_quorums x)
-                         then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
-                                invalid_Phase_1b_offending_phase_1b = non_recursive
-                                ,invalid_Phase_1b_explanation = "not all contained phase_2as had the same quorums as this phase_1b"
-                                })
-                         else if not $ conflicts $ fromList [original proposal, original $ recursive_1b_proposal $ head $ toList $ original x]
-                                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
-                                        invalid_Phase_1b_offending_phase_1b = non_recursive
-                                        ,invalid_Phase_1b_explanation = "not all contained phase_2as conflict with the proposal"
-                                        })
-                                 else ())
-               $ toList conflicting_phase2as
-            ; return ()}
+  = mapM_ (\x -> if (extract_observer_quorums proposal) /= (extract_observer_quorums x)
+                then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
+                       invalid_Phase_1b_offending_phase_1b = non_recursive
+                       ,invalid_Phase_1b_explanation = "not all contained phase_2as had the same quorums as this phase_1b"
+                       })
+                else if not $ conflicts $ fromList [extract_value proposal, extract_value x]
+                        then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
+                               invalid_Phase_1b_offending_phase_1b = non_recursive
+                               ,invalid_Phase_1b_explanation = "not all contained phase_2as conflict with the proposal"
+                               })
+                        else return ())
+      $ toList conflicting_phase2as
 
 
 
@@ -314,3 +311,33 @@ instance {-# OVERLAPPING #-} Parsable Recursive_2a where
             else ()
        ; well_formed_2a $ Recursive_2a set
        ; return $ Recursive_2a set}
+
+
+
+
+
+
+instance {-# OVERLAPPING #-} Contains_1a Recursive_1b where
+  extract_1a = extract_1a . recursive_1b_proposal
+
+
+-- | The "value" carried by a 1b is actually tricky: it may be set by the 2a s carried within.
+-- | This relies on having already checked that the phase_2as do indeed conflict with the given 1b
+instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
+  extract_value (Recursive_1b {
+                   recursive_1b_conflicting_phase2as = phase_2as
+                  ,recursive_1b_proposal = proposal})
+    = if null phase_2as
+         then extract_value proposal
+         else extract_value $ maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y)) phase_2as
+
+
+
+
+instance {-# OVERLAPPING #-} Contains_1a Recursive_2a where
+  extract_1a (Recursive_2a x) = extract_1a $ head $ toList x
+
+-- | The "value" carried by a 2a is actually tricky:
+-- | This relies on this 2a already having been verified to ensure that, for instance, all 1bs within have the same value
+instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
+  extract_value (Recursive_2a x) = extract_value $ head $ toList x

@@ -20,6 +20,7 @@ module Hetcons.Hetcons_Exception
                       ,Hetcons_Exception_Invalid_Address
                       ,Hetcons_Exception_Impossible_Observer_Graph
                       ,Hetcons_Exception_Invalid_Proposal_1a
+                      ,Hetcons_Exception_Invalid_Phase_1b
                       ,Hetcons_Exception_Invalid_Phase_2a
                       ,Hetcons_Exception_Invalid_Phase_2b
                       ,Hetcons_Exception_Invalid_Proof_of_Consensus)

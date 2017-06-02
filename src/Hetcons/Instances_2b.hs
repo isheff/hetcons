@@ -17,20 +17,16 @@ import Hetcons.Contains_Value (
     , Ballot
         ,extract_ballot
     )
-import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
-                                                   ,Hetcons_Exception_Unparsable_Hashable_Message
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
-                                                   ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Invalid_Signed_Hash
-                                                   ,Hetcons_Exception_Invalid_Proposal_1a
-                                                   ,Hetcons_Exception_Invalid_Phase_1b
-                                                   ,Hetcons_Exception_Invalid_Phase_2a
-                                                   ,Hetcons_Exception_Invalid_Phase_2b
-                                                   ,Hetcons_Exception_Invalid_Proof_of_Consensus))
+import Hetcons.Hetcons_Exception (
+     Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
+                      ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
+                      ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
+                      ,Hetcons_Exception_Invalid_Signed_Hash
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
+                      ,Hetcons_Exception_Unparsable_Hashable_Message)
+    )
 import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
 import Hetcons.Quorums (verify_quorums)
@@ -52,6 +48,8 @@ import Hetcons.Signed_Message
     , Recursive_2b (Recursive_2b )
     , Recursive_Proof_of_Consensus (Recursive_Proof_of_Consensus)
     , Parsable
+       ,parse
+    )
     )
 import Hetcons.Quorums (verify_quorums)
 
@@ -231,3 +229,7 @@ instance {-# OVERLAPPING #-} Parsable Recursive_2b where
                                 ,invalid_Phase_2b_explanation = Just "More than 1 proposal value present."}
             else return $ Recursive_2b set}
 
+instance {-# OVERLAPPING #-} Contains_1a Recursive_2b where
+  extract_1a (Recursive_2b x) = extract_1a $ head $ toList x
+instance {-# OVERLAPPING #-} Contains_Value Recursive_2b where
+  extract_value (Recursive_2b x) = extract_value $ Recursive_2a x

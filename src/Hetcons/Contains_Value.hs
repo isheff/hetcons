@@ -10,7 +10,6 @@ module Hetcons.Contains_Value
         ,extract_ballot
     ) where
 
-import Hetcons.Instances_1a ()
 import Hetcons.Signed_Message (Recursive_1b(Recursive_1b)
                                  ,recursive_1b_proposal
                                  ,recursive_1b_conflicting_phase2as
@@ -42,6 +41,8 @@ import Hetcons_Types  (Value
 
 import           Data.ByteString.Lazy   (ByteString)
 import Data.Foldable (null, toList, maximumBy)
+import Data.HashMap.Strict (HashMap)
+import Data.HashSet (HashSet)
 import Data.Int (Int64)
 import Data.List (head)
 import Data.Ord (compare)
@@ -51,16 +52,6 @@ class Contains_1a a where
 
 instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1a a) => Contains_1a (Verified a) where
   extract_1a = extract_1a . original
-instance {-# OVERLAPPING #-} Contains_1a (Verified Recursive_1a) where
-  extract_1a = id
-instance {-# OVERLAPPING #-} Contains_1a Recursive_1b where
-  extract_1a = extract_1a . recursive_1b_proposal
-instance {-# OVERLAPPING #-} Contains_1a Recursive_2a where
-  extract_1a (Recursive_2a x) = extract_1a $ head $ toList x
-instance {-# OVERLAPPING #-} Contains_1a Recursive_2b where
-  extract_1a (Recursive_2b x) = extract_1a $ head $ toList x
-instance {-# OVERLAPPING #-} Contains_1a Recursive_Proof_of_Consensus where
-  extract_1a (Recursive_Proof_of_Consensus x) = extract_1a $ head $ toList x
 
 
 type Ballot = (Int64, ByteString)
@@ -86,31 +77,4 @@ instance {-# OVERLAPPABLE #-} (Parsable a, Contains_Value a) => Contains_Value (
 
 instance {-# OVERLAPPING #-} Contains_Value Value where
   extract_value = id
-instance {-# OVERLAPPING #-} Contains_Value Proposal_1a where
-  extract_value = proposal_1a_value
-instance {-# OVERLAPPING #-} Contains_Value Recursive_1a where
-  extract_value = extract_value . recursive_1a_filled_in
 
--- | The "value" carried by a 1b is actually tricky: it may be set by the 2a s carried within.
--- | This relies on having already checked that the phase_2as do indeed conflict with the given 1b
-instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
-  extract_value (Recursive_1b {
-                   recursive_1b_conflicting_phase2as = phase_2as
-                  ,recursive_1b_proposal = proposal})
-    = if null phase_2as
-         then extract_value proposal
-         else extract_value $ maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y)) phase_2as
-
--- | The "value" carried by a 2a is actually tricky:
--- | This relies on this 2a already having been verified to ensure that, for instance, all 1bs within have the same value
-instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
-  extract_value (Recursive_2a x) = extract_value $ head $ toList x
-
-
-{--
-instance {-# OVERLAPPING #-} Contains_Value Recursive_2b where
-  extract_value (Recursive_2b x) = extract_value $ Recursive_2a x
-instance {-# OVERLAPPING #-} Contains_Value Recursive_Proof_of_Consensus where
-  extract_value (Recursive_Proof_of_Consensus x) = extract_value $ head $ toList x
-
---}

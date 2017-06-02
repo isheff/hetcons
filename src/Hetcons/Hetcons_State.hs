@@ -12,14 +12,18 @@ module Hetcons.Hetcons_State
 
 import Hetcons.Contains_Value (extract_1a)
 import Hetcons.Hetcons_Exception (Hetcons_Exception())
+import Hetcons.Instances_1a ()
+import Hetcons.Instances_1b_2a ()
 import Hetcons.Signed_Message (Verified
-                              ,Recursive_1b)
+                              ,Recursive_1b
+                              ,recursive_1a_filled_in
+                              ,recursive_1b_proposal
+                              ,original
+                              ,non_recursive)
 import Hetcons.Value (garbage_collect, conflicts)
 
 import Hetcons_Consts ()
-import Hetcons_Types  (proposal_1a_observers
-                      ,recursive_1a_filled_in
-                      ,recursive_1b_proposal)
+import Hetcons_Types  (proposal_1a_observers)
 
 import Control.Concurrent.STM (STM
                                 ,atomically
@@ -45,8 +49,8 @@ type Hetcons_State_Var = TVar Hetcons_State
 -- | Subsets of the proposals which have the same COG, for each COG in the Hetcons_State
 state_by_observers :: Hetcons_State -> (HashSet (Hetcons_State))
 state_by_observers s =
-  (HashSet.map (\x -> (HashSet.filter ((x ==) . proposal_1a_observers . extract_1a) s)) -- 1bs per COG
-               (HashSet.map (proposal_1a_observers . extract_1a) s)) -- all the COGs
+  (HashSet.map (\x -> (HashSet.filter ((x ==) . proposal_1a_observers . non_recursive . original . extract_1a) s)) -- 1bs per COG
+               (HashSet.map (proposal_1a_observers . non_recursive . original . extract_1a) s)) -- all the COGs
 
 -- | Are there any conflicting proposals in this state?
 -- | Bear in mind that two proposals with different COGs NEVER CONFLICT.
