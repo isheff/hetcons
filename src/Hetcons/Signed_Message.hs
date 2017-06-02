@@ -26,20 +26,16 @@ module Hetcons.Signed_Message
     , Parsable
     ) where
 
-import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
-                                                   ,Hetcons_Exception_Unparsable_Hashable_Message
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
-                                                   ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Invalid_Signed_Hash
-                                                   ,Hetcons_Exception_Invalid_Proposal_1a
-                                                   ,Hetcons_Exception_Invalid_Phase_1b
-                                                   ,Hetcons_Exception_Invalid_Phase_2a
-                                                   ,Hetcons_Exception_Invalid_Phase_2b
-                                                   ,Hetcons_Exception_Invalid_Proof_of_Consensus))
+import Hetcons.Hetcons_Exception (
+     Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
+                      ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
+                      ,Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
+                      ,Hetcons_Exception_Invalid_Signed_Hash
+                      ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
+                      ,Hetcons_Exception_Unparsable_Hashable_Message)
+    )
 import Hetcons.Quorums (verify_quorums)
 import Hetcons.Serializable()
 
