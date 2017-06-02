@@ -41,6 +41,7 @@ import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Support
                                                    ,Hetcons_Exception_Invalid_Phase_2b
                                                    ,Hetcons_Exception_Invalid_Proof_of_Consensus))
 import Hetcons.Quorums (verify_quorums)
+import Hetcons.Serializable()
 
 import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
                      ,sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
@@ -201,45 +202,7 @@ import qualified EasyX509       as X509 (sign
 import           Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
 import           Thrift.Transport.Empty (EmptyTransport(EmptyTransport))
 
--- | Serialize and deserialize this Thrift type using Thrift's functions.
--- | This should probably be done natively by Thrift.
-instance Serialize Proposal_1a where
-  put = (mapM_ putWord8) . unpack . (encode_Proposal_1a (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Proposal_1a (BinaryProtocol EmptyTransport)) (
-         do { length <- remaining
-            ; getLazyByteString (fromIntegral length)})
 
--- | Serialize and deserialize this Thrift type using Thrift's functions.
--- | This should probably be done natively by Thrift.
-instance Serialize Phase_1b where
-  put = (mapM_ putWord8) . unpack . (encode_Phase_1b (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Phase_1b (BinaryProtocol EmptyTransport)) (
-         do { length <- remaining
-            ; getLazyByteString (fromIntegral length)})
-
--- | Serialize and deserialize this Thrift type using Thrift's functions.
--- | This should probably be done natively by Thrift.
-instance Serialize Phase_2a where
-  put = (mapM_ putWord8) . unpack . (encode_Phase_2a (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Phase_2a (BinaryProtocol EmptyTransport)) (
-         do { length <- remaining
-            ; getLazyByteString (fromIntegral length)})
-
--- | Serialize and deserialize this Thrift type using Thrift's functions.
--- | This should probably be done natively by Thrift.
-instance Serialize Phase_2b where
-  put = (mapM_ putWord8) . unpack . (encode_Phase_2b (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Phase_2b (BinaryProtocol EmptyTransport)) (
-         do { length <- remaining
-            ; getLazyByteString (fromIntegral length)})
-
--- | Serialize and deserialize this Thrift type using Thrift's functions.
--- | This should probably be done natively by Thrift.
-instance Serialize Proof_of_Consensus where
-  put = (mapM_ putWord8) . unpack . (encode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport)) (
-         do { length <- remaining
-            ; getLazyByteString (fromIntegral length)})
 
  -- | For storing data we've verified to be correctly signed
  -- | Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
@@ -281,10 +244,6 @@ data Recursive_1a = Recursive_1a {
    recursive_1a_non_recursive ::Proposal_1a
   ,recursive_1a_filled_in :: Proposal_1a
   } deriving (Show, Eq)
-instance Hashable Recursive_1a where
-  hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Proposal_1a)
-instance Recursive Proposal_1a Recursive_1a where
-  non_recursive = recursive_1a_non_recursive
 
 
 
@@ -296,35 +255,21 @@ data Recursive_1b = Recursive_1b {
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified Recursive_2a))
   } deriving (Eq)
 instance Show Recursive_1b
-instance Hashable Recursive_1b where
-  hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Phase_1b)
 
-instance Recursive Phase_1b Recursive_1b where
-  non_recursive = recursive_1b_non_recursive
 
 
 -- | Phase_2a s carry phase 1b messages with them.
 -- | Recursive_2a s carry parsed and verified versions of these.
 newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b)) deriving (Eq, Show)
-instance Hashable Recursive_2a where
-  hashWithSalt s (Recursive_2a x) = hashWithSalt s x
-instance Recursive Phase_2a Recursive_2a where
-  non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
 
 
 -- | Phase_2b s carry signed 1b messages with them.
 -- | Recursive_2bs carry parsed and verified versions of these.
 newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b)) deriving (Eq, Show)
-instance Hashable Recursive_2b where
-  hashWithSalt s (Recursive_2b x) = hashWithSalt s x
-instance Recursive Phase_2b Recursive_2b where
-  non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
 
 -- | Proof_of_Consensus messages carry signed 2b messages with them.
 -- | Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
 newtype Recursive_Proof_of_Consensus = Recursive_Proof_of_Consensus (HashSet (Verified Recursive_2b))
-instance Recursive Proof_of_Consensus Recursive_Proof_of_Consensus where
-  non_recursive (Recursive_Proof_of_Consensus x) = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = HashSet.map signed x}
 
 
 -- | We have messages serialized for transport within Signed_Messages.
@@ -346,124 +291,14 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
           ,unparsable_Hashable_Message_explanation = Just $ pack $ "I was unable to parse this message payload:\n" ++ e}
       (Right x) -> Right x
 
--- TODO: For a 1A object, we should check it's Observers field, and verify that it exists, and populate the quorums field. This involves verifying that the observer graph is legit.
-
--- | For a 1a object, we verify observer graph, and fill in quorums
-instance {-# OVERLAPPING #-} Parsable Recursive_1a where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; filled_in <- verify_quorums non_recursive
-       ; return Recursive_1a {
-              recursive_1a_non_recursive = non_recursive
-       ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}}}
-
-well_formed_1b :: Recursive_1b -> Either Hetcons_Exception ()
-well_formed_1b Recursive_1b {
-                  recursive_1b_non_recursive = non_recursive
-                 ,recursive_1b_proposal = proposal
-                 ,recursive_1b_conflicting_phase2as = conflicting_phase2as})
-  = let proposal_quorums  = proposal_1a_observers $ recursive_1a_filled_in $ original proposal
-        phase2a_quorums x = proposal_1a_observers $ recursive_1a_filled_in $ original $ recursive_1b_proposal $ head $ toList $ original x
-     in do { mapM_ (\x -> if proposal_quorums /= (phase2a_quorums x)
-                         then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
-                                invalid_Phase_1b_offending_phase_1b = non_recursive
-                                ,invalid_Phase_1b_explanation = "not all contained phase_2as had the same quorums as this phase_1b"
-                                })
-                         else if not $ conflicts $ fromList [original proposal, original $ recursive_1b_proposal $ head $ toList $ original x]
-                                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
-                                        invalid_Phase_1b_offending_phase_1b = non_recursive
-                                        ,invalid_Phase_1b_explanation = "not all contained phase_2as conflict with the proposal"
-                                        })
-                                 else ())
-               $ toList conflicting_phase2as
-            ; return ()}
 
 
 
--- | For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
--- | We're also going to verify the 1b's well-formedness, because that has to happen somewhere.
-instance {-# OVERLAPPING #-} Parsable Recursive_1b where
-  parse payload =
-    do { non_recursive <- parse payload -- (Either Hetcons_Exception) Monad
-       ; proposal <- verify $ phase_1b_proposal non_recursive
-       ; conflicting_phase2as <- mapM verify $ toList $ phase_1b_conflicting_phase2as non_recursive
-       ; let r1b = Recursive_1b {
-                      recursive_1b_non_recursive = non_recursive
-                     ,recursive_1b_proposal = proposal
-                     ,recursive_1b_conflicting_phase2as = fromList conflicting_phase2as}
-       ; well_formed_1b r1b
-       ; return r1b}
 
-well_formed_2a :: Recursive_2a -> Either Hetcons_Exception ()
-well_formed_2a r2a@(Recursive_2a s) =
-  do { if 1 /= (length $ HashSet.map extract_value s)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "there were 1bs with different values in this 2a, or no 1bs at all"})
-          else ()
-     ; if 1 /= (length $ HashSet.map extract_observers s)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "there were 1bs with different observers in this 2a"})
-          else ()
-     ; if Nothing == (extract_observers r2a)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "the observers are not provided"})
-          else ()
-     ; observers <- extract_observers r2a
-     ; if Nothing == observers_observer_quorums observers
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "at this time, we require that observer quorums be listed by participant ID"})
-          else ()
-     ; quorums_crypto_ids <- (HashSet.map participant_ID_crypto_id) $ unions $ elems $ observers_observer_quorums observers
-     ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
-     ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "this set of 1bs does not satisfy any known quorum"})
-          else ()
-     ; return ()
-     }
 
--- | for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
-instance {-# OVERLAPPING #-} Parsable Recursive_2a where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; l_set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
-       ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
-            then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
-                                 invalid_Phase_2a_offending_phase_2a = non_recursive
-                                ,invalid_Phase_2a_explanation = Just "More than 1 proposal value present."}
-            else ()
-       ; well_formed_2a $ Recursive_2a set
-       ; return $ Recursive_2a set}
 
--- | for a 2b message, we parse the original message, and verify the 1b messages it carries.
-instance {-# OVERLAPPING #-} Parsable Recursive_2b where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; l_set <- mapM verify $ toList $ phase_2b_phase_1bs non_recursive
-       ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
-            then throwError $ Hetcons_Exception_Invalid_Phase_2b default_Invalid_Phase_2b {
-                                 invalid_Phase_2b_offending_phase_2b = non_recursive
-                                ,invalid_Phase_2b_explanation = Just "More than 1 proposal value present."}
-            else return $ Recursive_2b set}
 
--- | For a Proof_of_Consensus message, we parse the original message, and verify the 2b messages it carries.
-instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; l_set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
-       ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original . head . toList . (\(Recursive_2b x) -> x) . original) set)) > 1
-            then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
-                                 invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
-                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 proposal value present."}
-            else return $ Recursive_Proof_of_Consensus set}
+
 
 
 
@@ -744,52 +579,3 @@ sign _ _ (Signed_Hash_Type_Descriptor {signed_Hash_Type_Descriptor_hash_type_des
              no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor = Nothing
             ,no_Supported_Hash_Type_Descriptor_Provided_supported_hash_type_descriptor = Just sUPPORTED_HASH_TYPE_DESCRIPTOR
             ,no_Supported_Hash_Type_Descriptor_Provided_explanation = Just "No Hash Type Descriptor provided"}
-
-{--
-
-public_crypto_key_match_type_descriptor :: Public_Crypto_Key -> Public_Crypto_Key_Type_Descriptor -> Maybe Hetcons_Exception
--- | if there's an X509 certificate, and the descriptor allows one
-public_crypto_key_match_type_descriptor
-    (Public_Crypto_Key {public_Crypto_Key_public_crypto_key_x509 = Just _}})
-    (Public_Crypto_Key_Type_Descriptor{public_Crypto_Key_Type_Descriptor_public_crypto_key_x509 = Just True})
-  = Nothing
--- | if there's a PGP certificate, and the descriptor allows one
-public_crypto_key_match_type_descriptor
-    (Public_Crypto_Key {public_Crypto_Key_public_crypto_key_pgp = Just _}})
-    (Public_Crypto_Key_Type_Descriptor{public_Crypto_Key_Type_Descriptor_public_crypto_key_pgp = Just True})
-  = Nothing
--- | Otherwise, it's not a match
-public_crypto_key_match_type_descriptor key descriptor =
-  Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
-    Descriptor_Does_Not_Match_Public_Crypto_Key {
-       descriptor_Does_Not_Match_Public_Crypto_Key_public_crypto_key_type_descriptor = descriptor
-      ,descriptor_Does_Not_Match_Public_Crypto_Key_public_crypto_key = key
-      ,descriptor_Does_Not_Match_Public_Crypto_Key_explanation = Just "This isn't an allowed key"
-
-
-
-data Crypto_ID_Type_Descriptor = Crypto_ID_Type_Descriptor  { crypto_ID_Type_Descriptor_public_crypto_key :: P.Maybe Public_Crypto_Key_Type_Descriptor
-  , crypto_ID_Type_Descriptor_crypto_id_hash :: P.Maybe Crypto_ID_Hash_Type_Descriptor
-data Crypto_ID_Hash = Crypto_ID_Hash  { crypto_ID_Hash_hash :: Hash
-  , crypto_ID_Hash_public_crypto_key_type_descriptor :: P.Maybe Public_Crypto_Key_Type_Descriptor
-crypto_id_hash_match_type_descriptor :: Crypto_ID_Hash -> Crypto_ID_Hash_Type_Descriptor -> Maybe Hetcons_Exception
-crypto_id_hash_match_type_descriptor
-  (Crypto_ID_Hash  {crypto_ID_Hash_hash = hash
-                   ,crypto_ID_Hash_public_crypto_key_type_descriptor = m_hash_key_type_descriptor1})
-  (Crypto_ID_Type_Descriptor {crypto_ID_Type_Descriptor_public_crypto_key = m_key_type_descriptor
-                             ,crypto_ID_Type_Descriptor_crypto_id_hash =
-                                 Crypto_ID_Hash_Type_Descriptor
-                                   {crypto_ID_Hash_Type_Descriptor_hash = hash_type_descriptor
-                                   ,crypto_ID_Hash_Type_Descriptor_public_crypto_key_type_descriptor = m_hash_key_type_descriptor2}})
-  = do{liftM (crypto_id_hash_match_type_descriptor crypto_id_hash) m_key_type_descriptor1
-      ;
-
-
-crypto_id_match_type_descriptor :: Crypto_ID -> Crypto_ID_Type_Descriptor -> Maybe Hetcons_Exception
--- | If it's given a crypto key, and the descriptor allows that.
-crypto_id_match_type_descriptor (Crypto_ID {crypto_ID_public_crypto_key = Just key})
-                                (Crypto_ID_Type_Descriptor {crypto_ID_Type_Descriptor_public_crypto_key = Just descriptor})
-  = public_crypto_key_match_type_descriptor key descriptor
--- | If it's given a hash, and the descriptor allows that.
-crypto_id_match_type_descriptor (Crypto_ID {crypto_ID_crypto_id_hash = Just hash})
---}

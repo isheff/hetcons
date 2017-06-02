@@ -10,6 +10,7 @@ module Hetcons.Contains_Value
         ,extract_ballot
     ) where
 
+import Hetcons.Instances_1a ()
 import Hetcons.Signed_Message (Recursive_1b(Recursive_1b)
                                  ,recursive_1b_proposal
                                  ,recursive_1b_conflicting_phase2as
