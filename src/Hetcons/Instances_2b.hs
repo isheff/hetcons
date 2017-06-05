@@ -25,7 +25,8 @@ import Hetcons.Hetcons_Exception (
                       ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
                       ,Hetcons_Exception_Invalid_Signed_Hash
                       ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                      ,Hetcons_Exception_Unparsable_Hashable_Message)
+                      ,Hetcons_Exception_Unparsable_Hashable_Message
+                      ,Hetcons_Exception_Invalid_Phase_2b)
     )
 import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
@@ -49,7 +50,6 @@ import Hetcons.Signed_Message
     , Recursive_Proof_of_Consensus (Recursive_Proof_of_Consensus)
     , Parsable
        ,parse
-    )
     )
 import Hetcons.Quorums (verify_quorums)
 

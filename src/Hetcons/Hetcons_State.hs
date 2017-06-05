@@ -41,6 +41,8 @@ import Data.HashSet (HashSet
                        ,fromList
                        ,singleton)
 
+import Prelude ((.), (==), Bool, Foldable, IO, ($), return)
+
 
 -- | literally the set of 1b messages received or sent thus far (or at least those which have been verified)
 type Hetcons_State = HashSet (Verified Recursive_1b)

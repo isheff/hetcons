@@ -27,7 +27,8 @@ import Hetcons.Hetcons_Exception (
                       ,Hetcons_Exception_Invalid_Signed_Hash
                       ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
                       ,Hetcons_Exception_Unparsable_Hashable_Message
-                      ,Hetcons_Exception_Invalid_Phase_1b)
+                      ,Hetcons_Exception_Invalid_Phase_1b
+                      ,Hetcons_Exception_Invalid_Phase_2a)
     )
 import Hetcons.Instances_1a ()
 import Hetcons.Quorums (verify_quorums)
@@ -173,6 +174,7 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                         ,default_Proof_of_Consensus
                         ,encode_Proof_of_Consensus
                         ,decode_Proof_of_Consensus
+                     ,participant_ID_crypto_id
                      )
 
 import           Crypto.Hash.Algorithms (SHA224(SHA224)
@@ -186,17 +188,21 @@ import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
 import           Data.Foldable          (null
                                         ,length
+                                        ,maximumBy
                                         ,maximum)
 import           GHC.Generics           (Generic)
 import           Data.Hashable          (Hashable
                                         ,hashWithSalt)
+import           Data.HashMap.Strict    (elems)
 import           Data.HashSet           (HashSet
                                         ,intersection
+                                        ,unions
                                         ,toList
                                         ,fromList
                                         ,singleton)
 import qualified Data.HashSet as HashSet(map)
 import           Data.List              (head)
+import           Data.Maybe             (catMaybes)
 import           Data.Typeable          (Typeable )
 import           Data.Serialize         (Serialize
                                         ,get
@@ -239,12 +245,12 @@ well_formed_1b (Recursive_1b {
   = mapM_ (\x -> if (extract_observer_quorums proposal) /= (extract_observer_quorums x)
                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
                        invalid_Phase_1b_offending_phase_1b = non_recursive
-                       ,invalid_Phase_1b_explanation = "not all contained phase_2as had the same quorums as this phase_1b"
+                       ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as had the same quorums as this phase_1b"
                        })
                 else if not $ conflicts $ fromList [extract_value proposal, extract_value x]
                         then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
                                invalid_Phase_1b_offending_phase_1b = non_recursive
-                               ,invalid_Phase_1b_explanation = "not all contained phase_2as conflict with the proposal"
+                               ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal"
                                })
                         else return ())
       $ toList conflicting_phase2as
@@ -267,35 +273,29 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1b where
 
 well_formed_2a :: Recursive_2a -> Either Hetcons_Exception ()
 well_formed_2a r2a@(Recursive_2a s) =
-  do { if 1 /= (length $ HashSet.map extract_value s)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "there were 1bs with different values in this 2a, or no 1bs at all"})
-          else ()
-     ; if 1 /= (length $ HashSet.map extract_observers s)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "there were 1bs with different observers in this 2a"})
-          else ()
-     ; if Nothing == (extract_observers r2a)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "the observers are not provided"})
-          else ()
-     ; observers <- extract_observers r2a
-     ; if Nothing == observers_observer_quorums observers
-          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "at this time, we require that observer quorums be listed by participant ID"})
-          else ()
-     ; quorums_crypto_ids <- (HashSet.map participant_ID_crypto_id) $ unions $ elems $ observers_observer_quorums observers
+  do { _ <- if 1 /= (length $ HashSet.map extract_value s)
+               then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                              invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                             ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different values in this 2a, or no 1bs at all"})
+               else return ()
+     ; _ <- if 1 /= (length $ HashSet.map extract_observer_quorums s)
+               then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                              invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                             ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different observers in this 2a"})
+               else return ()
+     ; let observers = extract_observer_quorums r2a
+     ; _ <- if 0 == length observers
+               then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                              invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                             ,invalid_Phase_2a_explanation = Just $ pack "at this time, we require that observer quorums be listed by participant ID"})
+               else return ()
+     ; let quorums_crypto_ids = HashSet.map (HashSet.map participant_ID_crypto_id) $ unions $ elems observers
      ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
      ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
                          invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = "this set of 1bs does not satisfy any known quorum"})
-          else ()
-     ; return ()
+                        ,invalid_Phase_2a_explanation = Just $ pack "this set of 1bs does not satisfy any known quorum"})
+          else return ()
      }
 
 -- | for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
@@ -304,11 +304,11 @@ instance {-# OVERLAPPING #-} Parsable Recursive_2a where
     do { non_recursive <- parse payload
        ; l_set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
        ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
-            then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
-                                 invalid_Phase_2a_offending_phase_2a = non_recursive
-                                ,invalid_Phase_2a_explanation = Just "More than 1 proposal value present."}
-            else ()
+       ; _ <- if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
+                 then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
+                                      invalid_Phase_2a_offending_phase_2a = non_recursive
+                                     ,invalid_Phase_2a_explanation = Just $ pack "More than 1 proposal value present."}
+                 else return ()
        ; well_formed_2a $ Recursive_2a set
        ; return $ Recursive_2a set}
 
