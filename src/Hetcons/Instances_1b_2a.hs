@@ -273,22 +273,22 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1b where
 
 well_formed_2a :: Recursive_2a -> Either Hetcons_Exception ()
 well_formed_2a r2a@(Recursive_2a s) =
-  do { _ <- if 1 /= (length $ HashSet.map extract_value s)
-               then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                              invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                             ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different values in this 2a, or no 1bs at all"})
-               else return ()
-     ; _ <- if 1 /= (length $ HashSet.map extract_observer_quorums s)
-               then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                              invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                             ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different observers in this 2a"})
-               else return ()
+  do { if 1 /= (length $ HashSet.map extract_value s)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different values in this 2a, or no 1bs at all"})
+          else return ()
+     ; if 1 /= (length $ HashSet.map extract_observer_quorums s)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different observers in this 2a"})
+          else return ()
      ; let observers = extract_observer_quorums r2a
-     ; _ <- if 0 == length observers
-               then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                              invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                             ,invalid_Phase_2a_explanation = Just $ pack "at this time, we require that observer quorums be listed by participant ID"})
-               else return ()
+     ; if 0 == length observers
+          then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
+                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                        ,invalid_Phase_2a_explanation = Just $ pack "at this time, we require that observer quorums be listed by participant ID"})
+          else return ()
      ; let quorums_crypto_ids = HashSet.map (HashSet.map participant_ID_crypto_id) $ unions $ elems observers
      ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
      ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
@@ -304,11 +304,11 @@ instance {-# OVERLAPPING #-} Parsable Recursive_2a where
     do { non_recursive <- parse payload
        ; l_set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
        ; let set = fromList l_set
-       ; _ <- if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
-                 then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
-                                      invalid_Phase_2a_offending_phase_2a = non_recursive
-                                     ,invalid_Phase_2a_explanation = Just $ pack "More than 1 proposal value present."}
-                 else return ()
+       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
+            then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
+                                 invalid_Phase_2a_offending_phase_2a = non_recursive
+                                ,invalid_Phase_2a_explanation = Just $ pack "More than 1 proposal value present."}
+            else return ()
        ; well_formed_2a $ Recursive_2a set
        ; return $ Recursive_2a set}
 

@@ -172,6 +172,7 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                         ,default_Proof_of_Consensus
                         ,encode_Proof_of_Consensus
                         ,decode_Proof_of_Consensus
+                     ,participant_ID_crypto_id
                      )
 
 import           Crypto.Hash.Algorithms (SHA224(SHA224)
@@ -189,13 +190,16 @@ import           Data.Foldable          (null
 import           GHC.Generics           (Generic)
 import           Data.Hashable          (Hashable
                                         ,hashWithSalt)
+import           Data.HashMap.Strict    (elems)
 import           Data.HashSet           (HashSet
                                         ,intersection
+                                        ,unions
                                         ,toList
                                         ,fromList
                                         ,singleton)
 import qualified Data.HashSet as HashSet(map)
 import           Data.List              (head)
+import           Data.Maybe             (catMaybes)
 import           Data.Typeable          (Typeable )
 import           Data.Serialize         (Serialize
                                         ,get
@@ -216,6 +220,32 @@ instance Hashable Recursive_2b where
 instance Recursive Phase_2b Recursive_2b where
   non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
 
+well_formed_2b :: Recursive_2b -> Either Hetcons_Exception ()
+well_formed_2b r2b@(Recursive_2b s) =
+  do { if 1 /= (length $ HashSet.map extract_value s)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
+                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
+                        ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different values in this 2b, or no 1bs at all"})
+          else return ()
+     ; if 1 /= (length $ HashSet.map extract_observer_quorums s)
+          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
+                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
+                        ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different observers in this 2b"})
+          else return ()
+     ; let observers = extract_observer_quorums r2b
+     ; if 0 == length observers
+          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
+                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
+                        ,invalid_Phase_2b_explanation = Just $ pack "at this time, we require that observer quorums be listed by participant ID"})
+          else return ()
+     ; let quorums_crypto_ids = HashSet.map (HashSet.map participant_ID_crypto_id) $ unions $ elems observers
+     ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
+     ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
+          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
+                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
+                        ,invalid_Phase_2b_explanation = Just $ pack "this set of 1bs does not satisfy any known quorum"})
+          else return ()
+     }
 
 -- | for a 2b message, we parse the original message, and verify the 1b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_2b where
@@ -227,7 +257,9 @@ instance {-# OVERLAPPING #-} Parsable Recursive_2b where
             then throwError $ Hetcons_Exception_Invalid_Phase_2b default_Invalid_Phase_2b {
                                  invalid_Phase_2b_offending_phase_2b = non_recursive
                                 ,invalid_Phase_2b_explanation = Just "More than 1 proposal value present."}
-            else return $ Recursive_2b set}
+            else return ()
+       ; well_formed_2b $ Recursive_2b set
+       ; return $ Recursive_2b set}
 
 instance {-# OVERLAPPING #-} Contains_1a Recursive_2b where
   extract_1a (Recursive_2b x) = extract_1a $ head $ toList x
