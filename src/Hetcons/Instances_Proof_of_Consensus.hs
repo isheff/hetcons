@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hetcons.Instances_Proof_of_Consensus () where
+module Hetcons.Instances_Proof_of_Consensus (observers_proven) where
 
 import Hetcons.Contains_Value (
       Contains_Value
@@ -173,6 +173,8 @@ import Hetcons_Types (Signed_Message (Signed_Message)
                         ,default_Proof_of_Consensus
                         ,encode_Proof_of_Consensus
                         ,decode_Proof_of_Consensus
+                     ,Participant_ID
+                        ,participant_ID_crypto_id
                      )
 
 import           Crypto.Hash.Algorithms (SHA224(SHA224)
@@ -185,17 +187,20 @@ import           Crypto.Random          (DRG)
 import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
 import           Data.Foldable          (null
+                                        ,any
                                         ,length
                                         ,maximum)
 import           GHC.Generics           (Generic)
 import           Data.Hashable          (Hashable
                                         ,hashWithSalt)
+import           Data.HashMap.Strict    (keys, (!))
 import           Data.HashSet           (HashSet
+                                        ,member
                                         ,intersection
                                         ,toList
                                         ,fromList
                                         ,singleton)
-import qualified Data.HashSet as HashSet(map)
+import qualified Data.HashSet as HashSet(map, empty, foldr, filter)
 import           Data.List              (head)
 import           Data.Typeable          (Typeable )
 import           Data.Serialize         (Serialize
@@ -219,7 +224,32 @@ import           Thrift.Transport.Empty (EmptyTransport(EmptyTransport))
 instance Recursive Proof_of_Consensus Recursive_Proof_of_Consensus where
   non_recursive (Recursive_Proof_of_Consensus x) = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = HashSet.map signed x}
 
+class Observers_Provable a where
+  -- | does thers exist at least one observer such that:
+  --     there exists a quorum (according to that observer) such that:
+  --       each participant in that quorum received 1bs from the same quorum (according to that observer)
+  observers_proven :: a -> (HashSet Participant_ID)
 
+instance Observers_Provable Recursive_Proof_of_Consensus where
+  observers_proven rpoc@(Recursive_Proof_of_Consensus set) =
+    let observers = extract_observer_quorums rpoc
+        filter_by_quorum q = HashSet.filter (\x -> case (signed_Hash_crypto_id $ signed_Message_signature $ signed x) of
+                                                     Just y -> (member y (HashSet.map participant_ID_crypto_id q))
+                                                     Nothing -> False)
+        quorum_of_1bs quorum_of_2bs = let (x:xs) = toList $ HashSet.map ((\(Recursive_2b x) -> x) . original) quorum_of_2bs
+                                       in foldr intersection x xs
+
+        is_proven_with_quorum_of_2bs x q = any (\x_quorum -> ((length x_quorum) == (length (filter_by_quorum x_quorum (quorum_of_1bs q))))) $ observers!x
+        is_proven x = any (\x_quorum -> let q2bs = filter_by_quorum x_quorum set
+                                         in (((length x_quorum) == (length q2bs)) && (is_proven_with_quorum_of_2bs x q2bs)))
+                          $ observers!x
+     in fromList $ filter is_proven $ keys observers
+
+instance Observers_Provable (HashSet (Verified Recursive_2b)) where
+  observers_proven = observers_proven . Recursive_Proof_of_Consensus
+
+instance (Parsable a, Observers_Provable a) => Observers_Provable (Verified a) where
+  observers_proven = observers_proven . original
 
 -- | For a Proof_of_Consensus message, we parse the original message, and verify the 2b messages it carries.
 instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
@@ -227,11 +257,22 @@ instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
     do { non_recursive <- parse payload
        ; l_set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
        ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original . head . toList . (\(Recursive_2b x) -> x) . original) set)) > 1
+       ; if (length (HashSet.map extract_1a set)) > 1
             then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
                                  invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
-                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 proposal value present."}
-            else return $ Recursive_Proof_of_Consensus set}
+                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 proposal_1a present."}
+            else return ()
+       ; if (length (HashSet.map extract_value set)) > 1
+            then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
+                                 invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
+                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 value present."}
+            else return ()
+       ; if (0 == (length (observers_proven set)))
+            then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
+                                 invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
+                                ,invalid_Proof_of_Consensus_explanation = Just "this so-called proof does not prove consensus for any observer"}
+            else return $ Recursive_Proof_of_Consensus set
+       }
 
 
 instance {-# OVERLAPPING #-} Contains_1a Recursive_Proof_of_Consensus where
