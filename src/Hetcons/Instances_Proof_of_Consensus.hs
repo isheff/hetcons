@@ -226,24 +226,28 @@ instance Recursive Proof_of_Consensus Recursive_Proof_of_Consensus where
 
 class Observers_Provable a where
   -- | does thers exist at least one observer such that:
-  --     there exists a quorum (according to that observer) such that:
-  --       each participant in that quorum received 1bs from the same quorum (according to that observer)
+  -- |   there exists a quorum (according to that observer) such that:
+  -- |     each participant in that quorum received 1bs from the same quorum (according to that observer)
   observers_proven :: a -> (HashSet Participant_ID)
 
 instance Observers_Provable Recursive_Proof_of_Consensus where
   observers_proven rpoc@(Recursive_Proof_of_Consensus set) =
     let observers = extract_observer_quorums rpoc
+        -- given a quorum (set) of Participant_IDs, filters the given set of Verified anythings for only those elements signed by a quorum member
         filter_by_quorum q = HashSet.filter (\x -> case (signed_Hash_crypto_id $ signed_Message_signature $ signed x) of
                                                      Just y -> (member y (HashSet.map participant_ID_crypto_id q))
                                                      Nothing -> False)
+       -- Given a set of 2bs, returns the largest set of 1bs which every one of the 2b senders has received
         quorum_of_1bs quorum_of_2bs = let (x:xs) = toList $ HashSet.map ((\(Recursive_2b x) -> x) . original) quorum_of_2bs
                                        in foldr intersection x xs
-
+        -- Given an observer x and a quorum of Participant_IDs q, returns whether any quorum of x's is satisfied by a set of 1bs which everyone in q has received.
         is_proven_with_quorum_of_2bs x q = any (\x_quorum -> ((length x_quorum) == (length (filter_by_quorum x_quorum (quorum_of_1bs q))))) $ observers!x
-        is_proven x = any (\x_quorum -> let q2bs = filter_by_quorum x_quorum set
+        -- has the observer x achieved consensus given this proof?
+        is_proven x = any (\x_quorum -> let q2bs = filter_by_quorum x_quorum set -- is there any quorum of x's such that the 2bs from that quorum
+                                             -- have the whole quorum, and all feature a quorum of 1bs
                                          in (((length x_quorum) == (length q2bs)) && (is_proven_with_quorum_of_2bs x q2bs)))
                           $ observers!x
-     in fromList $ filter is_proven $ keys observers
+     in fromList $ filter is_proven $ keys observers -- which observers have achieved consensus?
 
 instance Observers_Provable (HashSet (Verified Recursive_2b)) where
   observers_proven = observers_proven . Recursive_Proof_of_Consensus
@@ -260,12 +264,13 @@ instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
        ; if (length (HashSet.map extract_1a set)) > 1
             then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
                                  invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
-                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 proposal_1a present."}
+                                ,invalid_Proof_of_Consensus_explanation =
+                                  Just "More than 1 proposal_1a present. A proof should be assembled using the results initiated by a single proposal."}
             else return ()
        ; if (length (HashSet.map extract_value set)) > 1
             then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
                                  invalid_Proof_of_Consensus_offending_proof_of_consensus = non_recursive
-                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 value present."}
+                                ,invalid_Proof_of_Consensus_explanation = Just "More than 1 value present. We must prove consensus on a single value."}
             else return ()
        ; if (0 == (length (observers_proven set)))
             then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {

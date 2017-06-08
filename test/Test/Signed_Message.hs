@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Signed_Message (signed_message_tests) where
 
+import Hetcons.Contains_Value (extract_1a)
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
                                                    ,Hetcons_Exception_Unparsable_Hashable_Message
                                                    ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
@@ -22,6 +23,7 @@ import Hetcons.Signed_Message (Verified
                               ,Recursive_1a
                               ,Recursive_2a (Recursive_2a)
                               ,Recursive_2b (Recursive_2b)
+                              ,Recursive_Proof_of_Consensus
                               ,recursive_1b_proposal
                               ,recursive_1b_conflicting_phase2as
                               ,Parsable
@@ -75,6 +77,9 @@ import Hetcons_Types (Signed_Message
                      ,default_Participant_ID
                      ,default_Address
                      ,default_Host_Address
+                     ,Proof_of_Consensus
+                       ,proof_of_Consensus_phase_2bs
+                       ,default_Proof_of_Consensus
                      )
 
 import           Control.Monad (join)
@@ -279,10 +284,41 @@ signed_message_tests = TestList [
                             ; signed_1b_2 <- gen_sign_1b (l_gen!!2) phase_1b
                             ; let phase_2b = default_Phase_2b {phase_2b_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
                             ; signed <- gen_sign_2b (l_gen!!3) phase_2b
-                            ; verified <- verify signed
-                            ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2b x) -> x).original) verified)
+                            ; verified <- (verify signed) :: (Either Hetcons_Exception (Verified Recursive_2b))
+                            ; return (original $ extract_1a verified)
                             }
           ; assertEqual "failed to verify a signed phase_2b" (Right $ sample_1a cert) $ mapRight non_recursive result
+          ; return ()}))
+  ,TestLabel "verify that we can sign and parse a Proof_of_Consensus" (
+     TestCase (
+       do { gen <- getSystemDRG
+          ; let l_gen = listGen gen
+          ; cert <- ByteString.readFile "test/cert.pem"
+          ; private <- ByteString.readFile "test/key.pem"
+          ; let crypto_id = default_Crypto_ID {crypto_ID_public_crypto_key =
+                               Just (default_Public_Crypto_Key {
+                                 public_Crypto_Key_public_crypto_key_x509 = Just cert})}
+          ; let gen_sign_1a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
+                  (DRG gen) => gen -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_1b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
+                  (DRG gen) => gen -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_2b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
+                  (DRG gen) => gen -> Phase_2b -> (Either Hetcons_Exception Signed_Message)
+          ; let gen_sign_proof = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
+                  (DRG gen) => gen -> Proof_of_Consensus -> (Either Hetcons_Exception Signed_Message)
+          ; cert <- ByteString.readFile "test/cert.pem"
+          ; let result = do { signed_1a <- gen_sign_1a (l_gen!!0) $ sample_1a cert
+                            ; let phase_1b = default_Phase_1b { phase_1b_proposal = signed_1a }
+                            ; signed_1b_1 <- gen_sign_1b (l_gen!!1) phase_1b
+                            ; signed_1b_2 <- gen_sign_1b (l_gen!!2) phase_1b
+                            ; let phase_2b = default_Phase_2b {phase_2b_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
+                            ; signed_2b <- gen_sign_2b (l_gen!!3) phase_2b
+                            ; let proof = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = fromList [signed_2b]}
+                            ; signed_proof <- gen_sign_proof (l_gen!!4) proof
+                            ; verified <- (verify signed_proof) :: (Either Hetcons_Exception (Verified Recursive_Proof_of_Consensus))
+                            ; return (original $ extract_1a verified)
+                            }
+          ; assertEqual "failed to verify a signed Proof_of_Consensus" (Right $ sample_1a cert) $ mapRight non_recursive result
           ; return ()}))
 
   ]
