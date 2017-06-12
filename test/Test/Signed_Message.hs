@@ -55,6 +55,7 @@ import Hetcons_Types (Signed_Message
                      ,Observers
                         ,default_Observers
                         ,observers_observer_quorums
+                        ,observers_observer_graph
                      ,Value
                         ,value_value_payload
                         ,value_slot
@@ -80,6 +81,12 @@ import Hetcons_Types (Signed_Message
                      ,Proof_of_Consensus
                        ,proof_of_Consensus_phase_2bs
                        ,default_Proof_of_Consensus
+                     ,Observer_Trust_Constraint
+                       ,observer_Trust_Constraint_observer_1
+                       ,observer_Trust_Constraint_observer_2
+                       ,observer_Trust_Constraint_safe
+                       ,observer_Trust_Constraint_live
+                       ,default_Observer_Trust_Constraint
                      )
 
 import           Control.Monad (join)
@@ -189,6 +196,20 @@ signed_message_tests = TestList [
        do { cert <- ByteString.readFile "test/cert.pem"
           ; signed <- sample_sign $ sample_1a cert
           ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right $ sample_1a cert)
+               $ mapRight ((mapRight ((non_recursive :: Recursive_1a -> Proposal_1a).original)).verify) signed
+          ; return ()}))
+  ,TestLabel "verify that we can sign and parse a 1A message with an observers Graph" (
+     TestCase (
+       do { cert <- ByteString.readFile "test/cert.pem"
+          ; let sample = ((sample_1a cert) {proposal_1a_observers = Just default_Observers {observers_observer_graph = Just $ fromList [
+                           default_Observer_Trust_Constraint  {
+                             observer_Trust_Constraint_observer_1 = sample_id cert
+                           , observer_Trust_Constraint_observer_2 = sample_id cert
+                           , observer_Trust_Constraint_safe = fromList [sample_id cert]
+                           , observer_Trust_Constraint_live = fromList [sample_id cert]}
+                          ]}})
+          ; signed <- sample_sign $ sample
+          ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right sample)
                $ mapRight ((mapRight ((non_recursive :: Recursive_1a -> Proposal_1a).original)).verify) signed
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 1B message" (

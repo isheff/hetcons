@@ -24,6 +24,7 @@ library
                      , Hetcons.Instances_1b_2a
                      , Hetcons.Instances_2b
                      , Hetcons.Instances_Proof_of_Consensus
+                     , Hetcons.Memoize
                      , Hetcons.Quorums
                      , Hetcons.Serializable
                      , Hetcons.Signed_Message
@@ -43,6 +44,7 @@ library
                      , mtl
                      , either
                      , stm
+                     , vector
                      , EasyX509
                      , cryptonite
                      -- BEGIN THRIFT REQUIREMENTS
@@ -68,6 +70,7 @@ test-suite hetcons-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   other-modules:       Test.Hetcons_Exception
+                     , Test.Quorums
                      , Test.Signed_Message
   main-is:             Spec.hs
   build-depends:       base

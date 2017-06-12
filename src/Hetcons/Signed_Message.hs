@@ -38,6 +38,7 @@ import Hetcons.Hetcons_Exception (
                       ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
                       ,Hetcons_Exception_Unparsable_Hashable_Message)
     )
+import Hetcons.Memoize (memoize)
 import Hetcons.Quorums (verify_quorums)
 import Hetcons.Serializable()
 
@@ -305,6 +306,14 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 
 
 
+-- | This is the only way to construct a Verified object.
+-- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+-- | Otherwise, you get an exception.
+-- | TODO? We may want to make verify memoized. In theory, all that is necessary is to make verify = memoize verify'
+-- |       For some reason, as of 2017-6-12, this actually slows down our unit tests.
+-- |       Basic memoize tests on, say, fibonacci seem to work fine.
+verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
+verify = verify'
 
 
 
@@ -328,9 +337,9 @@ sha2_length length_set =
 -- | This is the only way to construct a Verified object.
 -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 -- | Otherwise, you get an exception.
-verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
+verify' :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
 -- In the case where everything's done correctly:
-verify signed_message@Signed_Message
+verify' signed_message@Signed_Message
        {signed_Message_payload = payload
        ,signed_Message_signature =
           signed_hash@Signed_Hash
@@ -361,7 +370,7 @@ verify signed_message@Signed_Message
              (Right x) -> Right Verified { verified_original = x, verified_signed = signed_message }}
 
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
-verify Signed_Message
+verify' Signed_Message
        {signed_Message_signature =
           Signed_Hash
           {signed_Hash_crypto_id = Just
@@ -379,7 +388,7 @@ verify Signed_Message
                   Just "Alas, I only support X509 Public Crypto Keys at this time."}
 
 -- | If it's a Crypto ID, but not a public crypto key, we return an appropriate Exception
-verify Signed_Message
+verify' Signed_Message
        {signed_Message_signature =
           Signed_Hash
           {signed_Hash_crypto_id = Just
@@ -395,7 +404,7 @@ verify Signed_Message
                   Just "Alas, I require crypto IDs to be full X509 Public Crypto Keys at this time."}
 
 -- | If the signed Hash doesn't include a Crypto_ID, we return an appropriate exception
-verify Signed_Message
+verify' Signed_Message
        {signed_Message_signature =
           signed_hash@Signed_Hash
           {signed_Hash_crypto_id = Nothing}}
@@ -409,7 +418,7 @@ verify Signed_Message
                   Just "I require this signed hash to carry a crypto ID"}
 
 -- | If the signed Hash specifies a type, but it isn't sha2, we return an appropriate exception
-verify Signed_Message
+verify' Signed_Message
        {signed_Message_signature =
           Signed_Hash
           {signed_Hash_hash_type_descriptor = hash_type_descriptor@(Just
@@ -425,7 +434,7 @@ verify Signed_Message
                   Just "Alas, I only support SHA2 hashes at this time."}
 
 -- | If the signed Hash does not specify a type, we return an appropriate exception
-verify Signed_Message
+verify' Signed_Message
        {signed_Message_signature =
           signed_hash@Signed_Hash
           {signed_Hash_hash_type_descriptor = Nothing}}

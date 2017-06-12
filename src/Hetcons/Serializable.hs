@@ -33,6 +33,9 @@ import Hetcons_Types (Proposal_1a
                         ,default_Proof_of_Consensus
                         ,encode_Proof_of_Consensus
                         ,decode_Proof_of_Consensus
+                     ,Signed_Message
+                        ,encode_Signed_Message
+                        ,decode_Signed_Message
                      )
 
 import           Control.Monad          (liftM, mapM_)
@@ -45,6 +48,14 @@ import           Data.Serialize.Get     (remaining, getLazyByteString)
 import           Data.Serialize.Put     (putWord8)
 import           Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
 import           Thrift.Transport.Empty (EmptyTransport(EmptyTransport))
+--
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
+instance Serialize Signed_Message where
+  put = (mapM_ putWord8) . unpack . (encode_Signed_Message (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Signed_Message (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
