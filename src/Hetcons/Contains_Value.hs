@@ -79,7 +79,9 @@ instance {-# OVERLAPPING #-} Contains_Value Value where
   extract_value = id
 
 
+-- | Some messages, like 2as, carry 1bs within them. Sometimes it's useful to get a set of all the 1bs within.
 class Contains_1bs a where
+  -- | the set of 1bs within a given message
   extract_1bs :: a -> (HashSet (Verified (Recursive_1b)))
 
 instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1bs a) => Contains_1bs (Verified a) where
