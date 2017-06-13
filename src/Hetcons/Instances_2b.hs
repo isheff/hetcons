@@ -16,6 +16,8 @@ import Hetcons.Contains_Value (
         ,extract_observer_quorums
     , Ballot
         ,extract_ballot
+    ,Contains_1bs
+        ,extract_1bs
     )
 import Hetcons.Hetcons_Exception (
      Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
@@ -265,3 +267,5 @@ instance {-# OVERLAPPING #-} Contains_1a Recursive_2b where
   extract_1a (Recursive_2b x) = extract_1a $ head $ toList x
 instance {-# OVERLAPPING #-} Contains_Value Recursive_2b where
   extract_value (Recursive_2b x) = extract_value $ Recursive_2a x
+instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2b) where
+  extract_1bs (Recursive_2b x) = x

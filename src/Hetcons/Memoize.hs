@@ -4,7 +4,7 @@
 -- | A class of function input types which can be memoized, and a function which produces a memoized function version
 module Hetcons.Memoize (Memoizable, memoize) where
 
-import Data.ByteString.Lazy (ByteString, cons, snoc, null, head, tail, empty, pack)
+import Data.ByteString.Lazy (ByteString, null, head, tail, pack)
 import Data.List (reverse)
 import Data.Serialize (Serialize ,encodeLazy ,decodeLazy)
 import Data.Vector (Vector, (!), fromList)

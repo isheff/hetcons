@@ -16,6 +16,8 @@ import Hetcons.Contains_Value (
         ,extract_observer_quorums
     , Ballot
         ,extract_ballot
+    ,Contains_1bs
+        ,extract_1bs
     )
 import Hetcons.Hetcons_Exception (
      Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
@@ -196,6 +198,7 @@ import           Data.Hashable          (Hashable
 import           Data.HashMap.Strict    (keys, (!))
 import           Data.HashSet           (HashSet
                                         ,member
+                                        ,unions
                                         ,intersection
                                         ,toList
                                         ,fromList
@@ -284,3 +287,5 @@ instance {-# OVERLAPPING #-} Contains_1a Recursive_Proof_of_Consensus where
   extract_1a (Recursive_Proof_of_Consensus x) = extract_1a $ head $ toList x
 instance {-# OVERLAPPING #-} Contains_Value Recursive_Proof_of_Consensus where
   extract_value (Recursive_Proof_of_Consensus x) = extract_value $ head $ toList x
+instance {-# OVERLAPPING #-} Contains_1bs (Recursive_Proof_of_Consensus) where
+  extract_1bs (Recursive_Proof_of_Consensus x) = unions $ map extract_1bs $ toList x

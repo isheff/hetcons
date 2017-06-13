@@ -8,6 +8,8 @@ module Hetcons.Contains_Value
         ,extract_observer_quorums
     , Ballot
         ,extract_ballot
+    ,Contains_1bs
+        ,extract_1bs
     ) where
 
 import Hetcons.Signed_Message (Recursive_1b(Recursive_1b)
@@ -42,7 +44,7 @@ import Hetcons_Types  (Value
 import           Data.ByteString.Lazy   (ByteString)
 import Data.Foldable (null, toList, maximumBy)
 import Data.HashMap.Strict (HashMap)
-import Data.HashSet (HashSet)
+import Data.HashSet (HashSet, insert)
 import Data.Int (Int64)
 import Data.List (head)
 import Data.Ord (compare)
@@ -67,8 +69,6 @@ extract_observer_quorums = extract_observer_quorums' . recursive_1a_filled_in . 
 
 
 
--- TODO: I've noticed that value contained is subjective. It matters which observer is watching. For instance, a 1b may carry multiple 2as, which carry entirely different values, with entirely disjoint quorums, should observers have disjoint quorums
-
 class Contains_Value a where
   extract_value :: a -> Value
 
@@ -77,4 +77,12 @@ instance {-# OVERLAPPABLE #-} (Parsable a, Contains_Value a) => Contains_Value (
 
 instance {-# OVERLAPPING #-} Contains_Value Value where
   extract_value = id
+
+
+class Contains_1bs a where
+  extract_1bs :: a -> (HashSet (Verified (Recursive_1b)))
+
+instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1bs a) => Contains_1bs (Verified a) where
+  extract_1bs = extract_1bs . original
+
 

@@ -17,6 +17,8 @@ import Hetcons.Contains_Value (
         ,extract_observer_quorums
     , Ballot
         ,extract_ballot
+    ,Contains_1bs
+        ,extract_1bs
     )
 import Hetcons.Hetcons_Exception (
      Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
@@ -195,6 +197,7 @@ import           Data.Hashable          (Hashable
                                         ,hashWithSalt)
 import           Data.HashMap.Strict    (elems)
 import           Data.HashSet           (HashSet
+                                        ,insert
                                         ,intersection
                                         ,unions
                                         ,toList
@@ -332,6 +335,12 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
          else extract_value $ maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y)) phase_2as
 
 
+instance {-# OVERLAPPING #-} Contains_1bs (Recursive_1b) where
+  extract_1bs (Recursive_1b {recursive_1b_conflicting_phase2as = phase_2as}) = unions $ map extract_1bs $ toList phase_2as
+
+instance {-# OVERLAPPING #-} Contains_1bs (Verified (Recursive_1b)) where
+  extract_1bs b = insert b $ extract_1bs b
+
 
 
 instance {-# OVERLAPPING #-} Contains_1a Recursive_2a where
@@ -341,3 +350,6 @@ instance {-# OVERLAPPING #-} Contains_1a Recursive_2a where
 -- | This relies on this 2a already having been verified to ensure that, for instance, all 1bs within have the same value
 instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
   extract_value (Recursive_2a x) = extract_value $ head $ toList x
+
+instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2a) where
+  extract_1bs (Recursive_2a x) = x
