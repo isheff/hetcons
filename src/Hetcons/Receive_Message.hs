@@ -38,6 +38,7 @@ import Control.Monad              (mapM_)
 import Control.Monad.Except       (throwError, catchError, MonadError)
 import Control.Monad.Trans.Either (EitherT, runEitherT)
 import Control.Monad.State        (State, runState, get, put,state)
+import Crypto.Random              (SystemDRG, getSystemDRG, MonadRandom, getRandomBytes, randomBytesGenerate)
 import Data.HashSet               (HashSet, insert, toList, empty)
 
 -- | Receive_Message is a Monad for constructing transactions in which a message is processed.
@@ -57,6 +58,7 @@ data Receive_Message_State = Receive_Message_State {
  ,sent_2bs :: HashSet Phase_2b
  ,sent_Proof_of_Consensus :: HashSet Proof_of_Consensus
  ,hetcons_state :: Hetcons_State
+ ,system_drg :: SystemDRG
 }
 
 -- | The Receive_Message_State you start with, featuring a dummy value for the Hetcons_State
@@ -89,6 +91,14 @@ instance MonadError Hetcons_Exception Receive_Message where
   throwError = Receive_Message . throwError
   catchError action handler = Receive_Message $ catchError (unwrap action) $ unwrap . handler
 
+-- | within a Receive_Message Monad, you can call Crypto.Random.drgNew to get a new ChaChaDRG
+instance MonadRandom Receive_Message where
+  getRandomBytes i = do { state <- get_Receive_Message_State
+                        ; let (bytes, new_gen) = randomBytesGenerate i $ system_drg state
+                        ; put_Receive_Message_State (state {system_drg = new_gen})
+                        ; return bytes}
+
+
 -- | Given a Receive_Message object, and a starting Receive_Message_State, this runs the Receive_Message object on that state, and returns the results.
 -- | Results will either be a Hetcons_Exception or a final state and returned value.
 run_Receive_Message :: (Receive_Message a) -> Receive_Message_State ->  Either Hetcons_Exception (a, Receive_Message_State)
@@ -105,8 +115,9 @@ run_Receive_Message x s = case (runState (runEitherT $ unwrap x) s) of
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
 run_Receive_Message_IO :: Hetcons_State_Var -> (Receive_Message a) -> IO a
 run_Receive_Message_IO state_var receive_message =
-  do { f <- modify_and_read state_var
-              (\start_state -> let final_state = run_Receive_Message receive_message (default_Receive_Message_State {hetcons_state = start_state})
+  do { drg <- getSystemDRG
+     ; f <- modify_and_read state_var
+              (\start_state -> let final_state = run_Receive_Message receive_message (default_Receive_Message_State {hetcons_state = start_state, system_drg = drg})
                                 in case final_state of
                                      Left e -> (start_state, Left e)
                                      Right (x, final_receive_message_state) -> (hetcons_state final_receive_message_state, Right $ (final_receive_message_state,x)))
