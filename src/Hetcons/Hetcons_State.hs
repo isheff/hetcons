@@ -1,6 +1,7 @@
 module Hetcons.Hetcons_State
     ( Hetcons_State_Var
     , Hetcons_State
+    , default_Hetcons_State
     , conflicting_state
     , new_Hetcons_State
     , start_Hetcons_State
@@ -39,6 +40,7 @@ import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet
                        ,intersection
                        ,fromList
+                       ,empty
                        ,singleton)
 
 import Prelude ((.), (==), Bool, Foldable, IO, ($), return)
@@ -46,6 +48,9 @@ import Prelude ((.), (==), Bool, Foldable, IO, ($), return)
 
 -- | literally the set of 1b messages received or sent thus far (or at least those which have been verified)
 type Hetcons_State = HashSet (Verified Recursive_1b)
+default_Hetcons_State :: Hetcons_State
+default_Hetcons_State = empty
+
 type Hetcons_State_Var = TVar Hetcons_State
 
 -- | Subsets of the proposals which have the same COG, for each COG in the Hetcons_State

@@ -27,6 +27,7 @@ library
                      , Hetcons.Memoize
                      , Hetcons.Quorums
                      , Hetcons.Receive_Message
+                     , Hetcons.Send_Message_IO
                      , Hetcons.Serializable
                      , Hetcons.Signed_Message
                      , Hetcons.Value
