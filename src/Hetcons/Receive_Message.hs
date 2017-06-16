@@ -13,50 +13,70 @@ module Hetcons.Receive_Message
     ,get_state
     ,put_state
     ,update_state
-    ,add_sent_1a
-    ,add_sent_1b
-    ,add_sent_2a
-    ,add_sent_2b
-    ,add_sent_Proof_of_Consensus
-  ,Receivable' -- This is the class you implement when you want something to be Receivable
-    ,receive'
-    ,receive -- Note that teh class Receivable is not exported. You cannot implement it without implementing Receivable'
+    ,get_my_crypto_id
+    ,get_my_private_key
+    ,with_errors
+  ,Add_Sent
+    ,add_sent
+  ,Receivable
+    ,receive
   ,Sendable
-  ,send)
+    ,send)
   where
 
 import Hetcons.Contains_Value     (Contains_1bs, extract_1bs)
 import Hetcons.Hetcons_Exception  (Hetcons_Exception)
 import Hetcons.Hetcons_State      (Hetcons_State, Hetcons_State_Var, modify_and_read, default_Hetcons_State)
+import Hetcons.Instances_1a ()
+import Hetcons.Instances_1b_2a ()
+import Hetcons.Instances_2b ()
+import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Send_Message_IO    (send_Message_IO)
-import Hetcons.Signed_Message     (Verified, original, Recursive_1b, Parsable)
+import Hetcons.Signed_Message     (Verified, original, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
 
-import Hetcons_Types              (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus)
+import Hetcons_Types              (Crypto_ID)
 
 import Control.Exception.Base     (throw)
 import Control.Monad              (mapM_)
 import Control.Monad.Except       (throwError, catchError, MonadError)
+import Control.Monad.Reader       (MonadReader, Reader, runReader, reader, ask, local)
 import Control.Monad.Trans.Either (EitherT, runEitherT)
-import Control.Monad.State        (State, runState, get, put,state)
+import Control.Monad.State        (StateT, runStateT, get, put,state)
 import Crypto.Random              (SystemDRG, getSystemDRG, MonadRandom, getRandomBytes, randomBytesGenerate)
+import Data.ByteString.Lazy       (ByteString)
 import Data.HashSet               (HashSet, insert, toList, empty)
+
+
+-- | run a function that may return an error in the Either style
+with_errors :: (MonadError e m) => (Either e a) -> (m a)
+with_errors (Left e)  = throwError e
+with_errors (Right x) = return x
+
 
 -- | Receive_Message is a Monad for constructing transactions in which a message is processed.
 -- | From within Receive_Message, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
 -- | change the Hetcons_State.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-newtype Receive_Message a = Receive_Message {unwrap :: (EitherT Hetcons_Exception (State Receive_Message_State) a)}
+newtype Receive_Message a = Receive_Message {unwrap :: (EitherT Hetcons_Exception (StateT Receive_Message_State (Reader Receive_Message_Environment)) a)}
+
+
+-- | The immutable part of the Receive_Message Monad's state.
+-- | You can read this stuff anywhere in the Monad, but never change it.
+data Receive_Message_Environment = Receive_Message_Environment {
+  crypto_id :: Crypto_ID
+ ,private_key :: ByteString
+}
 
 -- | This is the internal state maintained by the Receive_Message Monad.
 -- | It tracks messages to be sent (recall that this Monad represents a transaction)
 -- | It also tracks what the new Hetcons_State should be.
 data Receive_Message_State = Receive_Message_State {
-  sent_1as :: HashSet Proposal_1a
- ,sent_1bs :: HashSet Phase_1b
- ,sent_2as :: HashSet Phase_2a
- ,sent_2bs :: HashSet Phase_2b
- ,sent_Proof_of_Consensus :: HashSet Proof_of_Consensus
+  sent_1as :: HashSet (Verified Recursive_1a)
+ ,sent_1bs :: HashSet (Verified Recursive_1b)
+ ,sent_2as :: HashSet (Verified Recursive_2a)
+ ,sent_2bs :: HashSet (Verified Recursive_2b)
+ ,sent_Proof_of_Consensus :: HashSet (Verified Recursive_Proof_of_Consensus)
  ,hetcons_state :: Hetcons_State
  ,system_drg :: SystemDRG
 }
@@ -70,6 +90,7 @@ default_Receive_Message_State = Receive_Message_State {
  ,sent_Proof_of_Consensus = empty
  ,hetcons_state = default_Hetcons_State
 }
+
 
 
 -- | A general implementation of Functor which works for all Monads
@@ -98,13 +119,17 @@ instance MonadRandom Receive_Message where
                         ; put_Receive_Message_State (state {system_drg = new_gen})
                         ; return bytes}
 
+-- | within a Receive_Message Monad, you can call Control.Monad.Reader.ask to get the Receive_Message_Environment
+instance MonadReader Receive_Message_Environment Receive_Message where
+  ask = Receive_Message ask
+  local f x = Receive_Message $ local f $ unwrap x
 
 -- | Given a Receive_Message object, and a starting Receive_Message_State, this runs the Receive_Message object on that state, and returns the results.
 -- | Results will either be a Hetcons_Exception or a final state and returned value.
-run_Receive_Message :: (Receive_Message a) -> Receive_Message_State ->  Either Hetcons_Exception (a, Receive_Message_State)
-run_Receive_Message x s = case (runState (runEitherT $ unwrap x) s) of
-                            (Left  e, _) -> Left  e
-                            (Right x, s) -> Right (x,s)
+run_Receive_Message :: (Receive_Message a) -> Receive_Message_Environment -> Receive_Message_State ->  Either Hetcons_Exception (a, Receive_Message_State)
+run_Receive_Message x v s = case (runReader (runStateT (runEitherT $ unwrap x) s) v) of
+                              (Left  e, _) -> Left  e
+                              (Right x, s) -> Right (x,s)
 
 
 -- | Given a Hetcons_State_Var which points to the current Hetcons_State,
@@ -113,11 +138,12 @@ run_Receive_Message x s = case (runState (runEitherT $ unwrap x) s) of
 -- | return the returned value into the IO Monad.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-run_Receive_Message_IO :: Hetcons_State_Var -> (Receive_Message a) -> IO a
-run_Receive_Message_IO state_var receive_message =
+run_Receive_Message_IO :: Crypto_ID -> ByteString ->  Hetcons_State_Var -> (Receive_Message a) -> IO a
+run_Receive_Message_IO my_crypto_id my_private_key state_var receive_message =
   do { drg <- getSystemDRG
+     ; let env = Receive_Message_Environment {crypto_id = my_crypto_id, private_key = my_private_key}
      ; f <- modify_and_read state_var
-              (\start_state -> let final_state = run_Receive_Message receive_message (default_Receive_Message_State {hetcons_state = start_state, system_drg = drg})
+              (\start_state -> let final_state = run_Receive_Message receive_message env (default_Receive_Message_State {hetcons_state = start_state, system_drg = drg})
                                 in case final_state of
                                      Left e -> (start_state, Left e)
                                      Right (x, final_receive_message_state) -> (hetcons_state final_receive_message_state, Right $ (final_receive_message_state,x)))
@@ -156,60 +182,55 @@ update_state :: (Hetcons_State -> (a, Hetcons_State)) -> Receive_Message a
 update_state f = update_Receive_Message_State (\x -> let (y,z) = f $ hetcons_state x
                                                       in (y,x{hetcons_state = z}))
 
+get_my_crypto_id :: Receive_Message Crypto_ID
+get_my_crypto_id = reader crypto_id
+
+get_my_private_key :: Receive_Message ByteString
+get_my_private_key = reader private_key
+
+class Add_Sent a where
+  -- | Adds a message to the set of outgoing messages in this Monadic transaction.
+  -- | This is intended to be used from within the `send` function.
+  -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+  add_sent :: a -> Receive_Message ()
+
 -- | Adds a Proposal_1a to the set of outgoing messages in this Monadic transaction.
 -- | This is intended to be used from within the `send` function.
 -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-add_sent_1a :: Proposal_1a -> Receive_Message ()
-add_sent_1a p = update_Receive_Message_State (\x -> ((),x{sent_1as = insert p $ sent_1as x}))
+instance Add_Sent (Verified Recursive_1a) where
+  add_sent p = update_Receive_Message_State (\x -> ((),x{sent_1as = insert p $ sent_1as x}))
 
 -- | Adds a Phase_1b to the set of outgoing messages in this Monadic transaction.
 -- | This is intended to be used from within the `send` function.
 -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-add_sent_1b :: Phase_1b -> Receive_Message ()
-add_sent_1b p = update_Receive_Message_State (\x -> ((),x{sent_1bs = insert p $ sent_1bs x}))
+instance Add_Sent (Verified Recursive_1b) where
+  add_sent p = update_Receive_Message_State (\x -> ((),x{sent_1bs = insert p $ sent_1bs x}))
 
 -- | Adds a Phase_2a to the set of outgoing messages in this Monadic transaction.
 -- | This is intended to be used from within the `send` function.
 -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-add_sent_2a :: Phase_2a -> Receive_Message ()
-add_sent_2a p = update_Receive_Message_State (\x -> ((),x{sent_2as = insert p $ sent_2as x}))
+instance Add_Sent (Verified Recursive_2a) where
+  add_sent p = update_Receive_Message_State (\x -> ((),x{sent_2as = insert p $ sent_2as x}))
 
 -- | Adds a Phase_2b to the set of outgoing messages in this Monadic transaction.
 -- | This is intended to be used from within the `send` function.
 -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-add_sent_2b :: Phase_2b -> Receive_Message ()
-add_sent_2b p = update_Receive_Message_State (\x -> ((),x{sent_2bs = insert p $ sent_2bs x}))
+instance Add_Sent (Verified Recursive_2b) where
+  add_sent p = update_Receive_Message_State (\x -> ((),x{sent_2bs = insert p $ sent_2bs x}))
 
 -- | Adds a Proof_of_Consensus to the set of outgoing messages in this Monadic transaction.
 -- | This is intended to be used from within the `send` function.
 -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-add_sent_Proof_of_Consensus :: Proof_of_Consensus -> Receive_Message ()
-add_sent_Proof_of_Consensus p = update_Receive_Message_State (\x -> ((),x{sent_Proof_of_Consensus = insert p $ sent_Proof_of_Consensus x}))
+instance Add_Sent (Verified Recursive_Proof_of_Consensus) where
+  add_sent p = update_Receive_Message_State (\x -> ((),x{sent_Proof_of_Consensus = insert p $ sent_Proof_of_Consensus x}))
+
 
 
 
 -- | If you want to be able to receive a message and trigger a Monadic transaction (so, all the messages), this is what you implement.
-class Receivable' a where
-  -- | Implement receive' to dictate what to do when a message comes in.
-  -- | However, you call receive (not receive'), when a message comes in.
-  -- | The difference is that receive will automatically check for 1bs contained within this message, and receive those also.
-  receive' :: a -> Receive_Message ()
-
--- | That which is Receivable' is also Receivable.
 class Receivable a where
-  -- | You call receive (not receive') when you get an incoming message.
-  -- | The difference is that receive will automatically check for 1bs contained within this message, and receive those also.
+  -- | Implement receive to dictate what to do when a message comes in.
   receive :: a -> Receive_Message ()
-
--- | By default, recieve is exactly receive'
-instance {-# OVERLAPPABLE #-} (Receivable' a) => (Receivable a) where
-  receive = receive'
-
--- | However, if there are 1bs contained within this message type, receive will extract them and receive them before you receive the contained message.
-instance {-# OVERLAPPING #-} (Receivable (Verified Recursive_1b), Parsable a, Contains_1bs a, (Receivable' (Verified a))) => (Receivable (Verified a)) where
-  receive x = (mapM_ receive $ toList $ extract_1bs $ original x) >> (receive' x)
-
-
 
 
 -- | Those messages which you can send out from within a Monadic transaction are Sendable

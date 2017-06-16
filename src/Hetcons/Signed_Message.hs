@@ -304,7 +304,7 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 
 
 
-
+-- TODO: change these things that return Either to be MonadError Hetcons_Exception m => m a
 
 -- | This is the only way to construct a Verified object.
 -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
