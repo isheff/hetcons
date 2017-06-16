@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
                      , src/Thrift/gen-hs
   exposed-modules:     Lib
+                     , Hetcons.Conflicting_2as
                      , Hetcons.Contains_Value
                      , Hetcons.Hetcons_Exception
                      , Hetcons.Hetcons_State
@@ -26,6 +27,7 @@ library
                      , Hetcons.Instances_Proof_of_Consensus
                      , Hetcons.Memoize
                      , Hetcons.Quorums
+                     , Hetcons.Receive
                      , Hetcons.Receive_Message
                      , Hetcons.Send
                      , Hetcons.Send_Message_IO
