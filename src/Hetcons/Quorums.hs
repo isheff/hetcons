@@ -88,7 +88,6 @@ verify_quorums x@(Proposal_1a { proposal_1a_observers = Just (Observers {observe
 verify_quorums (Proposal_1a { proposal_1a_observers = Just x }) = Right x
 
 
--- TODO: accept observer graphs, and calculate the appropriate quorums here
 graph_to_quorums :: Proposal_1a -> Either Hetcons_Exception Observers
 graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Observers {observers_observer_graph = Just constraints})}) =
   let observers = toList $ union (HashSet.map observer_Trust_Constraint_observer_1 constraints) (HashSet.map observer_Trust_Constraint_observer_2 constraints)
