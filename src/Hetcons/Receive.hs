@@ -8,7 +8,7 @@ module Hetcons.Receive () where
 import Hetcons.Conflicting_2as    (conflicting_2as)
 import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
 import Hetcons.Hetcons_Exception  (Hetcons_Exception)
-import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Participant_State_Var, modify_and_read, default_State)
+import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Observer_State, Participant_State_Var, modify_and_read, default_State)
 import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
 import Hetcons.Instances_2b ()
@@ -43,6 +43,8 @@ import Hetcons_Types              (Crypto_ID
                                     ,phase_2a_phase_1bs
                                   ,default_Phase_2b
                                   ,phase_2b_phase_1bs
+                                  ,default_Proof_of_Consensus
+                                  ,proof_of_Consensus_phase_2bs
                                   )
 
 import Control.Exception.Base     (throw)
@@ -93,7 +95,7 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                      HashSet.filter (((extract_value r1b) ==) . extract_value) state})  -- all the 1bs with the same value
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
                      Left e -> send r1b -- this 2a isn't valid, and shouldn't be sent out (maybe not enough 1bs yet) However, we still have to echo the 1b
-                     Right v -> send v}}
+                     Right v -> send v}} -- I'm assuming that sending a 2a will send all the 1bs in it.
 
 
 instance Receivable Participant_State (Verified Recursive_2a) where
@@ -106,7 +108,18 @@ instance Receivable Participant_State (Verified Recursive_2a) where
 
 -- How Observers Receive ------------------------------------------------------
 instance Receivable Observer_State (Verified Recursive_2b) where
-  receive r2b = return () -- TODO: write this for real
+  receive r2b = do
+    { old_state <- get_state
+    ; if (member r2b old_state)
+         then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
+         else do { let state = insert r2b old_state
+                 ; put_state state
+                 ; signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed $
+                     HashSet.filter (((extract_1a r2b) ==) . extract_1a) $ -- all the 2bs with the same proposal
+                     HashSet.filter (((extract_value r2b) ==) . extract_value) state})  -- all the 2bs with the same value
+                 ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_Proof_of_Consensus))) of
+                     Left e -> send r2b -- this proof isn't valid, and shouldn't be sent out (maybe not enough 2bs yet) However, we still have to echo the 2b
+                     Right v -> send v}} -- I'm assuming that sending a proof will send all the 2bs in it.
 
 instance Receivable Observer_State (Verified Recursive_Proof_of_Consensus) where
-  receive rpoc = return () -- TODO: write this for real
+  receive rpoc = return () -- TODO: what do we do here? We have consensus (at least for some observers).
