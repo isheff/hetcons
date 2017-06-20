@@ -51,6 +51,9 @@ library
                      , stm
                      , vector
                      , either
+                     , ctrie
+                     , network
+                     , monad-parallel
                      , EasyX509
                      , cryptonite
                      -- BEGIN THRIFT REQUIREMENTS

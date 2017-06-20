@@ -45,6 +45,8 @@ import Hetcons_Types              (Crypto_ID
                                   ,phase_2b_phase_1bs
                                   ,default_Proof_of_Consensus
                                   ,proof_of_Consensus_phase_2bs
+                                  ,signed_Hash_crypto_id
+                                  ,signed_Message_signature
                                   )
 
 import Control.Exception.Base     (throw)
@@ -86,7 +88,10 @@ instance Receivable Participant_State (Verified Recursive_1b) where
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((extract_ballot r1b) < (maximum $ HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1b) ==) . extract_observer_quorums) old_state)))
          then return ()
-         else do { receive $ extract_1a r1b -- ensure we've received the 1a for this message before we store any 1bs
+         else do { my_crypto_id <- get_my_crypto_id
+                 ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signed_Message_signature $ signed r1b) -- if this 1b is from me
+                      then return ()
+                      else receive $ extract_1a r1b -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive $ extract_1bs $ original r1b -- receive all prior 1bs contained herein
                  ; let state = insert r1b state
                  ; put_state state -- update the state to include this 1b
