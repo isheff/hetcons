@@ -44,7 +44,8 @@ import Hetcons_Types (Signed_Message
                      ,default_No_Supported_Hash_Sha2_Descriptor_Provided
                      ,crypto_ID_public_crypto_key
                      ,default_Public_Crypto_Key
-                     ,default_Crypto_ID
+                     ,Crypto_ID
+                       ,default_Crypto_ID
                      ,public_Crypto_Key_public_crypto_key_x509
                      ,signed_Message_payload
                      ,default_Descriptor_Does_Not_Match_Hash_Sha2
@@ -76,7 +77,8 @@ import Hetcons_Types (Signed_Message
                      ,host_Address_dns_name
                      ,address_port_number
                      ,participant_ID_crypto_id
-                     ,default_Participant_ID
+                     ,Participant_ID
+                       ,default_Participant_ID
                      ,default_Address
                      ,default_Host_Address
                      ,Proof_of_Consensus
@@ -95,6 +97,7 @@ import           Control.Monad.Except   (runExceptT)
 import Control.Monad.Trans.Except (except)
 import Crypto.Random (getSystemDRG, DRG, withDRG)
 import qualified Data.ByteString.Lazy as ByteString (readFile, concat, take, drop, singleton, index)
+import Data.ByteString.Lazy (ByteString)
 import Data.Either.Combinators (isLeft, isRight)
 import Data.Either.Combinators (mapRight)
 import qualified Data.HashMap.Lazy  as HashMap (fromList)
@@ -148,6 +151,7 @@ sample_sign payload =
                             public_Crypto_Key_public_crypto_key_x509 = Just cert})}
      ; return $ sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen payload}
 
+sample_id :: ByteString -> Participant_ID
 sample_id cert =
   default_Participant_ID  {
     participant_ID_address =

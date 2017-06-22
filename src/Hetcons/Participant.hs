@@ -3,7 +3,7 @@
 module Hetcons.Participant (Participant, new_participant, basic_participant_server) where
 
 import Hetcons.Conflicting_2as    (conflicting_2as)
-import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
+import Hetcons.Contains_Value     (Contains_1a, Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
 import Hetcons.Hetcons_Exception  (Hetcons_Exception)
 import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Observer_State, Participant_State_Var, modify_and_read, default_State, start_State)
 import Hetcons.Instances_1a ()
@@ -36,7 +36,8 @@ import Hetcons_Participant_Iface (Hetcons_Participant_Iface
                                    ,ping
                                    ,proposal_1a
                                    ,phase_1b)
-import Hetcons_Types              (Crypto_ID
+import Hetcons_Types              (Timestamp
+                                  ,Crypto_ID
                                   ,default_Phase_1b
                                   ,phase_1b_proposal
                                   ,phase_1b_conflicting_phase2as
@@ -50,9 +51,10 @@ import Hetcons_Types              (Crypto_ID
                                   ,proof_of_Consensus_phase_2bs
                                   ,signed_Hash_crypto_id
                                   ,signed_Message_signature
+                                  ,proposal_1a_timestamp
                                   )
 
-import Control.Concurrent (forkIO, ThreadId)
+import Control.Concurrent (forkIO, ThreadId, threadDelay)
 import Control.Exception.Base     (throw)
 import Control.Monad              (mapM, mapM_)
 import Control.Monad.Except       (throwError, catchError, MonadError)
@@ -65,6 +67,8 @@ import Data.Foldable              (maximum)
 import Data.HashSet               (HashSet, insert, toList, fromList,  empty, member)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.Serialize             (Serialize)
+import Data.Thyme.Clock           (getCurrentTime, UTCTime, UTCView(UTCTime))
+import Data.Thyme.Time.Core       (toThyme, fromThyme, diffUTCTime, toMicroseconds, fromMicroseconds, fromGregorian)
 import Thrift.Server (runBasicServer)
 
 data Participant = Participant {
@@ -89,6 +93,25 @@ basic_participant_server cid pk port = forkIO (do { participant <- new_participa
                                                   ; runBasicServer participant process (fromIntegral port)})
 
 
+-- | The current time, in nanoseconds since 1970 began.
+-- | Of course, our library only actually does microseconds, so we're multiplying by 1000
+current_nanoseconds :: IO Timestamp
+current_nanoseconds = do { now <- getCurrentTime
+                         ; return $ 1000 * (toMicroseconds $ diffUTCTime now ((toThyme $ fromThyme (UTCTime (fromGregorian 1970 0 0) (fromMicroseconds 0))) :: UTCTime))}
+
+-- | the timestamp contained in (the proposal of) this message
+message_timestamp :: (Contains_1a a) => a -> Timestamp
+message_timestamp = proposal_1a_timestamp . non_recursive . original . extract_1a
+
+-- | delay this thread by some number of nanoseconds
+-- | note that the library we're using actually works in microseconds, so we're dividing by 1000, rounding down
+delay_nanoseconds :: Timestamp -> IO ()
+delay_nanoseconds = threadDelay . floor . (/1000) . fromIntegral
+
+-- | delay this thread until the current time in nanoseconds is at least that of the timestamp in the message
+delay_message :: (Contains_1a a) => a -> IO ()
+delay_message m = do { now <- current_nanoseconds
+                     ; delay_nanoseconds (now - (message_timestamp m))}
 
 
 instance Hetcons_Participant_Iface Participant where
@@ -102,7 +125,7 @@ instance Hetcons_Participant_Iface Participant where
               message
     = case verify message of
         Left e -> throw e
-        Right (verified :: (Verified Recursive_1a)) -> run_Hetcons_Transaction_IO cid pk ab sv $ receive verified
+        Right (verified :: (Verified Recursive_1a)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv $ receive verified)
 
   phase_1b participant@(Participant {
                            crypto_id = cid
@@ -112,4 +135,4 @@ instance Hetcons_Participant_Iface Participant where
            message
     = case verify message of
         Left e -> throw e
-        Right (verified :: (Verified Recursive_1b)) -> run_Hetcons_Transaction_IO cid pk ab sv $ receive verified
+        Right (verified :: (Verified Recursive_1b)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv $ receive verified)
