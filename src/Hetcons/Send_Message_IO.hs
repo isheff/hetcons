@@ -60,6 +60,7 @@ import Hetcons_Types              (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Pr
 
 import qualified Control.Concurrent.Map as Concurrent_Map (Map, empty, lookup)
 import Control.Concurrent.Map     (insertIfAbsent)
+import Control.Concurrent.MVar (putMVar, takeMVar, newEmptyMVar, newMVar, MVar)
 import Control.Monad              (mapM_)
 import qualified Control.Monad.Parallel as Parallel (mapM_)
 import Control.Monad.Trans.Either (EitherT, runEitherT)
@@ -76,7 +77,7 @@ import Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
 import Thrift.Transport.Handle (hOpen)
 
 
-type Address_Book = Concurrent_Map.Map Participant_ID (BinaryProtocol Handle, BinaryProtocol Handle)
+type Address_Book = Concurrent_Map.Map Participant_ID (MVar (BinaryProtocol Handle, BinaryProtocol Handle))
 default_Address_Book :: IO Address_Book
 default_Address_Book = Concurrent_Map.empty
 
@@ -118,12 +119,16 @@ send_to address_book recipient prompt message = do
                  ; case first_look of
                      Just client -> return client
                      Nothing -> do { handle <- hOpen (domain_name recipient, PortNumber $ fromIntegral $ address_port_number $ participant_ID_address recipient )
-                                   ; insertIfAbsent recipient (BinaryProtocol handle, BinaryProtocol handle) address_book
+                                   ; new_entry <- newMVar (BinaryProtocol handle, BinaryProtocol handle)
+                                   ; insertIfAbsent recipient new_entry address_book
                                    ; second_look <- Concurrent_Map.lookup recipient address_book
                                    ; case second_look of
                                        Just client -> return client
                                        Nothing -> fail "I inserted a participant into the address book, but it's not there now for some reason!"}}
-  ; prompt client message}
+  ; client' <- takeMVar client
+  ; x <- prompt client' message
+  ; putMVar client client'
+  ; return x}
 
 
 
