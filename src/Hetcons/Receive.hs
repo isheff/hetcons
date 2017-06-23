@@ -7,7 +7,7 @@ module Hetcons.Receive () where
 
 import Hetcons.Conflicting_2as    (conflicting_2as)
 import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
-import Hetcons.Hetcons_Exception  (Hetcons_Exception)
+import Hetcons.Hetcons_Exception  (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a))
 import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Observer_State, Participant_State_Var, modify_and_read, default_State)
 import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
@@ -47,6 +47,7 @@ import Hetcons_Types              (Crypto_ID
                                   ,proof_of_Consensus_phase_2bs
                                   ,signed_Hash_crypto_id
                                   ,signed_Message_signature
+                                  ,default_Invalid_Proposal_1a
                                   )
 
 import Control.Exception.Base     (throw)
@@ -75,8 +76,9 @@ sign_m m = do
 instance Receivable Participant_State (Verified Recursive_1a) where
   receive r1a = do
     { state <- get_state
+    ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1a) ==) . extract_observer_quorums) state
       -- If we've seen this 1a before, or we've seen one with a greater ballot and the same quorums
-    ; if ((extract_ballot r1a) <= (maximum $ HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1a) ==) . extract_observer_quorums) state))
+    ; if ((not (null ballots_with_matching_quorums)) && ((extract_ballot r1a) <= (maximum ballots_with_matching_quorums)))
          then return ()
          else do { conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
                  ; send (default_Phase_1b {phase_1b_proposal = signed r1a
@@ -85,19 +87,21 @@ instance Receivable Participant_State (Verified Recursive_1a) where
 instance Receivable Participant_State (Verified Recursive_1b) where
   receive r1b = do
     { old_state <- get_state
+    ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1b) ==) . extract_observer_quorums) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
-         ((extract_ballot r1b) < (maximum $ HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1b) ==) . extract_observer_quorums) old_state)))
+         ((not (null ballots_with_matching_quorums)) &&
+         ((extract_ballot r1b) < (maximum ballots_with_matching_quorums))))
          then return ()
          else do { my_crypto_id <- get_my_crypto_id
                  ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signed_Message_signature $ signed r1b) -- if this 1b is from me
                       then return ()
                       else receive $ extract_1a r1b -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive $ extract_1bs $ original r1b -- receive all prior 1bs contained herein
-                 ; let state = insert r1b state
+                 ; let state = insert r1b old_state
                  ; put_state state -- update the state to include this 1b
                  ; signed <- sign_m (default_Phase_2a { phase_2a_phase_1bs = HashSet.map signed $
                      HashSet.filter (((extract_1a r1b) ==) . extract_1a) $ -- all the 1bs with the same proposal
-                     HashSet.filter (((extract_value r1b) ==) . extract_value) state})  -- all the 1bs with the same value
+                     HashSet.filter (((extract_value r1b) ==) . extract_value) old_state})  -- all the 1bs with the same value
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
                      Left e -> send r1b -- this 2a isn't valid, and shouldn't be sent out (maybe not enough 1bs yet) However, we still have to echo the 1b
                      Right v -> send v}} -- I'm assuming that sending a 2a will send all the 1bs in it.

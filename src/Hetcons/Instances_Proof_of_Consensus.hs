@@ -190,8 +190,7 @@ import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
 import           Data.Foldable          (null
                                         ,any
-                                        ,length
-                                        ,maximum)
+                                        ,length)
 import           GHC.Generics           (Generic)
 import           Data.Hashable          (Hashable
                                         ,hashWithSalt)

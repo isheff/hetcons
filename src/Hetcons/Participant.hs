@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Hetcons.Participant (Participant, new_participant, basic_participant_server) where
+module Hetcons.Participant (Participant, new_participant, basic_participant_server, current_nanoseconds ) where
 
 import Hetcons.Conflicting_2as    (conflicting_2as)
 import Hetcons.Contains_Value     (Contains_1a, Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
@@ -63,7 +63,6 @@ import Control.Monad.Trans.Either (EitherT, runEitherT)
 import Control.Monad.State        (StateT, runStateT, get, put,state)
 import Crypto.Random              (drgNew)
 import Data.ByteString.Lazy       (ByteString)
-import Data.Foldable              (maximum)
 import Data.HashSet               (HashSet, insert, toList, fromList,  empty, member)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.Serialize             (Serialize)

@@ -82,6 +82,7 @@ test-suite hetcons-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   other-modules:       Test.Hetcons_Exception
+                     , Test.Participant
                      , Test.Quorums
                      , Test.Signed_Message
   main-is:             Spec.hs
@@ -92,10 +93,20 @@ test-suite hetcons-test
                      , cereal
                      , either
                      , mtl
+                     , network
                      , unordered-containers
                      , transformers
                      , bytestring
                      , text
+                     -- BEGIN THRIFT REQUIREMENTS
+                     , thrift >= 1.0.0
+                     , QuickCheck
+                     , vector
+                     , unordered-containers
+                     , text
+                     , hashable
+                     , bytestring
+                     -- END THRIFT REQUIREMENTS
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
