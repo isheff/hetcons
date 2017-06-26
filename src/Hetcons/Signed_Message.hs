@@ -310,7 +310,7 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 -- | Otherwise, you get an exception.
 -- | TODO? We may want to make verify memoized. In theory, all that is necessary is to make verify = memoize verify'
--- |       For some reason, as of 2017-6-12, this actually slows down our unit tests.
+-- |       For some reason, as of 2017-6-26, this actually slows down our unit tests.
 -- |       Basic memoize tests on, say, fibonacci seem to work fine.
 verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
 verify = verify'

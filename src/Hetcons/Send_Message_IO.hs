@@ -60,7 +60,7 @@ import Hetcons_Types              (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Pr
 
 import qualified Control.Concurrent.Map as Concurrent_Map (Map, empty, lookup)
 import Control.Concurrent.Map     (insertIfAbsent)
-import Control.Concurrent.MVar (putMVar, takeMVar, newEmptyMVar, newMVar, MVar)
+import Control.Concurrent.MVar (modifyMVar, newMVar, MVar)
 import Control.Monad              (mapM_)
 import qualified Control.Monad.Parallel as Parallel (mapM_)
 import Control.Monad.Trans.Either (EitherT, runEitherT)
@@ -77,9 +77,6 @@ import Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
 import Thrift.Transport.Handle (hOpen)
 
 
-type Address_Book = Concurrent_Map.Map Participant_ID (MVar (BinaryProtocol Handle, BinaryProtocol Handle))
-default_Address_Book :: IO Address_Book
-default_Address_Book = Concurrent_Map.empty
 
 
 domain_name :: Participant_ID -> HostName
@@ -110,6 +107,11 @@ domain_name (Participant_ID{participant_ID_address=(Address{address_host_address
            byte_0 byte_1 byte_2 byte_3 byte_4 byte_5 byte_6 byte_7 byte_8 byte_9 byte_10 byte_11 byte_12 byte_13 byte_14 byte_15)
 
 
+-- | An address book maintains a list (used as a stack) of open communication handles for each other participant.
+-- | This is a list because, if all existing handles are busy, we will spin up a new one and later add it to the list.
+type Address_Book = Concurrent_Map.Map Participant_ID (MVar [(BinaryProtocol Handle, BinaryProtocol Handle)])
+default_Address_Book :: IO Address_Book
+default_Address_Book = Concurrent_Map.empty
 
 
 
@@ -118,16 +120,24 @@ send_to address_book recipient prompt message = do
   { client <- do { first_look <- Concurrent_Map.lookup recipient address_book
                  ; case first_look of
                      Just client -> return client
-                     Nothing -> do { handle <- hOpen (domain_name recipient, PortNumber $ fromIntegral $ address_port_number $ participant_ID_address recipient )
-                                   ; new_entry <- newMVar (BinaryProtocol handle, BinaryProtocol handle)
+                     Nothing -> do { new_entry <- newMVar []
                                    ; insertIfAbsent recipient new_entry address_book
                                    ; second_look <- Concurrent_Map.lookup recipient address_book
                                    ; case second_look of
                                        Just client -> return client
                                        Nothing -> fail "I inserted a participant into the address book, but it's not there now for some reason!"}}
-  ; client' <- takeMVar client
+    -- ModifyMVar executes an atomic transaction on the MVar, so we want to do as little within this transaction as possible
+  ; maybe_client <- modifyMVar client (\x -> case x of -- pop a handle off the stack, if possible. We will be the only thread using this handle at a given time.
+                                               (h:t) -> return (t, Just h) -- pops a handle off the stack
+                                               e -> return (e, Nothing)) -- all existing handles are busy
+  ; client' <- case maybe_client of
+                 Just c  -> return c -- If there already exists a handle that's not in use
+                                -- otherwise, we'll make a new one and use that
+                 Nothing -> do { handle <- hOpen (domain_name recipient, PortNumber $ fromIntegral $ address_port_number $ participant_ID_address recipient )
+                               ; return (BinaryProtocol handle, BinaryProtocol handle)}
   ; x <- prompt client' message
-  ; putMVar client client'
+    -- ModifyMVar executes an atomic transaction on the MVar, so we want to do as little within this transaction as possible
+  ; modifyMVar client (\r -> return (client' : r, ())) -- add our handle to the stack of known handles
   ; return x}
 
 
