@@ -101,7 +101,7 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                  ; put_state state -- update the state to include this 1b
                  ; signed <- sign_m (default_Phase_2a { phase_2a_phase_1bs = HashSet.map signed $
                      HashSet.filter (((extract_1a r1b) ==) . extract_1a) $ -- all the 1bs with the same proposal
-                     HashSet.filter (((extract_value r1b) ==) . extract_value) old_state})  -- all the 1bs with the same value
+                     HashSet.filter (((extract_value r1b) ==) . extract_value) state})  -- all the 1bs with the same value
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
                      Left e -> send r1b -- this 2a isn't valid, and shouldn't be sent out (maybe not enough 1bs yet) However, we still have to echo the 1b
                      Right v -> send v}} -- I'm assuming that sending a 2a will send all the 1bs in it.
@@ -110,8 +110,7 @@ instance Receivable Participant_State (Verified Recursive_1b) where
 instance Receivable Participant_State (Verified Recursive_2a) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   -- | Therefore, we can be assured that this 2a comes to use exactly once, and that all 1bs therein have been received.
-  receive r2a = let (Phase_2a {phase_2a_phase_1bs = x}) = non_recursive $ original r2a
-                 in send (default_Phase_2b {phase_2b_phase_1bs = x})
+  receive r2a = send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}
 
 
 

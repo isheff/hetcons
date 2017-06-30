@@ -73,6 +73,9 @@ import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
                      ,sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
                      ,sUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR)
 
+import qualified Hetcons_Observer as Observer (process)
+import qualified Hetcons_Observer_Iface as Observer (ping, phase_2b)
+import Hetcons_Observer_Iface (Hetcons_Observer_Iface)
 import Hetcons_Participant (process)
 import Hetcons_Participant_Iface (Hetcons_Participant_Iface
                                    ,ping
@@ -236,6 +239,19 @@ dummy_participant_server :: (Integral a) => a -> Dummy_Participant -> IO ThreadI
 dummy_participant_server port dummy = forkIO $ runBasicServer dummy process (fromIntegral port)
 
 
+data Dummy_Observer = Dummy_Observer {
+  dummy_observer_on_ping :: IO ()
+ ,dummy_observer_on_phase_2b :: Signed_Message -> IO ()
+}
+instance Hetcons_Observer_Iface Dummy_Observer where
+  ping = dummy_observer_on_ping
+  phase_2b = dummy_observer_on_phase_2b
+
+dummy_observer_server :: (Integral a) => a -> Dummy_Observer -> IO ThreadId
+dummy_observer_server port dummy = forkIO $ runBasicServer dummy Observer.process (fromIntegral port)
+
+
+
 participant_tests = TestList [
 
    TestLabel "Verify we can launch at least a dummy participant" (
@@ -340,6 +356,7 @@ participant_tests = TestList [
      TestCase ( do
        { now <- current_nanoseconds
        ; cert1 <- ByteString.readFile "test/cert.pem"
+       ; cert2 <- ByteString.readFile "test/cert2.pem"
        ; private1 <- ByteString.readFile "test/key.pem"
        ; address_book <- default_Address_Book
        ; (sv :: Participant_State_Var) <- start_State
@@ -350,7 +367,7 @@ participant_tests = TestList [
        ; dummy_thread <- dummy_participant_server 87020 (Dummy_Participant { on_ping = return ()
                                                                            , on_proposal_1a = \_-> return ()
                                                                            , on_phase_1b = \_ -> return () })
-       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert1 87020]
+       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert1 87020, sample_id cert2 87020]
        ; let (Right (verified :: (Verified Recursive_1a))) = verify signed_1a
        ; catch (catch (run_Hetcons_Transaction_IO cid private1 address_book sv $ receive verified)
                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -368,6 +385,8 @@ participant_tests = TestList [
        ; receipt_1b2 <- newEmptyMVar
        ; cert <- ByteString.readFile "test/cert.pem"
        ; private <- ByteString.readFile "test/key.pem"
+       ; cert2 <- ByteString.readFile "test/cert2.pem"
+       ; cert3 <- ByteString.readFile "test/cert3.pem"
        ; participant_thread <- (basic_participant_server
                                  (default_Crypto_ID {
                                   crypto_ID_public_crypto_key =
@@ -382,11 +401,11 @@ participant_tests = TestList [
                                                                            , on_proposal_1a = putMVar receipt_1a2
                                                                            , on_phase_1b = putMVar receipt_1b2})
        ; address_book <- default_Address_Book
-       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert 87005,sample_id cert 87006,sample_id cert 87007]
+       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert2 87005,sample_id cert3 87006,sample_id cert 87007]
        ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
        ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1a)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
-                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) False)))
+                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; r1a <- takeMVar receipt_1a
        ; r1b <- takeMVar receipt_1b
        ; r1a2 <- takeMVar receipt_1a2
@@ -413,6 +432,8 @@ participant_tests = TestList [
        ; receipt_1b2 <- newEmptyMVar
        ; cert <- ByteString.readFile "test/cert.pem"
        ; private <- ByteString.readFile "test/key.pem"
+       ; cert2 <- ByteString.readFile "test/cert2.pem"
+       ; cert3 <- ByteString.readFile "test/cert3.pem"
        ; participant_thread <- (basic_participant_server
                                  (default_Crypto_ID {
                                   crypto_ID_public_crypto_key =
@@ -427,7 +448,7 @@ participant_tests = TestList [
                                                                            , on_proposal_1a = putMVar receipt_1a2
                                                                            , on_phase_1b = putMVar receipt_1b2})
        ; address_book <- default_Address_Book
-       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert 87035,sample_id cert 87036,sample_id cert 87037]
+       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert3 87035,sample_id cert2 87036,sample_id cert 87037]
        ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
        ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1a)
                                              (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -443,7 +464,7 @@ participant_tests = TestList [
        ; assertEqual "received 1a is not sent 1a" signed_1a r1a2
        ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b2
        ; killThread send_thread
-       ; (Right signed_1a2) <- sample_sign $ sample_1a (now - 1) [sample_id cert 87035,sample_id cert 87036,sample_id cert 87037]
+       ; (Right signed_1a2) <- sample_sign $ sample_1a (now - 1) [sample_id cert3 87035,sample_id cert2 87036,sample_id cert 87037]
        ; let (Right (v1a2 :: (Verified Recursive_1a))) = verify signed_1a2
        ; (catch (catch (send_Message_IO address_book v1a2)
                        (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -452,7 +473,7 @@ participant_tests = TestList [
        ; r1a22 <- takeMVar receipt_1a2
        ; assertEqual "received 1a is not sent 1a" signed_1a2 r1a12
        ; assertEqual "received 1a is not sent 1a" signed_1a2 r1a22
-       ; (Right signed_1a3) <- sample_sign $ sample_1a (now + 1) [sample_id cert 87035,sample_id cert 87036,sample_id cert 87037]
+       ; (Right signed_1a3) <- sample_sign $ sample_1a (now + 1) [sample_id cert3 87035,sample_id cert2 87036,sample_id cert 87037]
        ; let (Right (v1a3 :: (Verified Recursive_1a))) = verify signed_1a3
        ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1a3)
                                               (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -468,6 +489,113 @@ participant_tests = TestList [
        ; assertEqual "received 1a is not sent 1a" signed_1a3 r1a23
        ; assertEqual "received 1b is not sent 1b" v1a3 $ extract_1a v1b23
        ; killThread send_thread2
+       ; killThread dummy_thread2
+       ; killThread participant_thread
+       ; killThread dummy_thread}))
+
+  ,TestLabel "Participant produces 1b given 1b" (
+     TestCase ( do
+       { now <- current_nanoseconds
+       ; receipt_1b <- newEmptyMVar
+       ; receipt_1b2 <- newEmptyMVar
+       ; cert <- ByteString.readFile "test/cert1.pem"
+       ; private <- ByteString.readFile "test/key1.pem"
+       ; participant_thread <- (basic_participant_server
+                                 (default_Crypto_ID {
+                                  crypto_ID_public_crypto_key =
+                                    Just (default_Public_Crypto_Key {
+                                            public_Crypto_Key_public_crypto_key_x509 = Just cert})})
+                                 private
+                                 87047)
+       ; dummy_thread <- dummy_participant_server 87045 (Dummy_Participant { on_ping = return ()
+                                                                           , on_proposal_1a = \_ -> return ()
+                                                                           , on_phase_1b = putMVar receipt_1b})
+       ; dummy_thread2 <- dummy_participant_server 87046 (Dummy_Participant { on_ping = return ()
+                                                                            , on_proposal_1a = \_ -> return ()
+                                                                            , on_phase_1b = putMVar receipt_1b2})
+       ; address_book <- default_Address_Book
+       ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert 87045,sample_id cert 87046,sample_id cert 87047]
+       ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
+       ; (Right signed_1b) <- sample_sign (default_Phase_1b { phase_1b_proposal = signed_1a})
+       ; let (Right (v1b :: (Verified Recursive_1b))) = verify signed_1b
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b)
+                                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
+                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
+       ; r1b <- takeMVar receipt_1b
+       ; r1b2 <- takeMVar receipt_1b2
+       ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
+       ; let (Right (v1b2 :: (Verified Recursive_1b))) = verify r1b2
+       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b
+       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b2
+       ; killThread send_thread
+       ; killThread dummy_thread2
+       ; killThread participant_thread
+       ; killThread dummy_thread}))
+
+  ,TestLabel "Participant produces 2b given appropriate 1bs" (
+     TestCase ( do
+       { now <- current_nanoseconds
+       ; receipt_2b <- newEmptyMVar
+       ; cert <- ByteString.readFile "test/cert.pem"
+       ; private <- ByteString.readFile "test/key.pem"
+       ; cert1 <- ByteString.readFile "test/cert1.pem"
+       ; private1 <- ByteString.readFile "test/key1.pem"
+       ; cert2 <- ByteString.readFile "test/cert2.pem"
+       ; private2 <- ByteString.readFile "test/key2.pem"
+       ; cert3 <- ByteString.readFile "test/cert3.pem"
+       ; private3 <- ByteString.readFile "test/key3.pem"
+       ; cert4 <- ByteString.readFile "test/cert4.pem"
+       ; private4 <- ByteString.readFile "test/key4.pem"
+       ; participant_thread <- (basic_participant_server
+                                 (default_Crypto_ID {
+                                  crypto_ID_public_crypto_key =
+                                    Just (default_Public_Crypto_Key {
+                                            public_Crypto_Key_public_crypto_key_x509 = Just cert1})})
+                                 private1
+                                 87057)
+       ; dummy_thread <- dummy_participant_server 87055 (Dummy_Participant { on_ping = return ()
+                                                                           , on_proposal_1a = \_ -> return ()
+                                                                           , on_phase_1b = \_ -> return ()})
+       ; dummy_thread2 <- dummy_participant_server 87056 (Dummy_Participant { on_ping = return ()
+                                                                            , on_proposal_1a = \_ -> return ()
+                                                                            , on_phase_1b = \_ -> return ()})
+       ; dummy_observer <- dummy_observer_server 87058 (Dummy_Observer { dummy_observer_on_ping = return ()
+                                                                       , dummy_observer_on_phase_2b = putMVar receipt_2b})
+       ; address_book <- default_Address_Book
+       ; let message_1a = default_Proposal_1a {
+                            proposal_1a_value = default_Value {
+                                                   value_value_payload = ByteString.singleton 42
+                                                  ,value_slot = 6}
+                           ,proposal_1a_timestamp = now
+                           ,proposal_1a_observers = Just default_Observers {
+                              observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert4 87058,
+                                                                    fromList [fromList [sample_id cert1 87055,sample_id cert2 87056,sample_id cert3 87057]])]}}
+       ; (Right signed_1a) <- sample_sign $ message_1a
+       ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
+       ; gen2 <- getSystemDRG
+       ; let crypto_id2 = default_Crypto_ID {crypto_ID_public_crypto_key =
+                          Just (default_Public_Crypto_Key {
+                            public_Crypto_Key_public_crypto_key_x509 = Just cert2})}
+       ; let (Right signed_1b2) = sign crypto_id2 private2 sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen2 (default_Phase_1b { phase_1b_proposal = signed_1a})
+       ; gen3 <- getSystemDRG
+       ; let crypto_id3 = default_Crypto_ID {crypto_ID_public_crypto_key =
+                          Just (default_Public_Crypto_Key {
+                            public_Crypto_Key_public_crypto_key_x509 = Just cert3})}
+       ; let (Right signed_1b3) = sign crypto_id3 private3 sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen3 (default_Phase_1b { phase_1b_proposal = signed_1a})
+       ; let (Right (v1b2 :: (Verified Recursive_1b))) = verify signed_1b2
+       ; let (Right (v1b3 :: (Verified Recursive_1b))) = verify signed_1b3
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b2)
+                                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
+                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
+       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1b3)
+                                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
+                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
+       ; r2b <- takeMVar receipt_2b
+       ; let (Right (v2b :: (Verified Recursive_2b))) = verify r2b
+       ; assertEqual "received 2b is not correct" v1a $ extract_1a v2b
+       ; killThread send_thread
+       ; killThread send_thread2
+       ; killThread dummy_observer
        ; killThread dummy_thread2
        ; killThread participant_thread
        ; killThread dummy_thread}))
