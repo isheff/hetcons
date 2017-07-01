@@ -230,7 +230,6 @@ quorums_tests = TestList [
                                            ])
                                      ] ))
 
-   -- | TODO: why can't the system find the correct crash-tolerant quorums?
   ,TestLabel "two observer, three participant" (
      TestCase ( test_quorum_creation [  (1,2,[1,2,3],[1,2  ])
                                        ,(1,2,[1,2,3],[1,  3])

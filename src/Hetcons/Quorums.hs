@@ -100,8 +100,12 @@ graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Obse
       expanded_for x y = HashSet.filter (\(safe, live) -> (
           any (\(Observer_Trust_Constraint{observer_Trust_Constraint_safe = c_safe, observer_Trust_Constraint_live = c_live}) ->
                 (c_safe == intersection c_safe safe) &&
-                (c_live == intersection c_live live) &&
-                (safe == intersection safe live)) -- the set of live nodes must include the set of safe nodes.
+                (c_live == intersection c_live live))
+                -- TODO: I'm still concerned over whether we need a constraint about safe but non-live nodes.
+                -- You see, technically, a    safe live   node is normal,
+                --                     , an unsafe live   node is byzantine,
+                --                     , a    safe unlive node is crashed,
+                --                     , an unsafe unlive node is what? Really just a shorthand for this can crash or byzantine I guess, by the upward closure rule.
               (constraints_for x y)
         )) power_constraints
       matrix = [[expanded_for x y | y <- observers] | x <- observers]
