@@ -2,6 +2,7 @@ import Test.Hetcons_Exception (hetcons_exception_tests)
 import Test.Signed_Message    (signed_message_tests)
 import Test.Quorums           (quorums_tests)
 import Test.Participant       (participant_tests)
+import Test.Observer          (observer_tests)
 
 import Test.HUnit (runTestTT)
 
@@ -15,5 +16,7 @@ main = do { putStrLn "\nHETCONS EXCEPTION TESTS"
           ; runTestTT quorums_tests
           ; putStrLn "\nPARTICIPANT TESTS"
           ; runTestTT participant_tests
+          ; putStrLn "\nOBSERVER TESTS"
+          ; runTestTT observer_tests
           ; return ()
 }
