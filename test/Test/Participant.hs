@@ -667,12 +667,6 @@ participant_tests = TestList [
        ; assertEqual "received 2b is not correct" v1a $ extract_1a v2b
        ; let conflicting_value = default_Value { value_value_payload = ByteString.singleton 43
                                                , value_slot = 6}
-       ; let message_1a2= default_Proposal_1a {
-                            proposal_1a_value = conflicting_value
-                           ,proposal_1a_timestamp = now + 1
-                           ,proposal_1a_observers = Just default_Observers {
-                              observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert4 77098,
-                                                                    fromList [fromList [sample_id cert1 77095,sample_id cert2 77096,sample_id cert3 77097]])]}}
        ; (Right signed_1a2) <- sample_sign $ message_1a2
        ; let (Right (v1a2 :: (Verified Recursive_1a))) = verify signed_1a2
        ; send_thread3 <- forkIO (catch (catch (send_Message_IO address_book v1a2)
