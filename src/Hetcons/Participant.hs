@@ -112,6 +112,8 @@ delay_message :: (Contains_1a a) => a -> IO ()
 delay_message m = do { now <- current_nanoseconds
                      ; delay_nanoseconds (now - (message_timestamp m))}
 
+on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
+on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
 
 instance Hetcons_Participant_Iface Participant where
   ping _ = return ()
@@ -124,7 +126,7 @@ instance Hetcons_Participant_Iface Participant where
               message
     = case verify message of
         Left e -> throw e
-        Right (verified :: (Verified Recursive_1a)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv $ receive verified)
+        Right (verified :: (Verified Recursive_1a)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv on_consensus $ receive verified)
 
   phase_1b participant@(Participant {
                            crypto_id = cid
@@ -134,4 +136,4 @@ instance Hetcons_Participant_Iface Participant where
            message
     = case verify message of
         Left e -> throw e
-        Right (verified :: (Verified Recursive_1b)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv $ receive verified)
+        Right (verified :: (Verified Recursive_1b)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv on_consensus $ receive verified)

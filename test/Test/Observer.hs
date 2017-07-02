@@ -30,8 +30,8 @@ import Hetcons.Hetcons_State
 import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
 import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus ()
-import Hetcons.Observer (Observer, new_observer, basic_observer_server)
+import Hetcons.Instances_Proof_of_Consensus (observers_proven)
+import Hetcons.Observer (Observer, new_observer, basic_observer_server, basic_observer_server_print)
 import Hetcons.Participant (Participant, new_participant, basic_participant_server, current_nanoseconds )
 import Hetcons.Receive_Message
   (Hetcons_Transaction
@@ -48,7 +48,7 @@ import Hetcons.Receive_Message
     ,receive
   ,Sendable
     ,send)
-import Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO)
+import Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name)
 import Hetcons.Signed_Message (Verified
                                  ,signed
                                  ,original
@@ -276,13 +276,15 @@ launch_observer port = do
   { (used_port, now, address_book, cert) <- launch_dummy_observer port
   ; let new_port = used_port + 1
   ; private <- ByteString.readFile "test/key.pem"
+  ; proof_receipt <- newEmptyMVar
   ; observer <- (basic_observer_server
                   (default_Crypto_ID {
                     crypto_ID_public_crypto_key =
                       Just (default_Public_Crypto_Key {
                               public_Crypto_Key_public_crypto_key_x509 = Just cert})})
                   private
-                  $ fromIntegral new_port)
+                  (fromIntegral new_port)
+                  $ putMVar proof_receipt)
   ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert (fromIntegral new_port)]
   ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
   ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
@@ -291,6 +293,9 @@ launch_observer port = do
   ; let (Right (v2b :: (Verified Recursive_2b))) = verify signed_2b
   ; send_Message_IO address_book v2b
   ; assertBool "have launched an observer" True
+  ; received_proof <- takeMVar proof_receipt
+  ; assertEqual "incorrect observers proven" ("localhost:"++(show $ fromIntegral new_port)++",") $
+      foldr (\n x -> x ++ (domain_name n) ++ ":"++ (show $ address_port_number $ participant_ID_address n) ++",") "" $ observers_proven received_proof
   ; return (new_port, now, address_book, cert, private)
   }
 

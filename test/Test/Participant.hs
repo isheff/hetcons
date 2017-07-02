@@ -367,7 +367,7 @@ participant_tests = TestList [
                                                                            , on_phase_1b = \_ -> return () })
        ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert1 87020, sample_id cert2 87020]
        ; let (Right (verified :: (Verified Recursive_1a))) = verify signed_1a
-       ; catch (catch (run_Hetcons_Transaction_IO cid private1 address_book sv $ receive verified)
+       ; catch (catch (run_Hetcons_Transaction_IO cid private1 address_book sv (\_ -> return ()) $ receive verified)
                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) False))
        }))

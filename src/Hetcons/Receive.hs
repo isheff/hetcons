@@ -126,8 +126,9 @@ instance Receivable Observer_State (Verified Recursive_2b) where
                      HashSet.filter (((extract_1a r2b) ==) . extract_1a) $ -- all the 2bs with the same proposal
                      HashSet.filter (((extract_value r2b) ==) . extract_value) state})  -- all the 2bs with the same value
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_Proof_of_Consensus))) of
-                     Left e -> send r2b -- this proof isn't valid, and shouldn't be sent out (maybe not enough 2bs yet) However, we still have to echo the 2b
-                     Right v -> send v}} -- I'm assuming that sending a proof will send all the 2bs in it.
+                     Left e -> return () -- this proof isn't valid, and shouldn't be sent out (maybe not enough 2bs yet) However, we still have to echo the 2b
+                     Right v -> send v
+                 ; send r2b}}
 
 instance Receivable Observer_State (Verified Recursive_Proof_of_Consensus) where
   receive rpoc = return () -- TODO: what do we do here? We have consensus (at least for some observers).

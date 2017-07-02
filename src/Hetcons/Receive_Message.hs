@@ -141,8 +141,9 @@ run_Hetcons_Transaction x v s = case (runReader (runStateT (runEitherT $ unwrap 
 -- | return the returned value into the IO Monad.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-run_Hetcons_Transaction_IO :: (Hetcons_State s) => Crypto_ID -> ByteString -> Address_Book ->  (TVar s) -> (Hetcons_Transaction s a) -> IO a
-run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var receive_message =
+run_Hetcons_Transaction_IO :: (Hetcons_State s) => Crypto_ID -> ByteString -> Address_Book ->  (TVar s) ->
+                                                   ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> (Hetcons_Transaction s a) -> IO a
+run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var do_on_consensus receive_message =
   do { drg <- getSystemDRG
      ; let env = Hetcons_Transaction_Environment {crypto_id = my_crypto_id, private_key = my_private_key}
      ; f <- modify_and_read state_var
@@ -167,7 +168,8 @@ run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var re
                                   ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_1bs final_receive_message_state
                                   ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_2as final_receive_message_state
                                   ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_2bs final_receive_message_state
-                                  ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_Proof_of_Consensus final_receive_message_state]
+                                  ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_Proof_of_Consensus final_receive_message_state
+                                  ,Parallel.mapM_ do_on_consensus $ toList $ sent_Proof_of_Consensus final_receive_message_state]
               ; return x}}
 
 -- | reads the current Hetcons_Transaction_State from the Monad's state

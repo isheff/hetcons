@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Hetcons.Observer (Observer, new_observer, basic_observer_server) where
+module Hetcons.Observer (Observer, new_observer, basic_observer_server, basic_observer_server_print) where
 
 import Hetcons.Conflicting_2as    (conflicting_2as)
 import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
@@ -9,7 +9,7 @@ import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Observer_St
 import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
 import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus ()
+import Hetcons.Instances_Proof_of_Consensus (observers_proven)
 import Hetcons.Receive()
 import Hetcons.Receive_Message
   (Hetcons_Transaction
@@ -27,7 +27,7 @@ import Hetcons.Receive_Message
   ,Sendable
     ,send)
 import Hetcons.Send               ()
-import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO)
+import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO, domain_name)
 import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
 
 import Hetcons_Consts             (sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR)
@@ -49,6 +49,8 @@ import Hetcons_Types              (Crypto_ID
                                   ,proof_of_Consensus_phase_2bs
                                   ,signed_Hash_crypto_id
                                   ,signed_Message_signature
+                                  ,address_port_number
+                                  ,participant_ID_address
                                   )
 
 import Control.Concurrent (forkIO, ThreadId)
@@ -60,7 +62,6 @@ import Control.Monad.Trans.Either (EitherT, runEitherT)
 import Control.Monad.State        (StateT, runStateT, get, put,state)
 import Crypto.Random              (drgNew)
 import Data.ByteString.Lazy       (ByteString)
-import Data.Foldable              (maximum)
 import Data.HashSet               (HashSet, insert, toList, fromList,  empty, member)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.Serialize             (Serialize)
@@ -71,22 +72,32 @@ data Observer = Observer {
  ,private_key :: ByteString
  ,address_book :: Address_Book
  ,state_var :: Observer_State_Var
+ ,do_on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 }
 
-new_observer :: Crypto_ID -> ByteString -> IO Observer
-new_observer cid pk =
+new_observer :: Crypto_ID -> ByteString -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO Observer
+new_observer cid pk doc =
   do { ab <- default_Address_Book
      ; sv <- start_State
      ; return Observer {
             crypto_id = cid
            ,private_key = pk
            ,address_book = ab
-           ,state_var = sv}}
+           ,state_var = sv
+           ,do_on_consensus = doc}}
 
-basic_observer_server :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
-basic_observer_server cid pk port = forkIO (do { observer <- new_observer cid pk
-                                               ; runBasicServer observer process (fromIntegral port)})
+basic_observer_server_print :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
+basic_observer_server_print cid pk port = basic_observer_server cid pk port on_consensus
 
+basic_observer_server :: (Integral a) => Crypto_ID -> ByteString -> a -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO ThreadId
+basic_observer_server cid pk port doc = forkIO (do { observer <- new_observer cid pk doc
+                                                   ; runBasicServer observer process (fromIntegral port)})
+
+on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
+on_consensus proof = putStrLn $
+  foldr (\n x -> x ++ "     " ++ (domain_name n) ++ " : "++ (show $ address_port_number $ participant_ID_address n) ++"\n")
+        "\nCONSENSUS PROVEN for observers:\n"
+        $ observers_proven proof
 
 
 
@@ -97,8 +108,9 @@ instance Hetcons_Observer_Iface Observer where
                         crypto_id = cid
                        ,private_key = pk
                        ,address_book = ab
-                       ,state_var = sv})
+                       ,state_var = sv
+                       ,do_on_consensus = doc})
               message
     = case verify message of
         Left e -> throw e
-        Right (verified :: (Verified Recursive_2b)) -> run_Hetcons_Transaction_IO cid pk ab sv $ receive verified
+        Right (verified :: (Verified Recursive_2b)) -> run_Hetcons_Transaction_IO cid pk ab sv doc $ receive verified

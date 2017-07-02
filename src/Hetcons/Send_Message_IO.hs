@@ -4,7 +4,7 @@
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE Rank2Types #-}
 
-module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO) where
+module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name) where
 
 import Hetcons.Contains_Value (extract_observer_quorums, extract_1bs)
 import Hetcons.Hetcons_Exception  (Hetcons_Exception)
@@ -19,7 +19,7 @@ import Hetcons.Signed_Message     (Verified
                                   ,Recursive_1b
                                   ,Recursive_2a
                                   ,Recursive_2b
-                                  ,Recursive_Proof_of_Consensus
+                                  ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
                                   ,Parsable, sign)
 
 import Hetcons_Observer_Client (phase_2b)
@@ -165,8 +165,5 @@ instance Send_Message_IO Recursive_2b where
                keys $ extract_observer_quorums v2b
 
 instance Send_Message_IO Recursive_Proof_of_Consensus where
-  send_Message_IO _ proof = putStrLn $
-    foldr (\n x -> x ++ "     " ++ (domain_name n) ++ " : "++ (show $ address_port_number $ participant_ID_address n) ++"\n")
-          "\nCONSENSUS PROVEN for observers:\n"
-          $ observers_proven proof
+  send_Message_IO address_book = (Parallel.mapM_ $ send_Message_IO address_book) . toList . (\(Recursive_Proof_of_Consensus v2bs) -> v2bs) . original
 
