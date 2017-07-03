@@ -449,7 +449,7 @@ consensus_tests = TestList [
                                  85023)
        ; participant_thread4<- (basic_participant_server
                                  (participant_ID_crypto_id (ids!!4))
-                                 private3
+                                 private4
                                  85024)
        ; address_book <- default_Address_Book
        ; now <- current_nanoseconds
