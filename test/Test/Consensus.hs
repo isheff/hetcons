@@ -413,88 +413,88 @@ consensus_tests = TestList [
        ; assertEqual "wrong value proven" (extract_value message_1a) (extract_value received_proof2)
        }))
 
-  ,TestLabel "Four participant Consensus" (
-     TestCase ( do
-       { private <- ByteString.readFile "test/key.pem"
-       ; private1 <- ByteString.readFile "test/key1.pem"
-       ; private2 <- ByteString.readFile "test/key2.pem"
-       ; private3 <- ByteString.readFile "test/key3.pem"
-       ; private4 <- ByteString.readFile "test/key4.pem"
-       ; private6 <- ByteString.readFile "test/key6.pem"
-       ; cert <- ByteString.readFile "test/cert.pem"
-       ; certs' <- mapM (\i -> ByteString.readFile $ "test/cert" ++ (show i) ++ ".pem") [1..6]
-       ; let (ids :: [Participant_ID]) = map (uncurry sample_id) (zip (cert:certs') [85020..85026])
-       ; proof_receipt <- newEmptyMVar
-       ; observer1<- (basic_observer_server
-                       (participant_ID_crypto_id (ids!!0))
-                       private
-                       85020
-                       $ putMVar proof_receipt)
-       ; observer2<- (basic_observer_server
-                       (participant_ID_crypto_id (ids!!6))
-                       private6
-                       85026
-                       $ putMVar proof_receipt)
-       ; participant_thread1<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!1))
-                                 private1
-                                 85021)
-       ; participant_thread2<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!2))
-                                 private2
-                                 85022)
-       ; participant_thread3<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!3))
-                                 private3
-                                 85023)
-       ; participant_thread4<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!4))
-                                 private4
-                                 85024)
-       ; address_book <- default_Address_Book
-       ; now <- current_nanoseconds
-       ; let message_1a = default_Proposal_1a {
-                            proposal_1a_value = default_Value {
-                                                   value_value_payload = ByteString.singleton 42
-                                                  ,value_slot = 6}
-                           ,proposal_1a_timestamp = now
-                           ,proposal_1a_observers = Just default_Observers {
-                                                           observers_observer_graph = Just $ fromList $ [
-                                                                   default_Observer_Trust_Constraint  {
-                                                                     observer_Trust_Constraint_observer_1 = ids!!0
-                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
-                                                                    ,observer_Trust_Constraint_safe = fromList $ [ids!!1, ids!!2, ids!!3        ]
-                                                                    ,observer_Trust_Constraint_live = fromList $ [ids!!1, ids!!2, ids!!3        ]}
-                                                                  ,default_Observer_Trust_Constraint  {
-                                                                     observer_Trust_Constraint_observer_1 = ids!!0
-                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
-                                                                    ,observer_Trust_Constraint_safe = fromList $ [ids!!1, ids!!2,         ids!!4]
-                                                                    ,observer_Trust_Constraint_live = fromList $ [ids!!1, ids!!2,         ids!!4]}
-                                                                  ,default_Observer_Trust_Constraint  {
-                                                                     observer_Trust_Constraint_observer_1 = ids!!0
-                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
-                                                                    ,observer_Trust_Constraint_safe = fromList $ [ids!!1,         ids!!3, ids!!4]
-                                                                    ,observer_Trust_Constraint_live = fromList $ [ids!!1,         ids!!3, ids!!4]}
-                                                                  ,default_Observer_Trust_Constraint  {
-                                                                     observer_Trust_Constraint_observer_1 = ids!!0
-                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
-                                                                    ,observer_Trust_Constraint_safe = fromList $ [        ids!!2, ids!!3, ids!!4]
-                                                                    ,observer_Trust_Constraint_live = fromList $ [        ids!!2, ids!!3, ids!!4]}]}}
-       ; (Right signed_1a) <- sample_sign $ message_1a
-       ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1a)
-                                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
-                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; received_proof <- takeMVar proof_receipt
-       ; assertEqual "incorrect observers proven" (fromList ["localhost:85020","localhost:85026"]) $
-           foldr (\n x -> insert ((domain_name n) ++ ":"++ (show $ address_port_number $ participant_ID_address n)) x) empty $ observers_proven received_proof
-       ; assertEqual "wrong value proven" (extract_value message_1a) (extract_value received_proof)
-       ; received_proof2 <- takeMVar proof_receipt
-       ; assertEqual "incorrect observers proven" (fromList ["localhost:85020","localhost:85026"]) $
-           foldr (\n x -> insert ((domain_name n) ++ ":"++ (show $ address_port_number $ participant_ID_address n)) x) empty $ observers_proven received_proof2
-       ; assertEqual "wrong value proven" (extract_value message_1a) (extract_value received_proof2)
-       ; current_nanoseconds >>= (putStrLn . ("\n"++) . show . (\x -> (fromIntegral (x - now))/(1000000000.0)))
-       }))
+--  ,TestLabel "Four participant Consensus" (
+--     TestCase ( do
+--       { private <- ByteString.readFile "test/key.pem"
+--       ; private1 <- ByteString.readFile "test/key1.pem"
+--       ; private2 <- ByteString.readFile "test/key2.pem"
+--       ; private3 <- ByteString.readFile "test/key3.pem"
+--       ; private4 <- ByteString.readFile "test/key4.pem"
+--       ; private6 <- ByteString.readFile "test/key6.pem"
+--       ; cert <- ByteString.readFile "test/cert.pem"
+--       ; certs' <- mapM (\i -> ByteString.readFile $ "test/cert" ++ (show i) ++ ".pem") [1..6]
+--       ; let (ids :: [Participant_ID]) = map (uncurry sample_id) (zip (cert:certs') [85020..85026])
+--       ; proof_receipt <- newEmptyMVar
+--       ; observer1<- (basic_observer_server
+--                       (participant_ID_crypto_id (ids!!0))
+--                       private
+--                       85020
+--                       $ putMVar proof_receipt)
+--       ; observer2<- (basic_observer_server
+--                       (participant_ID_crypto_id (ids!!6))
+--                       private6
+--                       85026
+--                       $ putMVar proof_receipt)
+--       ; participant_thread1<- (basic_participant_server
+--                                 (participant_ID_crypto_id (ids!!1))
+--                                 private1
+--                                 85021)
+--       ; participant_thread2<- (basic_participant_server
+--                                 (participant_ID_crypto_id (ids!!2))
+--                                 private2
+--                                 85022)
+--       ; participant_thread3<- (basic_participant_server
+--                                 (participant_ID_crypto_id (ids!!3))
+--                                 private3
+--                                 85023)
+--       ; participant_thread4<- (basic_participant_server
+--                                 (participant_ID_crypto_id (ids!!4))
+--                                 private4
+--                                 85024)
+--       ; address_book <- default_Address_Book
+--       ; now <- current_nanoseconds
+--       ; let message_1a = default_Proposal_1a {
+--                            proposal_1a_value = default_Value {
+--                                                   value_value_payload = ByteString.singleton 42
+--                                                  ,value_slot = 6}
+--                           ,proposal_1a_timestamp = now
+--                           ,proposal_1a_observers = Just default_Observers {
+--                                                           observers_observer_graph = Just $ fromList $ [
+--                                                                   default_Observer_Trust_Constraint  {
+--                                                                     observer_Trust_Constraint_observer_1 = ids!!0
+--                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
+--                                                                    ,observer_Trust_Constraint_safe = fromList $ [ids!!1, ids!!2, ids!!3        ]
+--                                                                    ,observer_Trust_Constraint_live = fromList $ [ids!!1, ids!!2, ids!!3        ]}
+--                                                                  ,default_Observer_Trust_Constraint  {
+--                                                                     observer_Trust_Constraint_observer_1 = ids!!0
+--                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
+--                                                                    ,observer_Trust_Constraint_safe = fromList $ [ids!!1, ids!!2,         ids!!4]
+--                                                                    ,observer_Trust_Constraint_live = fromList $ [ids!!1, ids!!2,         ids!!4]}
+--                                                                  ,default_Observer_Trust_Constraint  {
+--                                                                     observer_Trust_Constraint_observer_1 = ids!!0
+--                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
+--                                                                    ,observer_Trust_Constraint_safe = fromList $ [ids!!1,         ids!!3, ids!!4]
+--                                                                    ,observer_Trust_Constraint_live = fromList $ [ids!!1,         ids!!3, ids!!4]}
+--                                                                  ,default_Observer_Trust_Constraint  {
+--                                                                     observer_Trust_Constraint_observer_1 = ids!!0
+--                                                                    ,observer_Trust_Constraint_observer_2 = ids!!6
+--                                                                    ,observer_Trust_Constraint_safe = fromList $ [        ids!!2, ids!!3, ids!!4]
+--                                                                    ,observer_Trust_Constraint_live = fromList $ [        ids!!2, ids!!3, ids!!4]}]}}
+--       ; (Right signed_1a) <- sample_sign $ message_1a
+--       ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
+--       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1a)
+--                                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
+--                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
+--       ; received_proof <- takeMVar proof_receipt
+--       ; assertEqual "incorrect observers proven" (fromList ["localhost:85020","localhost:85026"]) $
+--           foldr (\n x -> insert ((domain_name n) ++ ":"++ (show $ address_port_number $ participant_ID_address n)) x) empty $ observers_proven received_proof
+--       ; assertEqual "wrong value proven" (extract_value message_1a) (extract_value received_proof)
+--       ; received_proof2 <- takeMVar proof_receipt
+--       ; assertEqual "incorrect observers proven" (fromList ["localhost:85020","localhost:85026"]) $
+--           foldr (\n x -> insert ((domain_name n) ++ ":"++ (show $ address_port_number $ participant_ID_address n)) x) empty $ observers_proven received_proof2
+--       ; assertEqual "wrong value proven" (extract_value message_1a) (extract_value received_proof2)
+--       ; current_nanoseconds >>= (putStrLn . ("\n"++) . show . (\x -> (fromIntegral (x - now))/(1000000000.0)))
+--       }))
 
   ]
 

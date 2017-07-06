@@ -313,7 +313,7 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 -- |       For some reason, as of 2017-6-26, this actually slows down our unit tests.
 -- |       Basic memoize tests on, say, fibonacci seem to work fine.
 verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
-verify = verify'
+verify = memoize verify'
 
 
 
