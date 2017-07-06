@@ -103,8 +103,9 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                      HashSet.filter (((extract_1a r1b) ==) . extract_1a) $ -- all the 1bs with the same proposal
                      HashSet.filter (((extract_value r1b) ==) . extract_value) state})  -- all the 1bs with the same value
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
-                     Left e -> send r1b -- this 2a isn't valid, and shouldn't be sent out (maybe not enough 1bs yet) However, we still have to echo the 1b
-                     Right v -> send v}} -- I'm assuming that sending a 2a will send all the 1bs in it.
+                     Left e -> return ()
+                     Right v -> send v
+                 ; send r1b}} -- I'm assuming that sending a 2a will send all the 1bs in it.
 
 
 instance Receivable Participant_State (Verified Recursive_2a) where

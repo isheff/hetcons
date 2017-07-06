@@ -157,11 +157,11 @@ instance Send_Message_IO Recursive_1b where
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1b
 
 instance Send_Message_IO Recursive_2a where
-  send_Message_IO address_book = (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
+  send_Message_IO address_book _ = return () -- (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
 
 instance Send_Message_IO Recursive_2b where
   send_Message_IO address_book v2b =
-    Parallel.mapM_ (\participant -> (send_to address_book participant phase_2b $ signed v2b)) $
+    Parallel.mapM_ (\observer -> (send_to address_book observer phase_2b $ signed v2b)) $
                keys $ extract_observer_quorums v2b
 
 instance Send_Message_IO Recursive_Proof_of_Consensus where

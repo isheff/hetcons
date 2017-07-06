@@ -7,6 +7,7 @@ module Hetcons.Quorums
 
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a
                                                    ,Hetcons_Exception_Impossible_Observer_Graph))
+import Hetcons.Memoize (memoize)
 
 import Hetcons_Consts ()
 import Hetcons_Types  (Value
@@ -89,7 +90,17 @@ verify_quorums (Proposal_1a { proposal_1a_observers = Just x }) = Right x
 
 
 graph_to_quorums :: Proposal_1a -> Either Hetcons_Exception Observers
-graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Observers {observers_observer_graph = Just constraints})}) =
+graph_to_quorums (Proposal_1a { proposal_1a_observers = Just x_observers@(Observers {observers_observer_graph = Just constraints})}) = m_graph_to_quorums x_observers
+
+graph_to_quorums x = throwError $
+         Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+            invalid_Proposal_1a_offending_proposal = x
+           ,invalid_Proposal_1a_explanation = Just "Unable to calculate quorums from non-existent graph."}
+
+
+m_graph_to_quorums = memoize graph_to_quorums'
+
+graph_to_quorums' x_observers@(Observers {observers_observer_graph = Just constraints}) =
   let observers = toList $ union (HashSet.map observer_Trust_Constraint_observer_1 constraints) (HashSet.map observer_Trust_Constraint_observer_2 constraints)
       participants = unions $ toList $ union (HashSet.map observer_Trust_Constraint_safe constraints) (HashSet.map observer_Trust_Constraint_live constraints)
       power_set = fromList $ map fromList $ filterM (const [True, False]) (toList participants)
@@ -123,12 +134,3 @@ graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Obse
          else Left $ Hetcons_Exception_Impossible_Observer_Graph (default_Impossible_Observer_Graph {
                        impossible_Observer_Graph_offending_observer_graph = constraints
                       ,impossible_Observer_Graph_explanation = Just $ "These constraints result in a set of quorums that doesn't meet the quorum requirement."})
-
-
-graph_to_quorums x = throwError $
-         Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
-            invalid_Proposal_1a_offending_proposal = x
-           ,invalid_Proposal_1a_explanation = Just "Unable to calculate quorums from non-existent graph."}
-
-
-
