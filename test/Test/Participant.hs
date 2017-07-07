@@ -653,20 +653,13 @@ participant_tests = TestList [
        ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1b3)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; r1b <- takeMVar receipt_1b
-       ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
-       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b
-       ; r1b2 <- takeMVar receipt_1b
-       ; let (Right (v1b2 :: (Verified Recursive_1b))) = verify r1b2
-       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b2
-       ; r1b3 <- takeMVar receipt_1b
-       ; let (Right (v1b3 :: (Verified Recursive_1b))) = verify r1b3
-       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b3
+       ; let receive_1b = do { r1b <- takeMVar receipt_1b
+                             ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
+                             ; assertEqual "received 1b is not the original sent 1b" v1a $ extract_1a v1b}
+       ; sequence $ take 5 $ repeat receive_1b
        ; r2b <- takeMVar receipt_2b
        ; let (Right (v2b :: (Verified Recursive_2b))) = verify r2b
        ; assertEqual "received 2b is not correct" v1a $ extract_1a v2b
-       ; let conflicting_value = default_Value { value_value_payload = ByteString.singleton 43
-                                               , value_slot = 6}
        ; let message_1a2= default_Proposal_1a {
                             proposal_1a_value = default_Value {
                                                    value_value_payload = ByteString.singleton 42
@@ -680,9 +673,7 @@ participant_tests = TestList [
        ; send_thread3 <- forkIO (catch (catch (send_Message_IO address_book v1a2)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; r1b <- takeMVar receipt_1b
-       ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
-       ; assertEqual "second received 1b is not the ORIGINAL value" original_value $ extract_value v1b
+       ; receive_1b
        }))
 
   ]

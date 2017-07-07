@@ -157,7 +157,7 @@ instance Send_Message_IO Recursive_1b where
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1b
 
 instance Send_Message_IO Recursive_2a where
-  send_Message_IO address_book = (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
+  send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
 
 instance Send_Message_IO Recursive_2b where
   send_Message_IO address_book v2b =
