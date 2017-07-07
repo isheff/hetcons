@@ -37,6 +37,7 @@ import Hetcons.Signed_Message     (Verified, original, Recursive_1a, Recursive_1
 
 import Hetcons_Types              (Crypto_ID)
 
+import Control.Concurrent.MVar (modifyMVar, modifyMVar_, newMVar, readMVar,  MVar)
 import Control.Concurrent.STM     (TVar)
 import Control.Exception.Base     (throw)
 import Control.Monad              (mapM_)
@@ -141,7 +142,7 @@ run_Hetcons_Transaction x v s = case (runReader (runStateT (runEitherT $ unwrap 
 -- | return the returned value into the IO Monad.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-run_Hetcons_Transaction_IO :: (Hetcons_State s) => Crypto_ID -> ByteString -> Address_Book ->  (TVar s) ->
+run_Hetcons_Transaction_IO :: (Hetcons_State s) => Crypto_ID -> ByteString -> Address_Book ->  (MVar s) ->
                                                    ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> (Hetcons_Transaction s a) -> IO a
 run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var do_on_consensus receive_message =
   do { drg <- getSystemDRG
@@ -164,12 +165,12 @@ run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var do
          Left e -> throw e
          Right (final_receive_message_state, x) ->
            -- as it is conceivable that sending messages could take arbitrarily long, we do so in parallel.
-           do { Parallel.sequence [Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_1as final_receive_message_state
-                                  ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_1bs final_receive_message_state
-                                  ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_2as final_receive_message_state
-                                  ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_2bs final_receive_message_state
-                                  ,Parallel.mapM_ (send_Message_IO address_book) $ toList $ sent_Proof_of_Consensus final_receive_message_state
-                                  ,Parallel.mapM_ do_on_consensus $ toList $ sent_Proof_of_Consensus final_receive_message_state]
+           do { Parallel.sequence $ (map (send_Message_IO address_book) $ toList $ sent_1as final_receive_message_state)
+                                  ++ (map (send_Message_IO address_book) $ toList $ sent_1bs final_receive_message_state)
+                                  ++ (map (send_Message_IO address_book) $ toList $ sent_2as final_receive_message_state)
+                                  ++ (map (send_Message_IO address_book) $ toList $ sent_2bs final_receive_message_state)
+                                  ++ (map (send_Message_IO address_book) $ toList $ sent_Proof_of_Consensus final_receive_message_state)
+                                  ++ (map do_on_consensus $ toList $ sent_Proof_of_Consensus final_receive_message_state)
               ; return x}}
 
 -- | reads the current Hetcons_Transaction_State from the Monad's state

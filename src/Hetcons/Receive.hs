@@ -97,15 +97,14 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                       then return ()
                       else receive $ extract_1a r1b -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive $ extract_1bs $ original r1b -- receive all prior 1bs contained herein
-                 ; let state = insert r1b old_state
-                 ; put_state state -- update the state to include this 1b
+                 ; state <- update_state (\s -> let new_state = insert r1b s in (new_state, new_state))
                  ; signed <- sign_m (default_Phase_2a { phase_2a_phase_1bs = HashSet.map signed $
                      HashSet.filter (((extract_1a r1b) ==) . extract_1a) $ -- all the 1bs with the same proposal
                      HashSet.filter (((extract_value r1b) ==) . extract_value) state})  -- all the 1bs with the same value
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
                      Left e -> return ()
                      Right v -> send v
-                 ; send r1b}} -- I'm assuming that sending a 2a will send all the 1bs in it.
+                 ; send r1b}} -- we always echo this 1b
 
 
 instance Receivable Participant_State (Verified Recursive_2a) where

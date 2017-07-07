@@ -34,6 +34,7 @@ import Hetcons.Value (garbage_collect, conflicts)
 import Hetcons_Consts ()
 import Hetcons_Types  (proposal_1a_observers)
 
+import Control.Concurrent.MVar (modifyMVar, modifyMVar_, newMVar, readMVar,  MVar)
 import Control.Concurrent.STM (STM
                                 ,atomically
                               ,TVar
@@ -68,8 +69,8 @@ type Observer_State = HashSet (Verified Recursive_2b)
 default_State :: (HashSet a)
 default_State = empty
 
-type Participant_State_Var = TVar Participant_State
-type Observer_State_Var = TVar Observer_State
+type Participant_State_Var = MVar Participant_State
+type Observer_State_Var = MVar Observer_State
 
 -- | Subsets of the proposals which have the same COG, for each COG in the Observer_State
 -- | strict superset of :: Participant_State -> (HashSet (Participant_State))
@@ -86,27 +87,24 @@ conflicting_state :: Participant_State -> Bool
 conflicting_state = (any conflicts) . state_by_observers
 
 -- | a strict superset of :: (Foldable t) => (t (Verified Recursive_1b)) -> IO Participant_State_Var
-new_State :: (Foldable t, Hashable a, Eq a) => (t a) -> IO (TVar (HashSet a))
-new_State = atomically . newTVar . fromList . toList
+new_State :: (Foldable t, Hashable a, Eq a) => (t a) -> IO (MVar (HashSet a))
+new_State = newMVar . fromList . toList
 
 -- | a strict superset of :: IO Participant_State_Var
-start_State :: (Hashable a, Eq a, Hetcons_State (HashSet a)) => IO (TVar (HashSet a))
+start_State :: (Hashable a, Eq a, Hetcons_State (HashSet a)) => IO (MVar (HashSet a))
 start_State = new_State []
 
 -- | a strict superset of :: Participant_State_Var -> IO Participant_State
-read :: (TVar a) -> IO a
-read = readTVarIO
+read :: (MVar a) -> IO a
+read = readMVar
 
 
 
 -- strict superset of :: Participant_State_Var -> (Participant_State -> Participant_State) -> IO ()
-modify :: (Hetcons_State a) => (TVar a) -> (a -> a) -> IO ()
-modify s f = atomically $ modifyTVar' s $ write_prep . f
+modify :: (Hetcons_State a) => (MVar a) -> (a -> a) -> IO ()
+modify s f = modifyMVar_ s $ return . write_prep . f
 
 -- strict superset of ::  Participant_State_Var -> (Participant_State -> (Participant_State, a)) -> IO a
-modify_and_read :: (Hetcons_State a) => (TVar a) -> (a -> (a, b)) -> IO b
-modify_and_read s f = atomically(do {v <- readTVar s
-                                    ;let (v', r) = f v
-                                    ;writeTVar s $ write_prep v'
-                                    ;return r})
+modify_and_read :: (Hetcons_State a) => (MVar a) -> (a -> (a, b)) -> IO b
+modify_and_read s f = modifyMVar s (\x -> let (y,z) = f x in return (write_prep y, z))
 

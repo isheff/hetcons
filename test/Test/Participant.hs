@@ -81,13 +81,13 @@ import Hetcons_Participant_Iface (Hetcons_Participant_Iface
                                    ,ping
                                    ,proposal_1a
                                    ,phase_1b)
-import Hetcons_Types (Signed_Message
+import Hetcons_Types (Signed_Message(Signed_Message)
                         ,signed_Hash_signature
                         ,signed_Message_signature
                      ,default_No_Supported_Hash_Sha2_Descriptor_Provided
                      ,crypto_ID_public_crypto_key
                      ,default_Public_Crypto_Key
-                     ,Crypto_ID
+                     ,Crypto_ID(Crypto_ID)
                        ,default_Crypto_ID
                      ,public_Crypto_Key_public_crypto_key_x509
                      ,signed_Message_payload
@@ -133,6 +133,8 @@ import Hetcons_Types (Signed_Message
                        ,observer_Trust_Constraint_safe
                        ,observer_Trust_Constraint_live
                        ,default_Observer_Trust_Constraint
+                     ,Public_Crypto_Key(Public_Crypto_Key)
+                     ,signed_Hash_crypto_id
                      )
 
 import Control.Concurrent (forkIO, ThreadId)
@@ -625,7 +627,7 @@ participant_tests = TestList [
        ; dummy_observer <- dummy_observer_server 77098 (Dummy_Observer { dummy_observer_on_ping = return ()
                                                                        , dummy_observer_on_phase_2b = putMVar receipt_2b})
        ; address_book <- default_Address_Book
-       ; let original_value = default_Value { value_value_payload = ByteString.singleton 43
+       ; let original_value = default_Value { value_value_payload = ByteString.singleton 42
                                             , value_slot = 6}
        ; let message_1a = default_Proposal_1a {
                             proposal_1a_value = original_value
@@ -647,30 +649,40 @@ participant_tests = TestList [
        ; let (Right signed_1b3) = sign crypto_id3 private3 sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen3 (default_Phase_1b { phase_1b_proposal = signed_1a})
        ; let (Right (v1b2 :: (Verified Recursive_1b))) = verify signed_1b2
        ; let (Right (v1b3 :: (Verified Recursive_1b))) = verify signed_1b3
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b2)
+       -- ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b2)
+       --                                (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
+       --                         (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
+       ; send_thread2 <- forkIO (catch (catch (do send_Message_IO address_book v1b2; send_Message_IO address_book v1b3; send_Message_IO address_book v1b2; send_Message_IO address_book v1b3)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1b3)
-                                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
-                               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; r1b <- takeMVar receipt_1b
-       ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
-       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b
-       ; r1b2 <- takeMVar receipt_1b
-       ; let (Right (v1b2 :: (Verified Recursive_1b))) = verify r1b2
-       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b2
-       ; r1b3 <- takeMVar receipt_1b
-       ; let (Right (v1b3 :: (Verified Recursive_1b))) = verify r1b3
-       ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b3
+       ; let receive_1b = do { r1b <- takeMVar receipt_1b
+                             ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
+                             ; let (Just Crypto_ID {
+                                       crypto_ID_public_crypto_key =
+                                         Just (Public_Crypto_Key {
+                                                 public_Crypto_Key_public_crypto_key_x509 = Just cert_received})} ) =
+                                      signed_Hash_crypto_id $ signed_Message_signature $ signed v1b
+                             ; if cert_received == cert1
+                                  then putStrLn "\n 1"
+                                  else return ()
+                             ; if cert_received == cert2
+                                  then putStrLn "\n 2"
+                                  else return ()
+                             ; if cert_received == cert3
+                                  then putStrLn "\n 3"
+                                  else return ()
+                             ; if cert_received == cert4
+                                  then putStrLn "\n 4"
+                                  else return ()
+                             ; assertEqual "second received 1b is not the ORIGINAL value" original_value $ extract_value v1b}
+       ; sequence $ take 6 $ repeat receive_1b
        ; r2b <- takeMVar receipt_2b
        ; let (Right (v2b :: (Verified Recursive_2b))) = verify r2b
        ; assertEqual "received 2b is not correct" v1a $ extract_1a v2b
        ; let conflicting_value = default_Value { value_value_payload = ByteString.singleton 43
                                                , value_slot = 6}
        ; let message_1a2= default_Proposal_1a {
-                            proposal_1a_value = default_Value {
-                                                   value_value_payload = ByteString.singleton 42
-                                                  ,value_slot = 6}
+                            proposal_1a_value = conflicting_value
                            ,proposal_1a_timestamp = now
                            ,proposal_1a_observers = Just default_Observers {
                               observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert 77098,
@@ -680,9 +692,11 @@ participant_tests = TestList [
        ; send_thread3 <- forkIO (catch (catch (send_Message_IO address_book v1a2)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; r1b <- takeMVar receipt_1b
-       ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
-       ; assertEqual "second received 1b is not the ORIGINAL value" original_value $ extract_value v1b
+       ; let receive_1b = do { r1b8 <- takeMVar receipt_1b
+                             ; let (Right (v1b8 :: (Verified Recursive_1b))) = verify r1b8
+                             ; assertEqual "second received 1b is not the ORIGINAL value" original_value $ extract_value v1b8}
+       ; sequence $ take 1 $ repeat receive_1b
+       ; return ()
        }))
 
   ]
