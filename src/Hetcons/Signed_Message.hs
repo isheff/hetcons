@@ -255,7 +255,14 @@ data Recursive_1b = Recursive_1b {
   ,recursive_1b_proposal :: Verified Recursive_1a
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified Recursive_2a))
   } deriving (Generic)
-instance Show Recursive_1b
+instance (Parsable Recursive_1b, Parsable Recursive_2a) => Show Recursive_1b where
+  show ( Recursive_1b {
+     recursive_1b_non_recursive = p1b
+    ,recursive_1b_proposal = prop
+    ,recursive_1b_conflicting_phase2as = c2a}) =
+    "Recursive_1b { recursive_1b_non_recursive = (" ++ (show p1b)++
+                  "), recursive_1b_proposal = ("++(show prop)++
+                  "), recursive_1b_conflicting_phase2as = ("++(show c2a)++")}"
 instance Eq Recursive_1b
 
 
@@ -263,7 +270,8 @@ instance Eq Recursive_1b
 -- | Phase_2a s carry phase 1b messages with them.
 -- | Recursive_2a s carry parsed and verified versions of these.
 newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b)) deriving (Generic)
-instance Show Recursive_2a
+instance (Parsable Recursive_1b, Parsable Recursive_2a) => Show Recursive_2a where
+  show ( Recursive_2a s) = "Recursive_2a ("++(show s)++")"
 instance Eq Recursive_2a
 
 

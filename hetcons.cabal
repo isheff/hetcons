@@ -81,7 +81,8 @@ executable hetcons-exe
 test-suite hetcons-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  other-modules:       Test.Consensus
+  other-modules:       Test.Conflicting_2as
+                     , Test.Consensus
                      , Test.Hetcons_Exception
                      , Test.Observer
                      , Test.Participant

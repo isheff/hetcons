@@ -60,7 +60,7 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1a where
        ; filled_in <- verify_quorums non_recursive
        ; return Recursive_1a {
               recursive_1a_non_recursive = non_recursive
-       ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}}}
+             ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}}}
 
 instance {-# OVERLAPPING #-} Contains_1a (Verified Recursive_1a) where
   extract_1a = id

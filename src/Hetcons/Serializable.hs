@@ -41,7 +41,11 @@ import Hetcons_Types (Proposal_1a
 import           Control.Monad          (liftM, mapM_)
 import           Data.ByteString.Lazy   (unpack)
 import           Data.Foldable          (length)
+import           Data.Hashable          (Hashable)
+import           Data.HashSet           (HashSet, fromList, toList)
 import           Data.Serialize         (Serialize
+                                        ,encodeLazy
+                                        ,decodeLazy
                                         ,get
                                         ,put)
 import           Data.Serialize.Get     (remaining, getLazyByteString)
@@ -94,5 +98,15 @@ instance Serialize Phase_2b where
 instance Serialize Proof_of_Consensus where
   put = (mapM_ putWord8) . unpack . (encode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
   get = liftM (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
+
+
+
+instance (Serialize a, Eq a, Hashable a) => Serialize (HashSet a) where
+  put = (mapM_ putWord8) . unpack . encodeLazy . toList
+  get = liftM (\x -> case decodeLazy x of
+                       Left e -> error e
+                       Right y -> fromList y) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})

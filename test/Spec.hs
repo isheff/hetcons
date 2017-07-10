@@ -1,3 +1,4 @@
+import Test.Conflicting_2as (conflicting_2as_tests)
 import Test.Consensus (consensus_tests)
 import Test.Hetcons_Exception (hetcons_exception_tests)
 import Test.Signed_Message    (signed_message_tests)
@@ -15,6 +16,8 @@ main = do { putStrLn "\nHETCONS EXCEPTION TESTS"
           ; runTestTT signed_message_tests
           ; putStrLn "\nQUORUMS TESTS"
           ; runTestTT quorums_tests
+          ; putStrLn "\nCONFLICTING 2AS TESTS"
+          ; runTestTT conflicting_2as_tests
           ; putStrLn "\nPARTICIPANT TESTS"
           ; runTestTT participant_tests
           ; putStrLn "\nOBSERVER TESTS"

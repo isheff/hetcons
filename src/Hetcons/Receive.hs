@@ -104,7 +104,7 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                  ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
                      Left e -> return ()
                      Right v -> send v
-                 ; send r1b}} -- echo the 1b
+                 ; send r1b}} -- we always echo this 1b
 
 
 instance Receivable Participant_State (Verified Recursive_2a) where
