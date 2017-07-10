@@ -655,7 +655,7 @@ participant_tests = TestList [
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; let receive_1b = do { r1b <- takeMVar receipt_1b
                              ; let (Right (v1b :: (Verified Recursive_1b))) = verify r1b
-                             ; assertEqual "received 1b is not the original sent 1b" v1a $ extract_1a v1b}
+                             ; assertEqual ("received 1b is not the original sent 1b\n"++(show $ recursive_1b_conflicting_phase2as $ original v1b)) (extract_value v1a) $ extract_value v1b}
        ; sequence $ take 5 $ repeat receive_1b
        ; r2b <- takeMVar receipt_2b
        ; let (Right (v2b :: (Verified Recursive_2b))) = verify r2b
@@ -664,9 +664,9 @@ participant_tests = TestList [
                             proposal_1a_value = default_Value {
                                                    value_value_payload = ByteString.singleton 42
                                                   ,value_slot = 6}
-                           ,proposal_1a_timestamp = now
+                           ,proposal_1a_timestamp = now + 1
                            ,proposal_1a_observers = Just default_Observers {
-                              observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert 77098,
+                              observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert4 77098,
                                                                     fromList [fromList [sample_id cert1 77095,sample_id cert2 77096,sample_id cert3 77097]])]}}
        ; (Right signed_1a2) <- sample_sign $ message_1a2
        ; let (Right (v1a2 :: (Verified Recursive_1a))) = verify signed_1a2

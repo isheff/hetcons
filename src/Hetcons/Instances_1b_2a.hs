@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hetcons.Instances_1b_2a () where
+module Hetcons.Instances_1b_2a (well_formed_2a) where
 
 
 import Hetcons.Contains_Value (
