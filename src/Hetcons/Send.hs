@@ -11,7 +11,6 @@ import Hetcons.Receive_Message
   (Hetcons_Transaction
     ,get_my_crypto_id
     ,get_my_private_key
-    ,with_errors
   ,Add_Sent
     ,add_sent
   ,Receivable
@@ -36,8 +35,8 @@ sign_and_verify :: (Serialize a, Parsable b, Hetcons_State s, Recursive a b) => 
 sign_and_verify m = do { crypto_id <- get_my_crypto_id
                        ; private_key <- get_my_private_key
                        ; gen <- drgNew
-                       ; signed <- with_errors $ sign crypto_id private_key sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen m
-                       ; with_errors $ verify signed}
+                       ; signed <-  sign crypto_id private_key sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen m
+                       ; verify signed}
 
 -- | Note that sending a message will inherently involve receiving int BEFORE the transaction is finished.
 -- | Infinite loops of messages would be bad.

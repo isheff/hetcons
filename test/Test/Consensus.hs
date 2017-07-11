@@ -41,7 +41,6 @@ import Hetcons.Receive_Message
     ,update_state
     ,get_my_crypto_id
     ,get_my_private_key
-    ,with_errors
   ,Add_Sent
     ,add_sent
   ,Receivable

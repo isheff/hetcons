@@ -16,7 +16,6 @@ module Hetcons.Receive_Message
     ,update_state
     ,get_my_crypto_id
     ,get_my_private_key
-    ,with_errors
   ,Add_Sent
     ,add_sent
   ,Receivable
@@ -50,10 +49,6 @@ import Data.ByteString.Lazy       (ByteString)
 import Data.HashSet               (HashSet, insert, toList, empty)
 
 
--- | run a function that may return an error in the Either style
-with_errors :: (MonadError e m) => (Either e a) -> (m a)
-with_errors (Left e)  = throwError e
-with_errors (Right x) = return x
 
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.

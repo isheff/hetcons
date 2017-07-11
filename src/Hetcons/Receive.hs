@@ -21,7 +21,6 @@ import Hetcons.Receive_Message
     ,update_state
     ,get_my_crypto_id
     ,get_my_private_key
-    ,with_errors
   ,Add_Sent
     ,add_sent
   ,Receivable
@@ -68,7 +67,7 @@ sign_m m = do
   { crypto_id <- get_my_crypto_id
   ; private_key <- get_my_private_key
   ; gen <- drgNew
-  ; with_errors $ sign crypto_id private_key sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen m}
+  ; sign crypto_id private_key sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen m}
 
 
 --  How Participants Receive ---------------------------------------------------
