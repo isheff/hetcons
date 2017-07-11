@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -168,7 +169,7 @@ import           Crypto.Hash.Algorithms (SHA224(SHA224)
                                         ,SHA384(SHA384)
                                         ,SHA512(SHA512))
 import           Control.Monad          (liftM, liftM2, mapM_)
-import           Control.Monad.Except   (throwError)
+import           Control.Monad.Except   (throwError, catchError, MonadError)
 import           Crypto.Random          (DRG)
 import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
@@ -287,7 +288,7 @@ instance Eq Recursive_Proof_of_Consensus
 class Parsable a where
   -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
   -- | Of course, this depends on the type of the object.
-  parse :: ByteString -> Either Hetcons_Exception a
+  parse :: (MonadError Hetcons_Exception m) => ByteString -> m a
 
 -- | By default, anythign serializable is simply deserialized.
 -- | the only possible error is if parsing fails
@@ -295,10 +296,10 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
   parse payload =
     case decodeLazy payload of
       (Left e) ->
-        Left $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
+        throwError $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
            unparsable_Hashable_Message_message = payload
           ,unparsable_Hashable_Message_explanation = Just $ pack $ "I was unable to parse this message payload:\n" ++ e}
-      (Right x) -> Right x
+      (Right x) -> return x
 
 
 
@@ -312,7 +313,7 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 -- | TODO? We may want to make verify memoized. In theory, all that is necessary is to make verify = memoize verify'
 -- |       For some reason, as of 2017-6-26, this actually slows down our unit tests.
 -- |       Basic memoize tests on, say, fibonacci seem to work fine.
-verify :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
+verify :: (MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
 verify = verify'
 
 
@@ -322,22 +323,22 @@ verify = verify'
 
 
 -- | returns the correct (longest allowed) sha2 length to use given a set of possible lengths, or an exception
-sha2_length :: (Integral a, Num b) => HashSet a -> Either Hetcons_Exception b
+sha2_length :: (MonadError Hetcons_Exception m, Integral a, Num b) => HashSet a -> m b
 sha2_length length_set =
   let hash_sha2_descriptor = HashSet.map fromIntegral length_set
       lengths = intersection sUPPORTED_HASH_SHA2_DESCRIPTOR hash_sha2_descriptor
    in if null lengths
-         then Left $ Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided default_No_Supported_Hash_Sha2_Descriptor_Provided {
+         then throwError $ Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided default_No_Supported_Hash_Sha2_Descriptor_Provided {
                  no_Supported_Hash_Sha2_Descriptor_Provided_offending_hash_sha2_descriptor = Just hash_sha2_descriptor
                 ,no_Supported_Hash_Sha2_Descriptor_Provided_supported_hash_sha2_descriptor = Just sUPPORTED_HASH_SHA2_DESCRIPTOR
                 ,no_Supported_Hash_Sha2_Descriptor_Provided_explanation = Just  "I do not support that length of SHA2 hash"}
-         else Right $ fromIntegral $ maximum lengths
+         else return $ fromIntegral $ maximum lengths
 
 
 -- | This is the only way to construct a Verified object.
 -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 -- | Otherwise, you get an exception.
-verify' :: (Parsable a) => Signed_Message -> Either Hetcons_Exception (Verified a)
+verify' :: (MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
 -- In the case where everything's done correctly:
 verify' signed_message@Signed_Message
        {signed_Message_payload = payload
@@ -361,13 +362,13 @@ verify' signed_message@Signed_Message
                                      _  -> X509.verify $ Just SHA512
       ;case verify_with_length public_key payload signature of
          (Just e) ->
-           Left $ Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
+           throwError $ Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
               invalid_Signed_Hash_signed_hash = signed_hash
              ,invalid_Signed_Hash_explanation = Just $ pack e}
          Nothing ->
            case parse payload of
-             (Left  e) -> Left e
-             (Right x) -> Right Verified { verified_original = x, verified_signed = signed_message }}
+             (Left  e) -> throwError e
+             (Right x) -> return Verified { verified_original = x, verified_signed = signed_message }}
 
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
 verify' Signed_Message
@@ -378,7 +379,7 @@ verify' Signed_Message
              {crypto_ID_public_crypto_key = Just
                 public_key@(Public_Crypto_Key
                   {public_Crypto_Key_public_crypto_key_x509 = Nothing})}}} -- it's a public crypto key, but not an x509
-  = Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
+  = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
              default_Descriptor_Does_Not_Match_Public_Crypto_Key {
                 descriptor_Does_Not_Match_Public_Crypto_Key_public_crypto_key_type_descriptor =
                   sUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR
@@ -394,7 +395,7 @@ verify' Signed_Message
           {signed_Hash_crypto_id = Just
              crypto_id@(Crypto_ID
              {crypto_ID_public_crypto_key = Nothing})}}
-  = Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
+  = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
              default_Descriptor_Does_Not_Match_Crypto_ID {
                 descriptor_Does_Not_Match_Crypto_ID_crypto_id_type_descriptor =
                   sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
@@ -408,7 +409,7 @@ verify' Signed_Message
        {signed_Message_signature =
           signed_hash@Signed_Hash
           {signed_Hash_crypto_id = Nothing}}
-  = Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
+  = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
              default_Descriptor_Does_Not_Match_Signed_Hash {
                 descriptor_Does_Not_Match_Signed_Hash_signed_hash_type_descriptor =
                   sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
@@ -424,7 +425,7 @@ verify' Signed_Message
           {signed_Hash_hash_type_descriptor = hash_type_descriptor@(Just
              Hash_Type_Descriptor
              {hash_Type_Descriptor_sha2 = Nothing})}}
-  = Left $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+  = throwError $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
              default_No_Supported_Hash_Type_Descriptor_Provided {
                 no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor =
                   hash_type_descriptor
@@ -438,7 +439,7 @@ verify' Signed_Message
        {signed_Message_signature =
           signed_hash@Signed_Hash
           {signed_Hash_hash_type_descriptor = Nothing}}
-  = Left $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+  = throwError $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
              default_No_Supported_Hash_Type_Descriptor_Provided  {
                no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor = Nothing
               ,no_Supported_Hash_Type_Descriptor_Provided_supported_hash_type_descriptor = Just sUPPORTED_HASH_TYPE_DESCRIPTOR
@@ -447,8 +448,8 @@ verify' Signed_Message
 
 
 -- | builds a Signed_Message given a signing key, a matching certificate, something serializable, etc.
-sign ::(Serialize serialize, X509.Signer signer, DRG gen) =>
-       Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> serialize -> Either Hetcons_Exception Signed_Message
+sign ::(MonadError Hetcons_Exception m, Serialize serialize, X509.Signer signer, DRG gen) =>
+       Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> serialize -> m Signed_Message
 -- | If everything is correct, and we've got just an x509 public key
 sign (Crypto_ID
        {crypto_ID_public_crypto_key = Just
@@ -474,10 +475,11 @@ sign (Crypto_ID
                                    48 -> X509.sign $ Just SHA384
                                    _  -> X509.sign $ Just SHA512
       ;let serialized_payload = encodeLazy payload
-      ;signature <- mapLeft (\e ->(Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
-                                     invalid_Signed_Hash_explanation = Just $ pack (
-                                       "Something went wrong while trying to sign with this key:\n" ++ e)}))
-                            $ sign_with_length random_generator private_key serialized_payload
+      ;signature <- case sign_with_length random_generator private_key serialized_payload of
+                      Left e -> throwError (Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
+                               invalid_Signed_Hash_explanation = Just $ pack (
+                                 "Something went wrong while trying to sign with this key:\n" ++ e)})
+                      Right s -> return s
       ;return default_Signed_Message { -- and now we describe the entire signed message structure
             signed_Message_payload = serialized_payload
            ,signed_Message_signature = default_Signed_Hash {
@@ -495,7 +497,7 @@ sign (Crypto_ID
           public_key@Public_Crypto_Key
           {public_Crypto_Key_public_crypto_key_x509 = Nothing}})
       _ _ _ _
-  = Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
+  = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
              default_Descriptor_Does_Not_Match_Public_Crypto_Key {
                 descriptor_Does_Not_Match_Public_Crypto_Key_public_crypto_key_type_descriptor =
                   sUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR
@@ -506,7 +508,7 @@ sign (Crypto_ID
 
 -- | If the crypto ID isn't a public key
 sign crypto_id@(Crypto_ID {crypto_ID_public_crypto_key = Nothing}) _ _ _ _ =
-  Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
+  throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
            default_Descriptor_Does_Not_Match_Crypto_ID {
               descriptor_Does_Not_Match_Crypto_ID_crypto_id_type_descriptor =
                 sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
@@ -528,7 +530,7 @@ sign (Crypto_ID {crypto_ID_public_crypto_key = Just key})
              descriptor@Public_Crypto_Key_Type_Descriptor
                {public_Crypto_Key_Type_Descriptor_public_crypto_key_x509 = _}}})
      _ _
-  = Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
+  = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
              default_Descriptor_Does_Not_Match_Public_Crypto_Key {
                 descriptor_Does_Not_Match_Public_Crypto_Key_public_crypto_key_type_descriptor =
                   descriptor
@@ -548,7 +550,7 @@ sign crypto_id@(Crypto_ID {crypto_ID_public_crypto_key = Just _})
           descriptor@Crypto_ID_Type_Descriptor
           {crypto_ID_Type_Descriptor_public_crypto_key = Nothing}})
      _ _
-  = Left $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
+  = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
              default_Descriptor_Does_Not_Match_Crypto_ID {
                 descriptor_Does_Not_Match_Crypto_ID_crypto_id_type_descriptor =
                   descriptor
@@ -567,7 +569,7 @@ sign crypto_id@(Crypto_ID {crypto_ID_public_crypto_key = Just _})
           {hash_Type_Descriptor_sha2 = Just hash_sha2_descriptor}
        ,signed_Hash_Type_Descriptor_crypto_id = Nothing})
      _ _
-  = Left $ Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
+  = throwError $ Hetcons_Exception_No_Supported_Crypto_ID_Type_Descriptor_Provided
              default_No_Supported_Crypto_ID_Type_Descriptor_Provided  {
                 no_Supported_Crypto_ID_Type_Descriptor_Provided_offending_crypto_id_type_descriptor = Nothing
                ,no_Supported_Crypto_ID_Type_Descriptor_Provided_supported_crypto_id_type_descriptor = Just sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
@@ -580,7 +582,7 @@ sign _ _
           hash_type_descriptor@Hash_Type_Descriptor
           {hash_Type_Descriptor_sha2 = Nothing}})
      _ _
-  = Left $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+  = throwError $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
              default_No_Supported_Hash_Type_Descriptor_Provided {
                 no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor =
                   Just hash_type_descriptor
@@ -591,7 +593,7 @@ sign _ _
 
 -- | If the Signed_Hash_Type_Descriptor specifies a Hash, but it's not SHA2
 sign _ _ (Signed_Hash_Type_Descriptor {signed_Hash_Type_Descriptor_hash_type_descriptor = Nothing}) _ _ =
-  Left $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
+  throwError $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
            default_No_Supported_Hash_Type_Descriptor_Provided  {
              no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor = Nothing
             ,no_Supported_Hash_Type_Descriptor_Provided_supported_hash_type_descriptor = Just sUPPORTED_HASH_TYPE_DESCRIPTOR

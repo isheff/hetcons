@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -184,7 +185,7 @@ import           Crypto.Hash.Algorithms (SHA224(SHA224)
                                         ,SHA384(SHA384)
                                         ,SHA512(SHA512))
 import           Control.Monad          (liftM, liftM2, mapM_)
-import           Control.Monad.Except   (throwError)
+import           Control.Monad.Except   (throwError, catchError, MonadError)
 import           Crypto.Random          (DRG)
 import           Data.ByteString.Lazy   (ByteString, unpack)
 import           Data.Either.Combinators(mapLeft)
@@ -239,7 +240,7 @@ instance Recursive Phase_2a Recursive_2a where
 
 
 
-well_formed_1b :: Recursive_1b -> Either Hetcons_Exception ()
+well_formed_1b :: (MonadError Hetcons_Exception m) => Recursive_1b -> m ()
 well_formed_1b (Recursive_1b {
                   recursive_1b_non_recursive = non_recursive
                  ,recursive_1b_proposal = proposal
@@ -273,7 +274,7 @@ instance {-# OVERLAPPING #-} Parsable Recursive_1b where
        ; well_formed_1b r1b
        ; return r1b}
 
-well_formed_2a :: Recursive_2a -> Either Hetcons_Exception ()
+well_formed_2a :: (MonadError Hetcons_Exception m) => Recursive_2a -> m ()
 well_formed_2a r2a@(Recursive_2a s) =
   do { if 1 /= (length $ HashSet.map extract_value s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
