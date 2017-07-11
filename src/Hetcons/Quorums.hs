@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -40,7 +41,7 @@ import Hetcons_Types  (Value
                       )
 
 import Control.Monad (filterM)
-import Control.Monad.Except (throwError)
+import Control.Monad.Except (throwError, catchError, MonadError)
 import Data.Foldable (toList, length, foldr)
 import qualified Data.HashMap.Lazy as HashMap (fromList,(!))
 import Data.HashMap.Lazy (HashMap, mapWithKey, filterWithKey)
@@ -75,20 +76,21 @@ floyd_warshall a_join a_meet matrix =
 
 
 
-verify_quorums :: Proposal_1a -> Either Hetcons_Exception Observers
+-- | a strict generalization of :: Proposal_1a -> Either Hetcons_Exception Observers
+verify_quorums :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
 verify_quorums x@(Proposal_1a { proposal_1a_observers = Nothing }) =
-  Left $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
-            invalid_Proposal_1a_offending_proposal = x
-           ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects."}
+  throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+                 invalid_Proposal_1a_offending_proposal = x
+                ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects."}
 verify_quorums x@(Proposal_1a { proposal_1a_observers = Just (Observers {observers_observer_graph = Just _})}) = graph_to_quorums x
 verify_quorums x@(Proposal_1a { proposal_1a_observers = Just (Observers {observers_observer_quorums = Nothing})}) =
-  Left $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
-            invalid_Proposal_1a_offending_proposal = x
-           ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects featuring quorums."}
-verify_quorums (Proposal_1a { proposal_1a_observers = Just x }) = Right x
+  throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+                 invalid_Proposal_1a_offending_proposal = x
+                ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects featuring quorums."}
+verify_quorums (Proposal_1a { proposal_1a_observers = Just x }) = return x
 
 
-graph_to_quorums :: Proposal_1a -> Either Hetcons_Exception Observers
+graph_to_quorums :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
 graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Observers {observers_observer_graph = Just constraints})}) =
   let observers = toList $ union (HashSet.map observer_Trust_Constraint_observer_1 constraints) (HashSet.map observer_Trust_Constraint_observer_2 constraints)
       participants = unions $ toList $ union (HashSet.map observer_Trust_Constraint_safe constraints) (HashSet.map observer_Trust_Constraint_live constraints)
@@ -119,10 +121,10 @@ graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Obse
                       )) $ quorums HashMap.! y)) $ quorums HashMap.! x))
                       sls)) $ zip observers $ toList row)) $ zip observers $ toList matrix
    in if valid_quorums
-         then Right (x_observers {observers_observer_quorums = Just quorums})
-         else Left $ Hetcons_Exception_Impossible_Observer_Graph (default_Impossible_Observer_Graph {
-                       impossible_Observer_Graph_offending_observer_graph = constraints
-                      ,impossible_Observer_Graph_explanation = Just $ "These constraints result in a set of quorums that doesn't meet the quorum requirement."})
+         then return (x_observers {observers_observer_quorums = Just quorums})
+         else throwError $ Hetcons_Exception_Impossible_Observer_Graph (default_Impossible_Observer_Graph {
+                             impossible_Observer_Graph_offending_observer_graph = constraints
+                            ,impossible_Observer_Graph_explanation = Just $ "These constraints result in a set of quorums that doesn't meet the quorum requirement."})
 
 
 graph_to_quorums x = throwError $
