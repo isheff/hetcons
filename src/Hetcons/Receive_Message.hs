@@ -36,7 +36,7 @@ import Hetcons.Signed_Message     (Verified, original, Recursive_1a, Recursive_1
 
 import Hetcons_Types              (Crypto_ID)
 
-import Control.Concurrent.STM     (TVar)
+import Control.Concurrent.MVar    (MVar)
 import Control.Exception.Base     (throw)
 import Control.Monad              (mapM_)
 import Control.Monad.Except       (throwError, catchError, MonadError)
@@ -136,7 +136,7 @@ run_Hetcons_Transaction x v s = case (runReader (runStateT (runEitherT $ unwrap 
 -- | return the returned value into the IO Monad.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-run_Hetcons_Transaction_IO :: (Hetcons_State s) => Crypto_ID -> ByteString -> Address_Book ->  (TVar s) ->
+run_Hetcons_Transaction_IO :: (Hetcons_State s) => Crypto_ID -> ByteString -> Address_Book ->  (MVar s) ->
                                                    ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> (Hetcons_Transaction s a) -> IO a
 run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var do_on_consensus receive_message =
   do { drg <- getSystemDRG
