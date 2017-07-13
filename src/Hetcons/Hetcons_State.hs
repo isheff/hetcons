@@ -96,7 +96,7 @@ modify :: (Hetcons_State a) => (MVar a) -> (a -> a) -> IO ()
 modify s f = modifyMVar_ s $ return . write_prep . f
 
 -- strict superset of ::  Participant_State_Var -> (Participant_State -> (Participant_State, a)) -> IO a
-modify_and_read :: (Hetcons_State a) => (MVar a) -> (a -> (a, b)) -> IO b
-modify_and_read s f = modifyMVar s (\v -> let (v', r) = f v
-                                           in return (write_prep v', r))
+modify_and_read :: (Hetcons_State a) => (MVar a) -> (a -> (IO (a, b))) -> IO b
+modify_and_read s f = modifyMVar s (\v -> do { (v', r) <- f v
+                                             ; return (write_prep v', r)})
 

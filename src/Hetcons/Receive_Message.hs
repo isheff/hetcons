@@ -142,7 +142,8 @@ run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var do
   do { drg <- getSystemDRG
      ; let env = Hetcons_Transaction_Environment {crypto_id = my_crypto_id, private_key = my_private_key}
      ; f <- modify_and_read state_var
-              (\start_state -> let final_state = run_Hetcons_Transaction receive_message env (
+              (\start_state -> return (
+                               let final_state = run_Hetcons_Transaction receive_message env (
                                                    Hetcons_Transaction_State {
                                                      sent_1as = empty
                                                     ,sent_1bs = empty
@@ -154,7 +155,7 @@ run_Hetcons_Transaction_IO my_crypto_id my_private_key address_book state_var do
                                                    })
                                 in case final_state of
                                      Left e -> (start_state, Left e)
-                                     Right (x, final_receive_message_state) -> (hetcons_state final_receive_message_state, Right $ (final_receive_message_state,x)))
+                                     Right (x, final_receive_message_state) -> (hetcons_state final_receive_message_state, Right $ (final_receive_message_state,x))))
      ; case f of
          Left e -> throw e
          Right (final_receive_message_state, x) ->
