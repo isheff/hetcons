@@ -57,6 +57,7 @@ import Hetcons.Receive_Message
     ,hetcons_Server_verify_2a
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
+    ,hetcons_Server_verify_quorums
   )
 import Hetcons.Send               ()
 import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO)
@@ -461,7 +462,9 @@ consensus_tests = TestList [
                                       ,hetcons_Server_verify_1b = hetcons_Server_verify_1b participant1
                                       ,hetcons_Server_verify_2a = hetcons_Server_verify_2a participant1
                                       ,hetcons_Server_verify_2b = hetcons_Server_verify_2b participant1
-                                      ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1})
+                                      ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1
+                                      ,hetcons_Server_verify_quorums = hetcons_Server_verify_quorums participant1
+                                      })
            ,do_on_consensus = putMVar proof_receipt}
        ; observer1 <- observer_server observer1_datum 85020
        ; observer_2_state <- start_State
@@ -475,7 +478,9 @@ consensus_tests = TestList [
                                       ,hetcons_Server_verify_1b = hetcons_Server_verify_1b participant1
                                       ,hetcons_Server_verify_2a = hetcons_Server_verify_2a participant1
                                       ,hetcons_Server_verify_2b = hetcons_Server_verify_2b participant1
-                                      ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1})
+                                      ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1
+                                      ,hetcons_Server_verify_quorums = hetcons_Server_verify_quorums participant1
+                                      })
            ,do_on_consensus = putMVar proof_receipt}
        ; observer2<- observer_server observer2_datum 85026
        ; address_book <- default_Address_Book

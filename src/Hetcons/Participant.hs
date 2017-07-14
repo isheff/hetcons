@@ -37,6 +37,7 @@ import Hetcons.Receive_Message
     ,hetcons_Server_verify_2a
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
+    ,hetcons_Server_verify_quorums
   )
 import Hetcons.Send               ()
 import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO)
@@ -94,6 +95,7 @@ new_participant cid pk =
      ; v2a <- CMap.empty
      ; v2b <- CMap.empty
      ; vproof <- CMap.empty
+     ; vq <- CMap.empty
      ;return (Hetcons_Server {
             hetcons_Server_crypto_id = cid
            ,hetcons_Server_private_key = pk
@@ -103,7 +105,9 @@ new_participant cid pk =
            ,hetcons_Server_verify_1b = v1b
            ,hetcons_Server_verify_2a = v2a
            ,hetcons_Server_verify_2b = v2b
-           ,hetcons_Server_verify_proof = vproof})}
+           ,hetcons_Server_verify_proof = vproof
+           ,hetcons_Server_verify_quorums = vq
+           })}
 
 participant_server :: (Integral a) => Participant -> a -> IO ThreadId
 participant_server participant port = forkIO $ runBasicServer participant process $ fromIntegral port
@@ -140,11 +144,11 @@ instance Hetcons_Participant_Iface Participant where
   ping _ = return ()
 
   proposal_1a participant message
-    = do { (verified :: (Verified Recursive_1a)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message
+    = do { (verified :: (Verified Recursive_1a)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message -- TODO: this doesn't technically need a TX
          ; delay_message verified
          ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}
 
   phase_1b participant message
-    = do { (verified :: (Verified Recursive_1b)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message
+    = do { (verified :: (Verified Recursive_1b)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message -- TODO: this doesn't technically need a TX
          ; delay_message verified
          ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}

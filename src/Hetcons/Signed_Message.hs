@@ -42,7 +42,7 @@ import Hetcons.Hetcons_Exception (
                       ,Hetcons_Exception_Unparsable_Hashable_Message)
     )
 import Hetcons.Memoize (memoize)
-import Hetcons.Quorums (verify_quorums)
+import Hetcons.Quorums (Monad_Verify_Quorums, verify_quorums)
 import Hetcons.Serializable()
 
 import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
@@ -295,6 +295,7 @@ class Parsable a where
            ,Monad_Verify Recursive_2a m
            ,Monad_Verify Recursive_2b m
            ,Monad_Verify Recursive_Proof_of_Consensus m
+           ,Monad_Verify_Quorums m
            ,MonadError Hetcons_Exception m) => ByteString -> m a
 
 -- | By default, anythign serializable is simply deserialized.
@@ -334,8 +335,14 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 class (MonadError Hetcons_Exception m, Parsable a) => Monad_Verify a m where
   verify :: Signed_Message -> m (Verified a)
 
-instance {-# OVERLAPPABLE #-} (Parsable Recursive_1a, Parsable Recursive_1b, Parsable Recursive_2a, Parsable Recursive_2b, Parsable Recursive_Proof_of_Consensus,
-                               MonadError Hetcons_Exception m, Parsable a)
+-- TODO: this instance is used in testing only, so we should move it over to tests
+instance {-# OVERLAPPABLE #-} (Parsable Recursive_1a
+                              ,Parsable Recursive_1b
+                              ,Parsable Recursive_2a
+                              ,Parsable Recursive_2b
+                              ,Parsable Recursive_Proof_of_Consensus
+                              ,Monad_Verify_Quorums m
+                              ,MonadError Hetcons_Exception m, Parsable a)
                                => Monad_Verify a m where
   verify = verify'
 
@@ -365,6 +372,7 @@ verify' :: (Monad_Verify Recursive_1a m
            ,Monad_Verify Recursive_2a m
            ,Monad_Verify Recursive_2b m
            ,Monad_Verify Recursive_Proof_of_Consensus m
+           ,Monad_Verify_Quorums m
            ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
 -- In the case where everything's done correctly:
 verify' signed_message@Signed_Message

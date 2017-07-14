@@ -32,6 +32,7 @@ module Hetcons.Receive_Message
     ,hetcons_Server_verify_2a
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
+    ,hetcons_Server_verify_quorums
   )
   where
 
@@ -42,10 +43,11 @@ import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
 import Hetcons.Instances_2b ()
 import Hetcons.Instances_Proof_of_Consensus ()
+import Hetcons.Quorums (Monad_Verify_Quorums, verify_quorums, verify_quorums')
 import Hetcons.Send_Message_IO    (send_Message_IO, Address_Book)
 import Hetcons.Signed_Message     (Monad_Verify, verify, verify', Verified, original, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
 
-import Hetcons_Types              (Crypto_ID, Signed_Message)
+import Hetcons_Types              (Crypto_ID, Signed_Message, Proposal_1a, Observers)
 
 import qualified Control.Concurrent.Map as CMap (Map, empty, lookup)
 import Control.Concurrent.Map     (insertIfAbsent)
@@ -90,6 +92,7 @@ data (Hetcons_State s) => Hetcons_Server s = Hetcons_Server {
  ,hetcons_Server_verify_2a :: CMap.Map Signed_Message (Verified Recursive_2a)
  ,hetcons_Server_verify_2b :: CMap.Map Signed_Message (Verified Recursive_2b)
  ,hetcons_Server_verify_proof :: CMap.Map Signed_Message (Verified Recursive_Proof_of_Consensus)
+ ,hetcons_Server_verify_quorums :: CMap.Map Proposal_1a Observers
 }
 
 
@@ -144,6 +147,7 @@ instance (Hetcons_State s) => MonadReader (Hetcons_Transaction_Environment s) (H
   ask = Hetcons_Transaction ask
   local f x = Hetcons_Transaction $ local f $ unwrap x
 
+-- TODO: there must be a more compact way to write the following:
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_1a (Hetcons_Transaction s) where
   verify x = do { table <- reader (hetcons_Server_verify_1a . hetcons_Transaction_Environment_hetcons_server)
                 ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
@@ -188,6 +192,15 @@ instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_Proof_o
                     Nothing -> do { y <- verify' x
                                   ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
                                   ; return y}}
+
+instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify_Quorums (Hetcons_Transaction s) where
+  verify_quorums x = do { table <- reader (hetcons_Server_verify_quorums . hetcons_Transaction_Environment_hetcons_server)
+                        ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
+                        ; case cached of
+                            Just y -> return y
+                            Nothing -> do { y <- verify_quorums' x
+                                          ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
+                                          ; return y}}
 
 
 

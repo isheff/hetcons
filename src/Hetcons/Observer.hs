@@ -31,6 +31,7 @@ import Hetcons.Receive_Message
     ,hetcons_Server_verify_2a
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
+    ,hetcons_Server_verify_quorums
   )
 import Hetcons.Send               ()
 import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO, domain_name)
@@ -88,6 +89,7 @@ new_observer cid pk doc =
      ; v2a <- CMap.empty
      ; v2b <- CMap.empty
      ; vproof <- CMap.empty
+     ; vq <- CMap.empty
      ; return Observer {
            observer_hetcons_server = (Hetcons_Server {
                                        hetcons_Server_crypto_id = cid
@@ -98,7 +100,9 @@ new_observer cid pk doc =
                                       ,hetcons_Server_verify_1b = v1b
                                       ,hetcons_Server_verify_2a = v2a
                                       ,hetcons_Server_verify_2b = v2b
-                                      ,hetcons_Server_verify_proof = vproof})
+                                      ,hetcons_Server_verify_proof = vproof
+                                      ,hetcons_Server_verify_quorums = vq
+                                      })
            ,do_on_consensus = doc}}
 
 basic_observer_server_print :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
@@ -126,5 +130,5 @@ instance Hetcons_Observer_Iface Observer where
                         observer_hetcons_server = s
                        ,do_on_consensus = doc})
               message
-    = run_Hetcons_Transaction_IO s doc (do { (verified :: (Verified Recursive_2b)) <-  verify message
+    = run_Hetcons_Transaction_IO s doc (do { (verified :: (Verified Recursive_2b)) <-  verify message -- TODO: this doesn't technically need to be in the TX
                                            ; receive verified})

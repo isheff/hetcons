@@ -1,9 +1,11 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Hetcons.Quorums
-    ( verify_quorums
+  ( Monad_Verify_Quorums, verify_quorums, verify_quorums'
     ) where
 
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a
@@ -74,20 +76,26 @@ floyd_warshall a_join a_meet matrix =
 
 
 
+class (MonadError Hetcons_Exception m) => Monad_Verify_Quorums m where
+  verify_quorums :: Proposal_1a -> m Observers
+
+-- TODO: this instance is used in testing only, so we should move it over to tests
+instance {-# OVERLAPPABLE #-} (MonadError Hetcons_Exception m) => Monad_Verify_Quorums m where
+  verify_quorums = verify_quorums'
 
 
 -- | a strict generalization of :: Proposal_1a -> Either Hetcons_Exception Observers
-verify_quorums :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
-verify_quorums x@(Proposal_1a { proposal_1a_observers = Nothing }) =
+verify_quorums' :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
+verify_quorums' x@(Proposal_1a { proposal_1a_observers = Nothing }) =
   throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                  invalid_Proposal_1a_offending_proposal = x
                 ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects."}
-verify_quorums x@(Proposal_1a { proposal_1a_observers = Just (Observers {observers_observer_graph = Just _})}) = graph_to_quorums x
-verify_quorums x@(Proposal_1a { proposal_1a_observers = Just (Observers {observers_observer_quorums = Nothing})}) =
+verify_quorums' x@(Proposal_1a { proposal_1a_observers = Just (Observers {observers_observer_graph = Just _})}) = graph_to_quorums x
+verify_quorums' x@(Proposal_1a { proposal_1a_observers = Just (Observers {observers_observer_quorums = Nothing})}) =
   throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                  invalid_Proposal_1a_offending_proposal = x
                 ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects featuring quorums."}
-verify_quorums (Proposal_1a { proposal_1a_observers = Just x }) = return x
+verify_quorums' (Proposal_1a { proposal_1a_observers = Just x }) = return x
 
 
 graph_to_quorums :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
