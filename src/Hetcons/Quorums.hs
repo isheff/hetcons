@@ -97,7 +97,7 @@ verify_quorums' x@(Proposal_1a { proposal_1a_observers = Just (Observers {observ
                 ,invalid_Proposal_1a_explanation = Just "At this time, we require all proposals to carry Observers objects featuring quorums."}
 verify_quorums' (Proposal_1a { proposal_1a_observers = Just x }) = return x
 
-
+-- TODO: this is very slow, mostly due to the fact that we manually calculate powersets. We can probably do this much more efficiently.
 graph_to_quorums :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
 graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Observers {observers_observer_graph = Just constraints})}) =
   let observers = toList $ union (HashSet.map observer_Trust_Constraint_observer_1 constraints) (HashSet.map observer_Trust_Constraint_observer_2 constraints)
