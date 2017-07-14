@@ -8,8 +8,10 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hetcons.Signed_Message
-    ( verify
-    , sign
+    (sign
+    ,Monad_Verify
+       ,verify
+       ,verify'
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
@@ -288,10 +290,26 @@ instance Eq Recursive_Proof_of_Consensus
 class Parsable a where
   -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
   -- | Of course, this depends on the type of the object.
-  parse :: (MonadError Hetcons_Exception m) => ByteString -> m a
+  parse :: (Monad_Verify Recursive_1a m
+           ,Monad_Verify Recursive_1b m
+           ,Monad_Verify Recursive_2a m
+           ,Monad_Verify Recursive_2b m
+           ,Monad_Verify Recursive_Proof_of_Consensus m
+           ,MonadError Hetcons_Exception m) => ByteString -> m a
 
 -- | By default, anythign serializable is simply deserialized.
 -- | the only possible error is if parsing fails
+instance {-# OVERLAPPING #-} Parsable Proposal_1a where
+  parse = return . (decode_Proposal_1a (BinaryProtocol EmptyTransport))
+instance {-# OVERLAPPING #-} Parsable Phase_1b where
+  parse = return . (decode_Phase_1b (BinaryProtocol EmptyTransport))
+instance {-# OVERLAPPING #-} Parsable Phase_2a where
+  parse = return . (decode_Phase_2a (BinaryProtocol EmptyTransport))
+instance {-# OVERLAPPING #-} Parsable Phase_2b where
+  parse = return . (decode_Phase_2b (BinaryProtocol EmptyTransport))
+instance {-# OVERLAPPING #-} Parsable Proof_of_Consensus where
+  parse = return . (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
+
 instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
   parse payload =
     case decodeLazy payload of
@@ -305,7 +323,6 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 
 
 
--- TODO: change these things that return Either to be MonadError Hetcons_Exception m => m a
 
 -- | This is the only way to construct a Verified object.
 -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
@@ -313,9 +330,14 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 -- | TODO? We may want to make verify memoized. In theory, all that is necessary is to make verify = memoize verify'
 -- |       For some reason, as of 2017-6-26, this actually slows down our unit tests.
 -- |       Basic memoize tests on, say, fibonacci seem to work fine.
-verify :: (MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
-verify = verify'
 
+class (MonadError Hetcons_Exception m, Parsable a) => Monad_Verify a m where
+  verify :: Signed_Message -> m (Verified a)
+
+instance {-# OVERLAPPABLE #-} (Parsable Recursive_1a, Parsable Recursive_1b, Parsable Recursive_2a, Parsable Recursive_2b, Parsable Recursive_Proof_of_Consensus,
+                               MonadError Hetcons_Exception m, Parsable a)
+                               => Monad_Verify a m where
+  verify = verify'
 
 
 
@@ -338,7 +360,12 @@ sha2_length length_set =
 -- | This is the only way to construct a Verified object.
 -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 -- | Otherwise, you get an exception.
-verify' :: (MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
+verify' :: (Monad_Verify Recursive_1a m
+           ,Monad_Verify Recursive_1b m
+           ,Monad_Verify Recursive_2a m
+           ,Monad_Verify Recursive_2b m
+           ,Monad_Verify Recursive_Proof_of_Consensus m
+           ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
 -- In the case where everything's done correctly:
 verify' signed_message@Signed_Message
        {signed_Message_payload = payload
@@ -366,9 +393,8 @@ verify' signed_message@Signed_Message
               invalid_Signed_Hash_signed_hash = signed_hash
              ,invalid_Signed_Hash_explanation = Just $ pack e}
          Nothing ->
-           case parse payload of
-             (Left  e) -> throwError e
-             (Right x) -> return Verified { verified_original = x, verified_signed = signed_message }}
+           do { parsed_payload <- parse payload
+              ; return Verified { verified_original = parsed_payload, verified_signed = signed_message }}}
 
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
 verify' Signed_Message

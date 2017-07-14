@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Hetcons.Contains_Value
@@ -57,14 +58,14 @@ instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1a a) => Contains_1a (Verifi
 
 
 type Ballot = (Int64, ByteString)
-extract_ballot :: (Contains_1a a) => a -> Ballot
+extract_ballot :: (Parsable Recursive_1a, Contains_1a a) => a -> Ballot
 extract_ballot v = let proposal = extract_1a v
                        in (proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
                            signed_Hash_signature $ signed_Message_signature $ signed proposal)
 
-extract_observer_quorums' :: Proposal_1a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
+extract_observer_quorums' :: (Parsable Recursive_1a) => Proposal_1a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
 extract_observer_quorums' (Proposal_1a {proposal_1a_observers = Just Observers {observers_observer_quorums = Just x}}) = x
-extract_observer_quorums :: (Contains_1a a) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
+extract_observer_quorums :: (Parsable Recursive_1a) => (Contains_1a a) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
 extract_observer_quorums = extract_observer_quorums' . recursive_1a_filled_in . original . extract_1a
 
 

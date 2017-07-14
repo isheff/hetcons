@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -10,9 +11,9 @@ import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extrac
 import Hetcons.Hetcons_Exception  (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a))
 import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Observer_State, Participant_State_Var, modify_and_read, default_State)
 import Hetcons.Instances_1a ()
-import Hetcons.Instances_1b_2a ()
+import Hetcons.Instances_1b_2a (well_formed_2a)
 import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus ()
+import Hetcons.Instances_Proof_of_Consensus (observers_proven)
 import Hetcons.Receive_Message
   (Hetcons_Transaction
     ,run_Hetcons_Transaction_IO
@@ -29,7 +30,7 @@ import Hetcons.Receive_Message
     ,send)
 import Hetcons.Send               ()
 import Hetcons.Send_Message_IO    (send_Message_IO)
-import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
+import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a(Recursive_2a), Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
 
 import Hetcons_Consts             (sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR)
 import Hetcons_Types              (Crypto_ID
@@ -97,12 +98,15 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                       else receive $ extract_1a r1b -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive $ extract_1bs $ original r1b -- receive all prior 1bs contained herein
                  ; state <- update_state (\s -> let new_state = insert r1b s in (new_state, new_state))
-                 ; signed <- sign_m (default_Phase_2a { phase_2a_phase_1bs = HashSet.map signed $
-                     HashSet.filter (((extract_1a r1b) ==) . extract_1a) $ -- all the 1bs with the same proposal
-                     HashSet.filter (((extract_value r1b) ==) . extract_value) state})  -- all the 1bs with the same value
-                 ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_2a))) of
-                     Left e -> return ()
-                     Right v -> send v
+                 ; let potential_2a = Recursive_2a $
+                         HashSet.filter (((extract_1a r1b) ==) . extract_1a) $ -- all the 1bs with the same proposal
+                         HashSet.filter (((extract_value r1b) ==) . extract_value) state
+                 ; case well_formed_2a potential_2a of
+                     (Right _)-> do { signed <- sign_m $ ((non_recursive potential_2a) :: Phase_2a)
+                                    ; (v :: (Verified Recursive_2a)) <- verify signed
+                                    ; send v}
+                     (Left _) -> return ()
+                 ; send r1b
                  ; send r1b}} -- echo the 1b
 
 
@@ -121,12 +125,14 @@ instance Receivable Observer_State (Verified Recursive_2b) where
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
          else do { let state = insert r2b old_state
                  ; put_state state
-                 ; signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed $
-                     HashSet.filter (((extract_1a r2b) ==) . extract_1a) $ -- all the 2bs with the same proposal
-                     HashSet.filter (((extract_value r2b) ==) . extract_value) state})  -- all the 2bs with the same value
-                 ; case ((verify signed) :: (Either Hetcons_Exception (Verified Recursive_Proof_of_Consensus))) of
-                     Left e -> return () -- this proof isn't valid, and shouldn't be sent out (maybe not enough 2bs yet) However, we still have to echo the 2b
-                     Right v -> send v
+                 ; let potential_proof =
+                         HashSet.filter (((extract_1a r2b) ==) . extract_1a) $ -- all the 2bs with the same proposal
+                         HashSet.filter (((extract_value r2b) ==) . extract_value) state  -- all the 2bs with the same value
+                 ; if (length (observers_proven potential_proof)) > 0
+                      then do { signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed potential_proof})
+                              ; (v :: (Verified Recursive_Proof_of_Consensus)) <- verify signed
+                              ; send v}
+                      else return ()
                  ; send r2b}}
 
 instance Receivable Observer_State (Verified Recursive_Proof_of_Consensus) where

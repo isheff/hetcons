@@ -45,7 +45,17 @@ import Hetcons.Receive_Message
   ,Receivable
     ,receive
   ,Sendable
-    ,send)
+    ,send
+  ,Hetcons_Server(Hetcons_Server)
+    ,hetcons_Server_crypto_id
+    ,hetcons_Server_private_key
+    ,hetcons_Server_address_book
+    ,hetcons_Server_state_var
+    ,hetcons_Server_verify_1a
+    ,hetcons_Server_verify_1b
+    ,hetcons_Server_verify_2a
+    ,hetcons_Server_verify_2b
+    ,hetcons_Server_verify_proof)
 import Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO)
 import Hetcons.Signed_Message (Verified
                                  ,signed
@@ -366,9 +376,13 @@ participant_tests = TestList [
                                                                            , on_phase_1b = \_ -> return () })
        ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert1 87020, sample_id cert2 87020]
        ; let (Right (verified :: (Verified Recursive_1a))) = verify signed_1a
-       ; catch (catch (run_Hetcons_Transaction_IO cid private1 address_book sv (\_ -> return ()) $ receive verified)
-                      (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
-               (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) False))
+       ; participant <- new_participant cid private1
+       ; catch (catch (run_Hetcons_Transaction_IO (participant{ hetcons_Server_address_book = address_book
+                                                              , hetcons_Server_state_var = sv})
+                                                  (\_ -> return ())
+                                                  $ receive verified)
+                (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
+         (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) False))
        }))
 
   ,TestLabel "Participant produces 1b given 1a" (

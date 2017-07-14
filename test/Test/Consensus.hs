@@ -31,8 +31,8 @@ import Hetcons.Instances_1a ()
 import Hetcons.Instances_1b_2a ()
 import Hetcons.Instances_2b ()
 import Hetcons.Instances_Proof_of_Consensus (observers_proven)
-import Hetcons.Observer (Observer, new_observer, basic_observer_server, basic_observer_server_print)
-import Hetcons.Participant (Participant, new_participant, basic_participant_server, current_nanoseconds )
+import Hetcons.Observer (Observer(Observer), do_on_consensus, observer_hetcons_server, new_observer, basic_observer_server, basic_observer_server_print, observer_server)
+import Hetcons.Participant (Participant, new_participant, participant_server, basic_participant_server, current_nanoseconds )
 import Hetcons.Receive_Message
   (Hetcons_Transaction
     ,run_Hetcons_Transaction_IO
@@ -46,7 +46,21 @@ import Hetcons.Receive_Message
   ,Receivable
     ,receive
   ,Sendable
-    ,send)
+    ,send
+  ,Hetcons_Server(Hetcons_Server)
+    ,hetcons_Server_crypto_id
+    ,hetcons_Server_private_key
+    ,hetcons_Server_address_book
+    ,hetcons_Server_state_var
+    ,hetcons_Server_verify_1a
+    ,hetcons_Server_verify_1b
+    ,hetcons_Server_verify_2a
+    ,hetcons_Server_verify_2b
+    ,hetcons_Server_verify_proof
+  )
+import Hetcons.Send               ()
+import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO)
+import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
 import Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name)
 import Hetcons.Signed_Message (Verified
                                  ,signed
@@ -424,32 +438,46 @@ consensus_tests = TestList [
        ; certs' <- mapM (\i -> ByteString.readFile $ "test/cert" ++ (show i) ++ ".pem") [1..6]
        ; let (ids :: [Participant_ID]) = map (uncurry sample_id) (zip (cert:certs') [85020..85026])
        ; proof_receipt <- newEmptyMVar
-       ; observer1<- (basic_observer_server
-                       (participant_ID_crypto_id (ids!!0))
-                       private
-                       85020
-                       $ putMVar proof_receipt)
-       ; observer2<- (basic_observer_server
-                       (participant_ID_crypto_id (ids!!6))
-                       private6
-                       85026
-                       $ putMVar proof_receipt)
-       ; participant_thread1<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!1))
-                                 private1
-                                 85021)
-       ; participant_thread2<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!2))
-                                 private2
-                                 85022)
-       ; participant_thread3<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!3))
-                                 private3
-                                 85023)
-       ; participant_thread4<- (basic_participant_server
-                                 (participant_ID_crypto_id (ids!!4))
-                                 private4
-                                 85024)
+       ; participant1 <- new_participant (participant_ID_crypto_id (ids!!1)) private1
+       ; participant_thread1<- participant_server participant1 85021
+       ; participant2 <- new_participant (participant_ID_crypto_id (ids!!2)) private2
+       ; participant_thread2 <- participant_server participant2 85022
+       ; participant3 <- start_State >>= (\(sv :: Participant_State_Var) -> return (participant1{hetcons_Server_state_var = sv
+                                                              ,hetcons_Server_crypto_id = (participant_ID_crypto_id (ids!!3))
+                                                              ,hetcons_Server_private_key = private3}))
+       ; participant_thread3<- participant_server participant3 85023
+       ; participant4 <- start_State >>= (\(sv :: Participant_State_Var) -> return (participant1{hetcons_Server_state_var = sv
+                                                              ,hetcons_Server_crypto_id = (participant_ID_crypto_id (ids!!4))
+                                                              ,hetcons_Server_private_key = private4}))
+       ; participant_thread4<- participant_server participant4 85024
+       ; observer_1_state <- start_State
+       ; let observer1_datum = Observer {
+           observer_hetcons_server = (Hetcons_Server {
+                                       hetcons_Server_crypto_id = (participant_ID_crypto_id (ids!!0))
+                                      ,hetcons_Server_private_key = private
+                                      ,hetcons_Server_address_book = hetcons_Server_address_book participant1
+                                      ,hetcons_Server_state_var = observer_1_state
+                                      ,hetcons_Server_verify_1a = hetcons_Server_verify_1a participant1
+                                      ,hetcons_Server_verify_1b = hetcons_Server_verify_1b participant1
+                                      ,hetcons_Server_verify_2a = hetcons_Server_verify_2a participant1
+                                      ,hetcons_Server_verify_2b = hetcons_Server_verify_2b participant1
+                                      ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1})
+           ,do_on_consensus = putMVar proof_receipt}
+       ; observer1 <- observer_server observer1_datum 85020
+       ; observer_2_state <- start_State
+       ; let observer2_datum = Observer {
+           observer_hetcons_server = (Hetcons_Server {
+                                       hetcons_Server_crypto_id = (participant_ID_crypto_id (ids!!6))
+                                      ,hetcons_Server_private_key = private6
+                                      ,hetcons_Server_address_book = hetcons_Server_address_book participant1
+                                      ,hetcons_Server_state_var = observer_2_state
+                                      ,hetcons_Server_verify_1a = hetcons_Server_verify_1a participant1
+                                      ,hetcons_Server_verify_1b = hetcons_Server_verify_1b participant1
+                                      ,hetcons_Server_verify_2a = hetcons_Server_verify_2a participant1
+                                      ,hetcons_Server_verify_2b = hetcons_Server_verify_2b participant1
+                                      ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1})
+           ,do_on_consensus = putMVar proof_receipt}
+       ; observer2<- observer_server observer2_datum 85026
        ; address_book <- default_Address_Book
        ; now <- current_nanoseconds
        ; let message_1a = default_Proposal_1a {

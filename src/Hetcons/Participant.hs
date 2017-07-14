@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
-module Hetcons.Participant (Participant, new_participant, basic_participant_server, current_nanoseconds ) where
+module Hetcons.Participant (Participant, new_participant, participant_server, basic_participant_server, current_nanoseconds ) where
 
 import Hetcons.Conflicting_2as    (conflicting_2as)
 import Hetcons.Contains_Value     (Contains_1a, Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
@@ -24,7 +26,18 @@ import Hetcons.Receive_Message
   ,Receivable
     ,receive
   ,Sendable
-    ,send)
+    ,send
+  ,Hetcons_Server(Hetcons_Server)
+    ,hetcons_Server_crypto_id
+    ,hetcons_Server_private_key
+    ,hetcons_Server_address_book
+    ,hetcons_Server_state_var
+    ,hetcons_Server_verify_1a
+    ,hetcons_Server_verify_1b
+    ,hetcons_Server_verify_2a
+    ,hetcons_Server_verify_2b
+    ,hetcons_Server_verify_proof
+  )
 import Hetcons.Send               ()
 import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO)
 import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
@@ -54,6 +67,7 @@ import Hetcons_Types              (Timestamp
                                   )
 
 import Control.Concurrent (forkIO, ThreadId, threadDelay)
+import qualified Control.Concurrent.Map as CMap (Map, empty, lookup)
 import Control.Exception.Base     (throw)
 import Control.Monad              (mapM, mapM_)
 import Control.Monad.Except       (throwError, catchError, MonadError)
@@ -69,26 +83,34 @@ import Data.Thyme.Clock           (getCurrentTime, UTCTime, UTCView(UTCTime))
 import Data.Thyme.Time.Core       (toThyme, fromThyme, diffUTCTime, toMicroseconds, fromMicroseconds, fromGregorian)
 import Thrift.Server (runBasicServer)
 
-data Participant = Participant {
-  crypto_id :: Crypto_ID
- ,private_key :: ByteString
- ,address_book :: Address_Book
- ,state_var :: Participant_State_Var
-}
+type Participant = Hetcons_Server Participant_State
 
 new_participant :: Crypto_ID -> ByteString -> IO Participant
 new_participant cid pk =
   do { ab <- default_Address_Book
      ; sv <- start_State
-     ; return Participant {
-            crypto_id = cid
-           ,private_key = pk
-           ,address_book = ab
-           ,state_var = sv}}
+     ; v1a <- CMap.empty
+     ; v1b <- CMap.empty
+     ; v2a <- CMap.empty
+     ; v2b <- CMap.empty
+     ; vproof <- CMap.empty
+     ;return (Hetcons_Server {
+            hetcons_Server_crypto_id = cid
+           ,hetcons_Server_private_key = pk
+           ,hetcons_Server_address_book = ab
+           ,hetcons_Server_state_var = sv
+           ,hetcons_Server_verify_1a = v1a
+           ,hetcons_Server_verify_1b = v1b
+           ,hetcons_Server_verify_2a = v2a
+           ,hetcons_Server_verify_2b = v2b
+           ,hetcons_Server_verify_proof = vproof})}
+
+participant_server :: (Integral a) => Participant -> a -> IO ThreadId
+participant_server participant port = forkIO $ runBasicServer participant process $ fromIntegral port
 
 basic_participant_server :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
-basic_participant_server cid pk port = forkIO (do { participant <- new_participant cid pk
-                                                  ; runBasicServer participant process (fromIntegral port)})
+basic_participant_server cid pk port = do { participant <- new_participant cid pk
+                                          ; participant_server participant port}
 
 
 -- | The current time, in nanoseconds since 1970 began.
@@ -117,22 +139,12 @@ on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
 instance Hetcons_Participant_Iface Participant where
   ping _ = return ()
 
-  proposal_1a participant@(Participant {
-                              crypto_id = cid
-                             ,private_key = pk
-                             ,address_book = ab
-                             ,state_var = sv})
-              message
-    = case verify message of
-        Left e -> throw e
-        Right (verified :: (Verified Recursive_1a)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv on_consensus $ receive verified)
+  proposal_1a participant message
+    = do { (verified :: (Verified Recursive_1a)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message
+         ; delay_message verified
+         ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}
 
-  phase_1b participant@(Participant {
-                           crypto_id = cid
-                          ,private_key = pk
-                          ,address_book = ab
-                          ,state_var = sv})
-           message
-    = case verify message of
-        Left e -> throw e
-        Right (verified :: (Verified Recursive_1b)) -> (delay_message verified) >> (run_Hetcons_Transaction_IO cid pk ab sv on_consensus $ receive verified)
+  phase_1b participant message
+    = do { (verified :: (Verified Recursive_1b)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message
+         ; delay_message verified
+         ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}

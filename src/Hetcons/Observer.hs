@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Hetcons.Observer (Observer, new_observer, basic_observer_server, basic_observer_server_print) where
+module Hetcons.Observer (Observer(Observer), do_on_consensus, observer_hetcons_server, new_observer, basic_observer_server, basic_observer_server_print, observer_server) where
 
 import Hetcons.Conflicting_2as    (conflicting_2as)
 import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
@@ -24,7 +24,14 @@ import Hetcons.Receive_Message
   ,Receivable
     ,receive
   ,Sendable
-    ,send)
+    ,send
+  ,Hetcons_Server(Hetcons_Server)
+    ,hetcons_Server_crypto_id
+    ,hetcons_Server_private_key ,hetcons_Server_address_book ,hetcons_Server_state_var ,hetcons_Server_verify_1a ,hetcons_Server_verify_1b
+    ,hetcons_Server_verify_2a
+    ,hetcons_Server_verify_2b
+    ,hetcons_Server_verify_proof
+  )
 import Hetcons.Send               ()
 import Hetcons.Send_Message_IO    (Address_Book, default_Address_Book, send_Message_IO, domain_name)
 import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
@@ -53,6 +60,7 @@ import Hetcons_Types              (Crypto_ID
                                   )
 
 import Control.Concurrent (forkIO, ThreadId)
+import qualified Control.Concurrent.Map as CMap (Map, empty, lookup)
 import Control.Exception.Base     (throw)
 import Control.Monad              (mapM, mapM_)
 import Control.Monad.Except       (throwError, catchError, MonadError)
@@ -67,10 +75,7 @@ import Data.Serialize             (Serialize)
 import Thrift.Server (runBasicServer)
 
 data Observer = Observer {
-  crypto_id :: Crypto_ID
- ,private_key :: ByteString
- ,address_book :: Address_Book
- ,state_var :: Observer_State_Var
+  observer_hetcons_server :: Hetcons_Server Observer_State
  ,do_on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 }
 
@@ -78,19 +83,33 @@ new_observer :: Crypto_ID -> ByteString -> ((Verified Recursive_Proof_of_Consens
 new_observer cid pk doc =
   do { ab <- default_Address_Book
      ; sv <- start_State
+     ; v1a <- CMap.empty
+     ; v1b <- CMap.empty
+     ; v2a <- CMap.empty
+     ; v2b <- CMap.empty
+     ; vproof <- CMap.empty
      ; return Observer {
-            crypto_id = cid
-           ,private_key = pk
-           ,address_book = ab
-           ,state_var = sv
+           observer_hetcons_server = (Hetcons_Server {
+                                       hetcons_Server_crypto_id = cid
+                                      ,hetcons_Server_private_key = pk
+                                      ,hetcons_Server_address_book = ab
+                                      ,hetcons_Server_state_var = sv
+                                      ,hetcons_Server_verify_1a = v1a
+                                      ,hetcons_Server_verify_1b = v1b
+                                      ,hetcons_Server_verify_2a = v2a
+                                      ,hetcons_Server_verify_2b = v2b
+                                      ,hetcons_Server_verify_proof = vproof})
            ,do_on_consensus = doc}}
 
 basic_observer_server_print :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
 basic_observer_server_print cid pk port = basic_observer_server cid pk port on_consensus
 
+observer_server :: (Integral a) => Observer -> a -> IO ThreadId
+observer_server observer port = forkIO $ runBasicServer observer process $ fromIntegral port
+
 basic_observer_server :: (Integral a) => Crypto_ID -> ByteString -> a -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO ThreadId
-basic_observer_server cid pk port doc = forkIO (do { observer <- new_observer cid pk doc
-                                                   ; runBasicServer observer process (fromIntegral port)})
+basic_observer_server cid pk port doc = do { observer <- new_observer cid pk doc
+                                           ; observer_server observer port}
 
 on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 on_consensus proof = putStrLn $
@@ -104,12 +123,8 @@ instance Hetcons_Observer_Iface Observer where
   ping _ = return ()
 
   phase_2b observer@(Observer {
-                        crypto_id = cid
-                       ,private_key = pk
-                       ,address_book = ab
-                       ,state_var = sv
+                        observer_hetcons_server = s
                        ,do_on_consensus = doc})
               message
-    = case verify message of
-        Left e -> throw e
-        Right (verified :: (Verified Recursive_2b)) -> run_Hetcons_Transaction_IO cid pk ab sv doc $ receive verified
+    = run_Hetcons_Transaction_IO s doc (do { (verified :: (Verified Recursive_2b)) <-  verify message
+                                           ; receive verified})

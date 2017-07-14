@@ -57,6 +57,7 @@ library
                      , network
                      , monad-parallel
                      , thyme
+                     , transformers
                      , EasyX509
                      , cryptonite
                      -- BEGIN THRIFT REQUIREMENTS
