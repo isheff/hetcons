@@ -5,63 +5,40 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Hetcons.Quorums
-  ( Monad_Verify_Quorums, verify_quorums, verify_quorums'
-    ) where
+  ( Monad_Verify_Quorums
+     ,verify_quorums
+     ,verify_quorums'
+  ) where
 
-import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a
-                                                   ,Hetcons_Exception_Impossible_Observer_Graph))
+import Hetcons.Hetcons_Exception
+    ( Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a
+                       ,Hetcons_Exception_Impossible_Observer_Graph) )
 
-import Hetcons_Consts ()
-import Hetcons_Types  (Value
-                         ,value_slot
-                      ,Proposal_1a (Proposal_1a)
-                         ,proposal_1a_value
-                         ,proposal_1a_observers
-                      ,Crypto_ID
-                      ,Participant_ID (Participant_ID)
-                         ,participant_ID_crypto_id
-                      ,Observers (Observers)
-                         ,observers_observer_graph
-                         ,observers_observer_quorums
-                      ,Invalid_Proposal_1a
-                         ,invalid_Proposal_1a_offending_proposal
-                         ,invalid_Proposal_1a_explanation
-                         ,default_Invalid_Proposal_1a
-                      ,Observers (Observers)
-                         ,observers_observer_graph
-                         ,observers_observer_quorums
-                      ,Observer_Trust_Constraint(Observer_Trust_Constraint)
-                         ,observer_Trust_Constraint_observer_1
-                         ,observer_Trust_Constraint_observer_2
-                         ,observer_Trust_Constraint_safe
-                         ,observer_Trust_Constraint_live
-                         ,default_Observers
-                      ,Impossible_Observer_Graph
-                         ,default_Impossible_Observer_Graph
-                         ,impossible_Observer_Graph_offending_observer_graph
-                         ,impossible_Observer_Graph_explanation
-                      )
+import Hetcons_Types
+    ( Invalid_Proposal_1a(invalid_Proposal_1a_explanation
+                         ,invalid_Proposal_1a_offending_proposal)
+     ,Impossible_Observer_Graph(impossible_Observer_Graph_explanation
+                               ,impossible_Observer_Graph_offending_observer_graph)
+     ,Proposal_1a(Proposal_1a, proposal_1a_observers)
+     ,Participant_ID
+     ,Observers (Observers)
+        ,observers_observer_graph
+        ,observers_observer_quorums
+     ,Observer_Trust_Constraint(Observer_Trust_Constraint
+                               ,observer_Trust_Constraint_live, observer_Trust_Constraint_safe
+                               ,observer_Trust_Constraint_observer_2
+                               ,observer_Trust_Constraint_observer_1)
+     ,default_Invalid_Proposal_1a
+     ,default_Impossible_Observer_Graph )
 
-import Control.Monad (filterM)
-import Control.Monad.Except (throwError, catchError, MonadError)
-import Data.Foldable (toList, length, foldr)
-import qualified Data.HashMap.Lazy as HashMap (fromList,(!))
-import Data.HashMap.Lazy (HashMap, mapWithKey, filterWithKey)
-import qualified Data.HashSet as HashSet (map, filter, fromList)
-import Data.HashSet (HashSet
-                       ,member
-                       ,intersection
-                       ,union
-                       ,unions
-                       ,fromList
-                       ,toMap
-                       ,singleton
-                       ,empty
-                       )
-import Data.List (head)
-import qualified Data.Vector as Vector (fromList)
-import Data.Vector (Vector, (!))
-
+import Control.Monad.Except ( MonadError(throwError) )
+import Data.Foldable ( Foldable(toList, length) )
+import qualified Data.HashMap.Lazy as HashMap ( fromList, (!) )
+import qualified Data.HashSet as HashSet ( map, filter )
+import Data.HashSet
+    ( HashSet, unions, union, intersection, fromList, empty )
+import qualified Data.Vector as Vector ( fromList )
+import Data.Vector ( Vector, (!) )
 
 floyd_warshall :: (Foldable b, Foldable c) => (a -> a -> a) -> (a -> a -> a) -> (b (c a)) -> (Vector (Vector a))
 floyd_warshall a_join a_meet matrix =
