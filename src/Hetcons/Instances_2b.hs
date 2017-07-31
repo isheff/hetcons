@@ -9,6 +9,59 @@
 
 module Hetcons.Instances_2b () where
 
+
+
+import Hetcons.Contains_Value
+    ( Contains_Value
+        ,extract_value
+     ,Contains_1a
+        ,extract_1a
+        ,extract_observer_quorums
+     ,Ballot
+        ,extract_ballot
+     ,Contains_1bs
+        ,extract_1bs
+    )
+import Hetcons.Hetcons_Exception
+    ( Hetcons_Exception(Hetcons_Exception_Invalid_Phase_2b) )
+import Hetcons.Signed_Message
+    ( Recursive_1b(recursive_1b_proposal)
+     ,Parsable
+       ,parse
+     ,Recursive
+       ,non_recursive
+     ,Recursive_2b (Recursive_2b)
+     ,Recursive_2a(Recursive_2a)
+     ,Monad_Verify(verify)
+     ,signed
+     ,original )
+
+import Hetcons_Types
+    ( Participant_ID(participant_ID_crypto_id)
+     ,Invalid_Phase_2b(invalid_Phase_2b_explanation
+                      ,invalid_Phase_2b_offending_phase_2b)
+     ,Signed_Hash(signed_Hash_crypto_id)
+     ,Signed_Message(signed_Message_signature)
+     ,Phase_2b(phase_2b_phase_1bs)
+     ,default_Phase_2b
+     ,default_Invalid_Phase_2b )
+
+import Control.Monad.Except ( MonadError(throwError) )
+import Data.Either.Combinators ()
+import Data.Foldable ( Foldable(length) )
+import Data.Hashable ( Hashable, hashWithSalt )
+import Data.HashMap.Strict ( elems )
+import Data.HashSet ( unions, toList, intersection, fromList )
+import qualified Data.HashSet as HashSet ( map )
+import Data.List ( head )
+import Data.Maybe ( catMaybes )
+import Data.Text.Lazy ( pack )
+import Data.Traversable ( mapM )
+
+
+
+
+
 import Hetcons.Contains_Value (
       Contains_Value
         ,extract_value
