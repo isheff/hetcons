@@ -18,33 +18,30 @@ module Hetcons.Hetcons_State
     , state_by_observers
     ) where
 
-import Hetcons.Contains_Value (extract_1a, Contains_1a, extract_observer_quorums)
-import Hetcons.Hetcons_Exception (Hetcons_Exception())
-import Hetcons.Instances_1a ()
+import Hetcons.Contains_Value
+    ( Contains_1a
+     ,extract_observer_quorums )
 import Hetcons.Instances_1b_2a ()
-import Hetcons.Signed_Message (Verified
-                              ,Recursive_1b
-                              ,Recursive_2b
-                              ,recursive_1a_filled_in
-                              ,recursive_1b_proposal
-                              ,original
-                              ,non_recursive)
-import Hetcons.Value (garbage_collect, conflicts)
+import Hetcons.Signed_Message
+    ( Recursive_1b
+     ,Verified
+     ,Recursive_2b )
+import Hetcons.Value ( garbage_collect, conflicts )
 
-import Hetcons_Consts ()
-import Hetcons_Types  (proposal_1a_observers)
+import Control.Concurrent.MVar
+    ( MVar
+       ,modifyMVar_
+       ,modifyMVar
+       ,newMVar
+       ,readMVar )
+import Data.Foldable ( toList, any )
+import qualified Data.HashSet as HashSet ( map, filter )
+import Data.HashSet ( HashSet, fromList, empty )
+import Data.Hashable ( Hashable )
 
-import Control.Concurrent.MVar (MVar, modifyMVar_, modifyMVar, newMVar, readMVar)
-import Data.Foldable (toList, any)
-import qualified Data.HashSet as HashSet (map, filter)
-import Data.HashSet (HashSet
-                       ,intersection
-                       ,fromList
-                       ,empty
-                       ,singleton)
-import Data.Hashable (Hashable)
+import Prelude
+    ( (.), (==), Bool, Foldable, IO, ($), return, Eq, id )
 
-import Prelude ((.), (==), Bool, Foldable, IO, ($), return, Eq, id)
 
 class Hetcons_State a where
   write_prep :: a -> a
