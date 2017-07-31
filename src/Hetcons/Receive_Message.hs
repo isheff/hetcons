@@ -50,7 +50,11 @@ import Hetcons.Signed_Message
      ,Monad_Verify
        ,verify
        ,verify' )
+
 import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers )
+
+import Crypto.Random          (drgNew)
+import Data.Serialize         (Serialize)
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
 import Control.Concurrent.Map ( insertIfAbsent )
 import Control.Concurrent.MVar ( MVar )

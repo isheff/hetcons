@@ -8,28 +8,35 @@
 module Hetcons.Send () where
 
 import Hetcons.Receive_Message
-  (Hetcons_Transaction
-    ,get_my_crypto_id
-    ,get_my_private_key
-  ,Add_Sent
-    ,add_sent
-  ,Receivable
-    ,receive
-  ,Sendable
-    ,send)
-import Hetcons.Signed_Message (Monad_Verify, Verified, original, signed, sign, Recursive,
-                               Parsable, verify, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
-import Hetcons.Hetcons_State (Hetcons_State, Participant_State, Observer_State)
-import Hetcons.Instances_1a ()
-import Hetcons.Instances_1b_2a ()
-import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus ()
+    ( Hetcons_Transaction,
+      get_my_crypto_id,
+      get_my_private_key,
+      Add_Sent,
+      add_sent,
+      Receivable,
+      receive,
+      Sendable,
+      send )
+import Hetcons.Signed_Message
+    ( Parsable,
+      Monad_Verify(verify),
+      Recursive_1a,
+      Recursive_1b,
+      Recursive_2a,
+      Recursive_2b,
+      Recursive_Proof_of_Consensus,
+      Verified,
+      Recursive,
+      sign )
+import Hetcons.Hetcons_State
+    ( Hetcons_State, Participant_State, Observer_State )
 
-import Hetcons_Consts         (sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR)
-import Hetcons_Types          (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus)
+import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import Hetcons_Types
+    ( Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus )
 
-import Crypto.Random          (drgNew)
-import Data.Serialize         (Serialize)
+import Crypto.Random ( drgNew )
+import Data.Serialize ( Serialize )
 
 sign_and_verify :: (Monad_Verify b (Hetcons_Transaction s), Serialize a, Parsable b, Hetcons_State s, Recursive a b) => a -> Hetcons_Transaction s (Verified b)
 sign_and_verify m = do { crypto_id <- get_my_crypto_id
