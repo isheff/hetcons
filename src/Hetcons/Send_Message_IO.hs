@@ -6,78 +6,49 @@
 
 module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name) where
 
-import Hetcons.Contains_Value (extract_observer_quorums, extract_1bs)
-import Hetcons.Hetcons_Exception  (Hetcons_Exception)
-import Hetcons.Instances_1a ()
-import Hetcons.Instances_1b_2a ()
-import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus (observers_proven)
-import Hetcons.Signed_Message     (Verified
-                                    ,original
-                                    ,signed
-                                  ,Recursive_1a
-                                  ,Recursive_1b
-                                  ,Recursive_2a
-                                  ,Recursive_2b
-                                  ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
-                                  ,Parsable, sign)
+import Hetcons.Contains_Value ( extract_observer_quorums )
+import Hetcons.Instances_Proof_of_Consensus ()
+import Hetcons.Signed_Message
+    ( Recursive_1b
+     ,Recursive_1a
+     ,Verified
+       ,signed
+       ,original
+     ,Parsable
+     ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
+     ,Recursive_2b
+     ,Recursive_2a
+    )
+import Hetcons_Observer_Client ( phase_2b )
+import Hetcons_Participant_Client ( proposal_1a, phase_1b )
+import Hetcons_Types
+    ( Participant_ID(Participant_ID, participant_ID_address)
+     ,Address(Address, address_port_number, address_host_address)
+     ,Host_Address(Host_Address, host_Address_ipv6_address
+                  ,host_Address_ipv4_address, host_Address_dns_name)
+     ,IPv6_Address(IPv6_Address, iPv6_Address_byte_15
+                  ,iPv6_Address_byte_14, iPv6_Address_byte_13, iPv6_Address_byte_12
+                  ,iPv6_Address_byte_11, iPv6_Address_byte_10, iPv6_Address_byte_9
+                  ,iPv6_Address_byte_8, iPv6_Address_byte_7, iPv6_Address_byte_6
+                  ,iPv6_Address_byte_5, iPv6_Address_byte_4, iPv6_Address_byte_3
+                  ,iPv6_Address_byte_2, iPv6_Address_byte_1, iPv6_Address_byte_0)
+     ,IPv4_Address(IPv4_Address, iPv4_Address_byte_3
+                  ,iPv4_Address_byte_2, iPv4_Address_byte_1, iPv4_Address_byte_0) )
 
-import Hetcons_Observer_Client (phase_2b)
-import Hetcons_Participant_Client (proposal_1a, phase_1b)
-import Hetcons_Types              (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus, Signed_Message
-                                  ,Participant_ID(Participant_ID)
-                                    ,participant_ID_address
-                                  ,Address(Address)
-                                    ,address_host_address
-                                    ,address_port_number
-                                  ,Host_Address(Host_Address)
-                                    ,host_Address_dns_name
-                                    ,host_Address_ipv4_address
-                                    ,host_Address_ipv6_address
-                                  ,IPv4_Address(IPv4_Address)
-                                    ,iPv4_Address_byte_0
-                                    ,iPv4_Address_byte_1
-                                    ,iPv4_Address_byte_2
-                                    ,iPv4_Address_byte_3
-                                  ,IPv6_Address(IPv6_Address)
-                                    ,iPv6_Address_byte_0
-                                    ,iPv6_Address_byte_1
-                                    ,iPv6_Address_byte_2
-                                    ,iPv6_Address_byte_3
-                                    ,iPv6_Address_byte_4
-                                    ,iPv6_Address_byte_5
-                                    ,iPv6_Address_byte_6
-                                    ,iPv6_Address_byte_7
-                                    ,iPv6_Address_byte_8
-                                    ,iPv6_Address_byte_9
-                                    ,iPv6_Address_byte_10
-                                    ,iPv6_Address_byte_11
-                                    ,iPv6_Address_byte_12
-                                    ,iPv6_Address_byte_13
-                                    ,iPv6_Address_byte_14
-                                    ,iPv6_Address_byte_15
-                                  )
-
-import qualified Control.Concurrent.Map as Concurrent_Map (Map, empty, lookup)
-import Control.Concurrent.Map     (insertIfAbsent)
-import Control.Concurrent.MVar (modifyMVar, newMVar, MVar)
-import Control.Monad              (mapM_)
-import qualified Control.Monad.Parallel as Parallel (mapM_)
-import Control.Monad.Trans.Either (EitherT, runEitherT)
-import Data.HashMap.Lazy (HashMap, elems, keys)
-import qualified Data.HashSet as HashSet (map)
-import Data.HashSet               (HashSet, insert, toList, empty, unions)
-import Data.Text.Lazy             (unpack)
-import GHC.IO.Handle (Handle)
-import Network (PortID(PortNumber))
-import Network.Socket (HostName)
-import Text.Printf (printf)
-import Thrift.Protocol (Protocol)
-import Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
-import Thrift.Transport.Handle (hOpen)
-
-
-
+import qualified Control.Concurrent.Map as Concurrent_Map
+    ( Map, empty, lookup )
+import Control.Concurrent.Map ( insertIfAbsent )
+import Control.Concurrent.MVar ( modifyMVar, newMVar, MVar )
+import qualified Control.Monad.Parallel as Parallel ( mapM_ )
+import Data.HashMap.Lazy ( keys, elems )
+import Data.HashSet ( unions, toList )
+import Data.Text.Lazy ( unpack )
+import GHC.IO.Handle ( Handle )
+import Network ( PortID(PortNumber) )
+import Network.Socket ( HostName )
+import Text.Printf ( printf )
+import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Transport.Handle ( hOpen )
 
 domain_name :: Participant_ID -> HostName
 domain_name (Participant_ID{participant_ID_address=(Address{address_host_address=(Host_Address{host_Address_dns_name=(Just x)})})}) = unpack x
