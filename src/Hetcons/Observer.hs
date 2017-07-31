@@ -1,7 +1,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Hetcons.Observer (Observer(Observer), do_on_consensus, observer_hetcons_server, new_observer, basic_observer_server, basic_observer_server_print, observer_server) where
-
+module Hetcons.Observer (Observer(Observer)
+                          ,do_on_consensus
+                          ,observer_hetcons_server
+                          ,new_observer
+                        ,basic_observer_server
+                        ,basic_observer_server_print
+                        ,observer_server)
+where
 
 import Hetcons.Hetcons_State ( Observer_State, start_State )
 import Hetcons.Instances_Proof_of_Consensus ( observers_proven )
@@ -39,14 +45,6 @@ import Control.Concurrent ( forkIO, ThreadId )
 import qualified Control.Concurrent.Map as CMap ( empty )
 import Data.ByteString.Lazy ( ByteString )
 import Thrift.Server ( runBasicServer )
-
-
-
-
-
-
-
-
 
 data Observer = Observer {
   observer_hetcons_server :: Hetcons_Server Observer_State
