@@ -6,62 +6,57 @@
 
 module Hetcons.Receive () where
 
-import Hetcons.Conflicting_2as    (conflicting_2as)
-import Hetcons.Contains_Value     (Contains_1bs, extract_1bs, extract_1a, extract_value, extract_ballot, extract_observer_quorums)
-import Hetcons.Hetcons_Exception  (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a))
-import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Observer_State, Participant_State_Var, modify_and_read, default_State)
-import Hetcons.Instances_1a ()
-import Hetcons.Instances_1b_2a (well_formed_2a)
-import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus (observers_proven)
+import Hetcons.Conflicting_2as ( conflicting_2as )
+import Hetcons.Contains_Value
+    ( Contains_Value(extract_value)
+     ,Contains_1a(extract_1a)
+     ,Contains_1bs(extract_1bs)
+     ,extract_observer_quorums
+     ,extract_ballot )
+import Hetcons.Hetcons_State
+    ( Participant_State, Observer_State, Hetcons_State )
+import Hetcons.Instances_1b_2a ( well_formed_2a )
+import Hetcons.Instances_Proof_of_Consensus ( observers_proven )
 import Hetcons.Receive_Message
-  (Hetcons_Transaction
-    ,run_Hetcons_Transaction_IO
-    ,get_state
-    ,put_state
-    ,update_state
-    ,get_my_crypto_id
-    ,get_my_private_key
-  ,Add_Sent
-    ,add_sent
-  ,Receivable
-    ,receive
-  ,Sendable
-    ,send)
-import Hetcons.Send               ()
-import Hetcons.Send_Message_IO    (send_Message_IO)
-import Hetcons.Signed_Message     (Verified, original, signed, sign, verify, non_recursive, Recursive_1a, Recursive_1b, Recursive_2a(Recursive_2a), Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
-
-import Hetcons_Consts             (sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR)
-import Hetcons_Types              (Crypto_ID
-                                  ,default_Phase_1b
-                                  ,phase_1b_proposal
-                                  ,phase_1b_conflicting_phase2as
-                                  ,Signed_Message
-                                  ,default_Phase_2a
-                                  ,Phase_2a(Phase_2a)
-                                    ,phase_2a_phase_1bs
-                                  ,default_Phase_2b
-                                  ,phase_2b_phase_1bs
-                                  ,default_Proof_of_Consensus
-                                  ,proof_of_Consensus_phase_2bs
-                                  ,signed_Hash_crypto_id
-                                  ,signed_Message_signature
-                                  ,default_Invalid_Proposal_1a
-                                  )
-
-import Control.Exception.Base     (throw)
-import Control.Monad              (mapM, mapM_)
-import Control.Monad.Except       (throwError, catchError, MonadError)
-import Control.Monad.Reader       (MonadReader, Reader, runReader, reader, ask, local)
-import Control.Monad.Trans.Either (EitherT, runEitherT)
-import Control.Monad.State        (StateT, runStateT, get, put,state)
-import Crypto.Random              (drgNew)
-import Data.ByteString.Lazy       (ByteString)
-import Data.Foldable              (maximum)
-import Data.HashSet               (HashSet, insert, toList, fromList,  empty, member)
-import qualified Data.HashSet as HashSet (map, filter)
-import Data.Serialize             (Serialize)
+    ( Sendable(send)
+     ,Receivable
+       ,receive
+     ,Hetcons_Transaction
+     ,update_state
+     ,put_state
+     ,get_state
+     ,get_my_private_key
+     ,get_my_crypto_id )
+import Hetcons.Send ()
+import Hetcons.Signed_Message
+    ( Recursive_2a(Recursive_2a)
+     ,Recursive_1b
+     ,Verified
+     ,Recursive_1a
+     ,Recursive_2b
+     ,Recursive(non_recursive)
+     ,Recursive_Proof_of_Consensus
+     ,Monad_Verify(verify)
+     ,signed
+     ,sign
+     ,original )
+import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import Hetcons_Types
+    ( Signed_Message(signed_Message_signature)
+     ,Phase_2a(phase_2a_phase_1bs)
+     ,Signed_Hash(signed_Hash_crypto_id)
+     ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
+     ,Phase_2b(phase_2b_phase_1bs)
+     ,Proof_of_Consensus(proof_of_Consensus_phase_2bs)
+     ,default_Proof_of_Consensus
+     ,default_Phase_2b
+     ,default_Phase_1b )
+import Control.Monad ( mapM, mapM_ )
+import Crypto.Random ( drgNew )
+import Data.Foldable ( maximum )
+import Data.HashSet ( toList, member, insert, fromList )
+import qualified Data.HashSet as HashSet ( map, filter )
+import Data.Serialize ( Serialize )
 
 sign_m :: (Serialize a, Hetcons_State s) => a -> Hetcons_Transaction s Signed_Message
 sign_m m = do
