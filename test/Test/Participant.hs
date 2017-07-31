@@ -2,181 +2,82 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Test.Participant (participant_tests) where
 
-import Hetcons.Contains_Value (extract_1a, extract_value)
-import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
-                                                   ,Hetcons_Exception_Unparsable_Hashable_Message
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
-                                                   ,Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
-                                                   ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
-                                                   ,Hetcons_Exception_Invalid_Signed_Hash))
-
-import Hetcons.Hetcons_State
-    ( Hetcons_State
-    , Participant_State_Var
-    , Participant_State
-    , Observer_State_Var
-    , Observer_State
-    , default_State
-    , conflicting_state
-    , new_State
-    , start_State
-    , modify
-    , read
-    , modify_and_read
-    , state_by_observers
-    )
-import Hetcons.Instances_1a ()
-import Hetcons.Instances_1b_2a ()
-import Hetcons.Instances_2b ()
+import Hetcons.Contains_Value ( extract_1a, extract_value )
+import Hetcons.Hetcons_Exception ( Hetcons_Exception )
+import Hetcons.Hetcons_State ( Participant_State_Var, start_State )
 import Hetcons.Instances_Proof_of_Consensus ()
-import Hetcons.Participant (Participant, new_participant, basic_participant_server, current_nanoseconds )
+import Hetcons.Participant
+    ( new_participant, current_nanoseconds, basic_participant_server )
 import Hetcons.Receive_Message
-  (Hetcons_Transaction
-    ,run_Hetcons_Transaction_IO
-    ,get_state
-    ,put_state
-    ,update_state
-    ,get_my_crypto_id
-    ,get_my_private_key
-  ,Add_Sent
-    ,add_sent
-  ,Receivable
-    ,receive
-  ,Sendable
-    ,send
-  ,Hetcons_Server(Hetcons_Server)
-    ,hetcons_Server_crypto_id
-    ,hetcons_Server_private_key
-    ,hetcons_Server_address_book
-    ,hetcons_Server_state_var
-    ,hetcons_Server_verify_1a
-    ,hetcons_Server_verify_1b
-    ,hetcons_Server_verify_2a
-    ,hetcons_Server_verify_2b
-    ,hetcons_Server_verify_proof)
-import Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO)
-import Hetcons.Signed_Message (Verified
-                                 ,signed
-                                 ,original
-                              ,sign
-                              ,verify
-                              ,Recursive_1a
-                              ,recursive_1a_filled_in
-                              ,Recursive_1b
-                              ,Recursive_2a (Recursive_2a)
-                              ,Recursive_2b (Recursive_2b)
-                              ,Recursive_Proof_of_Consensus
-                              ,recursive_1b_proposal
-                              ,recursive_1b_conflicting_phase2as
-                              ,Parsable
-                              ,non_recursive)
+    ( Hetcons_Server(hetcons_Server_state_var
+                    ,hetcons_Server_address_book)
+     ,Receivable(receive)
+     ,run_Hetcons_Transaction_IO )
+import Hetcons.Send_Message_IO
+    ( send_Message_IO, default_Address_Book )
+import Hetcons.Signed_Message
+    ( Recursive_1b(recursive_1b_conflicting_phase2as)
+     ,Recursive_1a
+     ,Verified
+     ,Recursive_2b
+     ,Monad_Verify(verify)
+     ,sign
+     ,original )
 
-
-import qualified Hetcons_Participant_Client as Client (proposal_1a, phase_1b)
-import Hetcons_Consts(sUPPORTED_HASH_SHA2_DESCRIPTOR
-                     ,sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
-                     ,sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
-                     ,sUPPORTED_HASH_TYPE_DESCRIPTOR
-                     ,sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
-                     ,sUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR)
-
-import qualified Hetcons_Observer as Observer (process)
-import qualified Hetcons_Observer_Iface as Observer (ping, phase_2b)
-import Hetcons_Observer_Iface (Hetcons_Observer_Iface)
-import Hetcons_Participant (process)
-import Hetcons_Participant_Iface (Hetcons_Participant_Iface
-                                   ,ping
-                                   ,proposal_1a
-                                   ,phase_1b)
-import Hetcons_Types (Signed_Message
-                        ,signed_Hash_signature
-                        ,signed_Message_signature
-                     ,default_No_Supported_Hash_Sha2_Descriptor_Provided
-                     ,crypto_ID_public_crypto_key
-                     ,default_Public_Crypto_Key
-                     ,Crypto_ID
-                       ,default_Crypto_ID
-                     ,public_Crypto_Key_public_crypto_key_x509
-                     ,signed_Message_payload
-                     ,default_Descriptor_Does_Not_Match_Hash_Sha2
-                     ,Proposal_1a
-                        ,proposal_1a_value
-                        ,proposal_1a_timestamp
-                        ,default_Proposal_1a
-                        ,proposal_1a_observers
-                     ,Observers
-                        ,default_Observers
-                        ,observers_observer_quorums
-                        ,observers_observer_graph
-                     ,Value
-                        ,value_value_payload
-                        ,value_slot
-                        ,default_Value
-                     ,Phase_1b
-                        ,phase_1b_proposal
-                        ,phase_1b_conflicting_phase2as
-                        ,default_Phase_1b
-                     ,Phase_2a
-                        ,phase_2a_phase_1bs
-                        ,default_Phase_2a
-                     ,Phase_2b
-                        ,phase_2b_phase_1bs
-                        ,default_Phase_2b
-                     ,participant_ID_address
-                     ,address_host_address
-                     ,host_Address_dns_name
-                     ,address_port_number
-                     ,participant_ID_crypto_id
-                     ,Participant_ID
-                       ,default_Participant_ID
-                     ,default_Address
-                     ,default_Host_Address
-                     ,Proof_of_Consensus
-                       ,proof_of_Consensus_phase_2bs
-                       ,default_Proof_of_Consensus
-                     ,Observer_Trust_Constraint
-                       ,observer_Trust_Constraint_observer_1
-                       ,observer_Trust_Constraint_observer_2
-                       ,observer_Trust_Constraint_safe
-                       ,observer_Trust_Constraint_live
-                       ,default_Observer_Trust_Constraint
-                     )
-
-import Control.Concurrent (forkIO, ThreadId)
-import Control.Concurrent.MVar (putMVar, takeMVar, newEmptyMVar)
-import Control.Exception (SomeException,
-                          throw,
-                          catch)
-import           Control.Monad (join)
-import           Control.Monad.Except   (runExceptT)
-import Control.Monad.Trans.Except (except)
-import Crypto.Random (getSystemDRG, DRG, withDRG)
-import qualified Data.ByteString.Lazy as ByteString (readFile, concat, take, drop, singleton, index)
-import Data.ByteString.Lazy (ByteString)
-import Data.Either.Combinators (isLeft, isRight)
-import Data.Either.Combinators (mapRight)
-import           Data.HashMap.Lazy           (empty)
-import           Data.HashSet           (fromList,toList)
-import Data.List (head)
-import           Data.Serialize         (Serialize
-                                           ,decodeLazy)
-import Test.HUnit (Test(TestList,
-                        TestLabel,
-                        TestCase)
-                  ,assertEqual
-                  ,assertBool)
-import qualified Data.HashMap.Strict as HashMap (fromList)
-import Data.HashMap.Strict (singleton)
-import           Data.Text.Lazy         (pack)
-import Thrift.Server (runBasicServer)
-import GHC.IO.Handle (Handle)
-import Network (PortID(PortNumber))
-import Network.Socket (HostName)
-import Thrift.Protocol (Protocol)
-import Thrift.Protocol.Binary (BinaryProtocol(BinaryProtocol))
-import Thrift.Transport.Handle (hOpen)
+import qualified Hetcons_Participant_Client as Client
+    ( proposal_1a )
+import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import qualified Hetcons_Observer as Observer ( process )
+import qualified Hetcons_Observer_Iface as Observer
+    ( ping, phase_2b )
+import Hetcons_Observer_Iface ( Hetcons_Observer_Iface )
+import Hetcons_Participant ( process )
+import Hetcons_Participant_Iface
+    ( Hetcons_Participant_Iface, ping, proposal_1a, phase_1b )
+import Hetcons_Types
+    ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
+                    ,default_Participant_ID
+     ,Value(value_slot, value_value_payload)
+           ,default_Value
+     ,Observers(observers_observer_quorums)
+               ,default_Observers
+     ,Proposal_1a(proposal_1a_observers, proposal_1a_timestamp
+                 ,proposal_1a_value)
+                 ,default_Proposal_1a
+     ,Public_Crypto_Key(public_Crypto_Key_public_crypto_key_x509)
+                       ,default_Public_Crypto_Key
+     ,Crypto_ID(crypto_ID_public_crypto_key)
+               ,default_Crypto_ID
+     ,Signed_Message(signed_Message_signature)
+     ,Phase_1b(phase_1b_proposal)
+              ,default_Phase_1b
+     ,Phase_2b(phase_2b_phase_1bs)
+              ,default_Phase_2b
+     ,Host_Address(host_Address_dns_name)
+                  ,default_Host_Address
+     ,Timestamp
+     ,Address(address_port_number, address_host_address)
+             ,default_Address
+     ,signed_Hash_signature
+    )
+import Control.Concurrent ( forkIO, ThreadId )
+import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
+import Control.Exception ( SomeException, catch )
+import Crypto.Random ( getSystemDRG, DRG, withDRG )
+import qualified Data.ByteString.Lazy as ByteString
+    ( readFile, concat, take, drop, singleton, index )
+import Data.HashSet ( fromList )
+import Data.Serialize ( Serialize )
+import Test.HUnit
+    ( Test(TestList, TestLabel, TestCase), assertEqual, assertBool )
+import qualified Data.HashMap.Strict as HashMap ( fromList )
+import Data.Text.Lazy ( pack )
+import Thrift.Server ( runBasicServer )
+import GHC.IO.Handle ( Handle )
+import Network ( PortID(PortNumber) )
+import Network.Socket ( HostName )
+import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Transport.Handle ( hOpen )
 
 doubleGen :: (DRG g) => g -> (g,g)
 doubleGen g = withDRG g (return g)

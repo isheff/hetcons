@@ -35,6 +35,7 @@ import Hetcons_Types
                ,default_Observers
      ,Proposal_1a(proposal_1a_observers, proposal_1a_timestamp
                  ,proposal_1a_value)
+                 ,default_Proposal_1a
      ,Public_Crypto_Key(public_Crypto_Key_public_crypto_key_x509)
                        ,default_Public_Crypto_Key
      ,Crypto_ID(crypto_ID_public_crypto_key)
@@ -49,7 +50,6 @@ import Hetcons_Types
      ,Timestamp
      ,Address(address_port_number, address_host_address)
              ,default_Address
-     ,default_Proposal_1a
     )
 import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
