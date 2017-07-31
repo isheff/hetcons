@@ -5,7 +5,6 @@ module Test.Participant (participant_tests) where
 import Hetcons.Contains_Value ( extract_1a, extract_value )
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Hetcons_State ( Participant_State_Var, start_State )
-import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Participant
     ( new_participant, current_nanoseconds, basic_participant_server )
 import Hetcons.Receive_Message
