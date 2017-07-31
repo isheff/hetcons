@@ -5,7 +5,6 @@ module Hetcons.Value
 
 import Hetcons.Contains_Value (Contains_Value
                                  ,extract_value)
-import Hetcons.Hetcons_Exception (Hetcons_Exception())
 import Hetcons.Signed_Message (Recursive_1b, Verified)
 
 import Hetcons_Types  (Value
