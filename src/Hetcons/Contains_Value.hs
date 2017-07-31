@@ -13,42 +13,27 @@ module Hetcons.Contains_Value
         ,extract_1bs
     ) where
 
-import Hetcons.Signed_Message (Recursive_1b(Recursive_1b)
-                                 ,recursive_1b_proposal
-                                 ,recursive_1b_conflicting_phase2as
-                              ,Recursive_1a (Recursive_1a )
-                                 ,recursive_1a_filled_in
-                              ,Recursive_2a (Recursive_2a )
-                              ,Recursive_2b (Recursive_2b )
-                              ,Recursive_Proof_of_Consensus (Recursive_Proof_of_Consensus)
-                              ,Parsable
-                              ,Verified
-                                 ,original
-                                 ,signed
-                              )
-
-import Hetcons_Consts ()
-import Hetcons_Types  (Value
-                      ,Proposal_1a(Proposal_1a)
-                         ,proposal_1a_value
-                         ,proposal_1a_timestamp
-                         ,proposal_1a_observers
-                      ,Signed_Hash
-                         ,signed_Hash_signature
-                      ,Signed_Message
-                         ,signed_Message_signature
-                      ,Participant_ID
-                      ,Observers(Observers)
-                         ,observers_observer_quorums
-                      )
-
-import           Data.ByteString.Lazy   (ByteString)
-import Data.Foldable (null, toList, maximumBy)
-import Data.HashMap.Strict (HashMap)
-import Data.HashSet (HashSet, insert)
-import Data.Int (Int64)
-import Data.List (head)
-import Data.Ord (compare)
+import Hetcons.Signed_Message
+    ( Verified
+     ,Recursive_1b
+     ,Recursive_1a(recursive_1a_filled_in)
+     ,Parsable
+     ,signed
+     ,original )
+import Hetcons_Types
+    ( Observers(Observers
+       ,observers_observer_quorums)
+     ,Signed_Message(signed_Message_signature)
+     ,Proposal_1a(Proposal_1a
+       ,proposal_1a_observers
+       ,proposal_1a_timestamp)
+     ,Value
+     ,Signed_Hash(signed_Hash_signature)
+     ,Participant_ID )
+import Data.ByteString.Lazy ( ByteString )
+import Data.HashMap.Strict ( HashMap )
+import Data.HashSet ( HashSet )
+import Data.Int ( Int64 )
 
 class Contains_1a a where
   extract_1a :: a -> (Verified (Recursive_1a))
