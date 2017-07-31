@@ -26,39 +26,40 @@ module Hetcons.Hetcons_Exception
                       ,Hetcons_Exception_Invalid_Proof_of_Consensus)
     ) where
 
+import Hetcons_Types
+    ( No_Supported_Hash_Sha2_Descriptor_Provided
+     ,Descriptor_Does_Not_Match_Hash_Sha2
+     ,No_Supported_Hash_Sha3_Descriptor_Provided
+     ,Descriptor_Does_Not_Match_Hash_Sha3
+     ,No_Supported_Hash_Type_Descriptor_Provided
+     ,Descriptor_Does_Not_Match_Hash
+     ,Invalid_Public_Crypto_Key_X509
+     ,Invalid_Public_Crypto_Key_PGP
+     ,No_Supported_Public_Crypto_Key_Type_Descriptor_Provided
+     ,Descriptor_Does_Not_Match_Public_Crypto_Key
+     ,Descriptor_Does_Not_Match_Crypto_ID_Hash
+     ,No_Supported_Crypto_ID_Type_Descriptor_Provided
+     ,Descriptor_Does_Not_Match_Crypto_ID
+     ,Invalid_Signed_Hash
+     ,Descriptor_Does_Not_Match_Signed_Hash
+     ,Unparsable_Hashable_Message
+     ,Invalid_Address
+     ,Impossible_Observer_Graph
+     ,Invalid_Proposal_1a
+     ,Invalid_Phase_1b
+     ,Invalid_Phase_2a
+     ,Invalid_Phase_2b
+     ,Invalid_Proof_of_Consensus )
 
-import Control.Exception (Exception
-                         ,toException
-                         ,fromException
-                         ,displayException)
-import Control.Monad  (liftM)
-import Data.Typeable (Typeable)
-import GHC.Generics  (Generic)
+import Control.Exception
+    ( Exception
+     ,toException
+     ,fromException
+     ,displayException )
+import Control.Monad ( liftM )
+import Data.Typeable ( Typeable )
+import GHC.Generics ( Generic )
 
-import Hetcons_Types (No_Supported_Hash_Sha2_Descriptor_Provided
-                     ,Descriptor_Does_Not_Match_Hash_Sha2
-                     ,No_Supported_Hash_Sha3_Descriptor_Provided
-                     ,Descriptor_Does_Not_Match_Hash_Sha3
-                     ,No_Supported_Hash_Type_Descriptor_Provided
-                     ,Descriptor_Does_Not_Match_Hash
-                     ,Invalid_Public_Crypto_Key_X509
-                     ,Invalid_Public_Crypto_Key_PGP
-                     ,No_Supported_Public_Crypto_Key_Type_Descriptor_Provided
-                     ,Descriptor_Does_Not_Match_Public_Crypto_Key
-                     ,Descriptor_Does_Not_Match_Crypto_ID_Hash
-                     ,No_Supported_Crypto_ID_Type_Descriptor_Provided
-                     ,Descriptor_Does_Not_Match_Crypto_ID
-                     ,Invalid_Signed_Hash
-                     ,Descriptor_Does_Not_Match_Signed_Hash
-                     ,Unparsable_Hashable_Message
-                     ,Invalid_Address
-                     ,Impossible_Observer_Graph
-                     ,Invalid_Proposal_1a
-                     ,Invalid_Phase_1b
-                     ,Invalid_Phase_2a
-                     ,Invalid_Phase_2b
-                     ,Invalid_Proof_of_Consensus
-                     )
 
 -- | This is a wrapper datatype which exists primarily because I don't like Haskell's Control.Exception s, but Thrift does.
 --   Yes, this code is ugly.
