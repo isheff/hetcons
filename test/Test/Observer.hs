@@ -18,6 +18,7 @@ import Hetcons.Signed_Message
      ,Recursive_2b
      ,Monad_Verify(verify)
      ,sign )
+
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import qualified Hetcons_Observer as Observer ( process )
 import qualified Hetcons_Observer_Iface as Observer
@@ -51,6 +52,7 @@ import Hetcons_Types
      ,Address(address_port_number, address_host_address)
              ,default_Address
     )
+
 import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Crypto.Random ( getSystemDRG, DRG, withDRG )

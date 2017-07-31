@@ -9,6 +9,7 @@ import Hetcons.Signed_Message
      ,Monad_Verify(verify)
      ,sign
      ,original )
+
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
@@ -36,6 +37,7 @@ import Hetcons_Types
                                ,default_Observer_Trust_Constraint
      ,Address(address_port_number, address_host_address)
              ,default_Address )
+
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( singleton, readFile )
