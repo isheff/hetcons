@@ -16,8 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
                      , src/Thrift/gen-hs
-  exposed-modules:     Lib
-                     , Hetcons.Conflicting_2as
+  exposed-modules:     Hetcons.Conflicting_2as
                      , Hetcons.Contains_Value
                      , Hetcons.Hetcons_Exception
                      , Hetcons.Hetcons_State
