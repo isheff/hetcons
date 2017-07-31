@@ -30,7 +30,7 @@ import Test.HUnit (Test(TestList,
                         TestLabel,
                         TestCase)
                   ,assertEqual
-                  ,assertBool)
+                  )
 
 hetcons_exception_tests = TestList [
    TestLabel "Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided can be thrown and caught as underlying Exception" (
