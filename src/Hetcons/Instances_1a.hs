@@ -8,43 +8,24 @@
 
 module Hetcons.Instances_1a () where
 
-import Hetcons.Contains_Value (
-      Contains_Value
-        ,extract_value
-    , Contains_1a
-        ,extract_1a
-        ,extract_observer_quorums
-    , Ballot
-        ,extract_ballot
-    )
-import Hetcons.Quorums (verify_quorums)
-import Hetcons.Signed_Message (
-      Recursive
+import Hetcons.Contains_Value
+    ( Contains_Value(extract_value)
+     ,Contains_1a(extract_1a) )
+import Hetcons.Quorums ( verify_quorums )
+import Hetcons.Signed_Message
+    ( Recursive
        ,non_recursive
-    , Recursive_1a(Recursive_1a)
+     ,Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
-    , Parsable
+     ,Parsable
        ,parse
-    , Verified
-    )
+     ,Verified )
 
-import Hetcons_Types  (Value
-                      ,Proposal_1a(Proposal_1a)
-                         ,proposal_1a_value
-                         ,proposal_1a_timestamp
-                         ,proposal_1a_observers
-                      ,Signed_Hash
-                         ,signed_Hash_signature
-                      ,Signed_Message
-                         ,signed_Message_signature
-                      ,Participant_ID
-                      ,Observers(Observers)
-                         ,observers_observer_quorums
-                      )
+import Hetcons_Types
+    ( Proposal_1a(proposal_1a_observers, proposal_1a_value) )
 
-import Data.Hashable (Hashable, hashWithSalt)
-
+import Data.Hashable ( Hashable, hashWithSalt )
 
 instance Hashable Recursive_1a where
   hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Proposal_1a)
