@@ -36,39 +36,37 @@ module Hetcons.Receive_Message
   )
   where
 
-import Hetcons.Contains_Value     (Contains_1bs, extract_1bs)
-import Hetcons.Hetcons_Exception  (Hetcons_Exception)
-import Hetcons.Hetcons_State      (Hetcons_State, Participant_State, Participant_State_Var, modify_and_read)
-import Hetcons.Instances_1a ()
-import Hetcons.Instances_1b_2a ()
-import Hetcons.Instances_2b ()
-import Hetcons.Instances_Proof_of_Consensus ()
+import Hetcons.Hetcons_Exception ( Hetcons_Exception )
+import Hetcons.Hetcons_State ( Hetcons_State, modify_and_read )
 import Hetcons.Quorums (Monad_Verify_Quorums, verify_quorums, verify_quorums')
-import Hetcons.Send_Message_IO    (send_Message_IO, Address_Book)
-import Hetcons.Signed_Message     (Monad_Verify, verify, verify', Verified, original, Recursive_1a, Recursive_1b, Recursive_2a, Recursive_2b, Recursive_Proof_of_Consensus, Parsable)
-
-import Hetcons_Types              (Crypto_ID, Signed_Message, Proposal_1a, Observers)
-
-import qualified Control.Concurrent.Map as CMap (Map, empty, lookup)
-import Control.Concurrent.Map     (insertIfAbsent)
-import Control.Concurrent.MVar    (MVar)
-import Control.Exception.Base     (throw, catch)
-import Control.Monad              (mapM_)
-import Control.Monad.Except       (throwError, catchError, MonadError)
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import qualified Control.Monad.Parallel as Parallel (mapM_, sequence)
-import Control.Monad.Reader       (MonadReader, Reader, runReader, reader, ask, local)
-import Control.Monad.Trans.Either (EitherT, runEitherT)
-import Control.Monad.State        (StateT, runStateT, get, put,state)
-import Control.Monad.Trans.Reader (ReaderT, runReaderT)
-import Crypto.Random              (SystemDRG, getSystemDRG, MonadRandom, getRandomBytes, randomBytesGenerate)
-import Data.ByteString.Lazy       (ByteString)
-import Data.HashSet               (HashSet, insert, toList, empty)
-import Data.IORef                 (IORef, newIORef, readIORef, writeIORef, modifyIORef, atomicModifyIORef)
-import Data.Tuple                 (swap)
-
-
-
+import Hetcons.Send_Message_IO ( send_Message_IO, Address_Book )
+import Hetcons.Signed_Message
+    ( Recursive_1b
+     ,Recursive_1a
+     ,Verified
+     ,Recursive_2b
+     ,Recursive_Proof_of_Consensus
+     ,Recursive_2a
+     ,Monad_Verify
+       ,verify
+       ,verify' )
+import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers )
+import qualified Control.Concurrent.Map as CMap ( Map, lookup )
+import Control.Concurrent.Map ( insertIfAbsent )
+import Control.Concurrent.MVar ( MVar )
+import Control.Exception.Base ( throw, catch )
+import Control.Monad.Except ( throwError, catchError, MonadError )
+import Control.Monad.IO.Class ( MonadIO(liftIO) )
+import qualified Control.Monad.Parallel as Parallel ( sequence )
+import Control.Monad.Reader ( MonadReader(reader, ask, local) )
+import Control.Monad.Trans.Reader ( ReaderT, runReaderT )
+import Crypto.Random
+    ( DRG(randomBytesGenerate), MonadRandom(getRandomBytes), getSystemDRG )
+import Data.ByteString.Lazy ( ByteString )
+import Data.HashSet ( HashSet, insert, toList, empty )
+import Data.IORef
+    ( IORef, writeIORef, readIORef, newIORef, atomicModifyIORef )
+import Data.Tuple ( swap )
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
 -- | From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
