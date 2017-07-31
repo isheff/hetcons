@@ -7,20 +7,22 @@ import Hetcons.Contains_Value
     , Contains_1a
         ,extract_1a
         ,extract_observer_quorums
-    , Ballot
-        ,extract_ballot
-    ,Contains_1bs
-        ,extract_1bs
     )
-import Hetcons.Instances_1b_2a (well_formed_2a)
-import Hetcons.Signed_Message (Verified, Recursive_1b, Recursive_2a(Recursive_2a), non_recursive)
-import Hetcons.Value (conflicts)
+import Hetcons.Instances_1b_2a ( well_formed_2a )
+import Hetcons.Signed_Message
+    ( Verified
+     ,Recursive_1b
+     ,Recursive_2a(Recursive_2a)
+     ,non_recursive )
+import Hetcons.Value ( conflicts )
 
-import Hetcons_Types (Phase_2a)
+import Hetcons_Types ( Phase_2a )
 
-import Data.Foldable (toList, length)
-import qualified Data.HashSet as HashSet (map, filter)
-import Data.HashSet (HashSet, empty, fromList, singleton, insert)
+import Data.Foldable ( Foldable(toList) )
+import qualified Data.HashSet as HashSet ( map, filter )
+import Data.HashSet ( HashSet, singleton, insert, fromList )
+
+
 
 
 
