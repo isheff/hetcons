@@ -399,11 +399,13 @@ verify' Signed_Message
 
 
 
+-- | a class for those types which Thrift can encode. Alas, thrift doesn't seem to provide this itself.
 class Encodable a where
+  -- | encode it to a Lazy ByteString using Thrift's encode function with BinaryProtocol, EmptyTransport.
+  -- | Instantiations for all the types we care about are in their Instances_XX files.
+  -- | For testing purposes, Test.Util provides instance Serialize a => Encodable a
   encode :: a -> ByteString
 
--- instance {-# OVERLAPPABLE #-} Serialize a => Encodable a where
---   encode = encodeLazy
 
 -- | builds a Signed_Message given a signing key, a matching certificate, something serializable, etc.
 sign ::(MonadError Hetcons_Exception m, Encodable p, X509.Signer signer, DRG gen) =>
