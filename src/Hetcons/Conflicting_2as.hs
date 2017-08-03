@@ -1,4 +1,5 @@
 
+-- | A module for any and all functions pertaining to creating / discovering 2A messages from the set of past received 1Bs, that conflict with something.
 module Hetcons.Conflicting_2as (conflicting_2as) where
 
 import Hetcons.Contains_Value
@@ -26,7 +27,9 @@ import Data.HashSet ( HashSet, singleton, insert, fromList )
 
 
 
--- | returns Phase_2as with identical quorums to the message, but conflicting values
+-- | Phase_2as with identical quorums to the message, but conflicting values
+-- | takes in old, known 1bs, and a new message, and filters the old 1Bs by quorums, and then by conflicts, and tests to see if they are a valid 2A
+-- | NOTE: only pariwise conflicts are handled.
 conflicting_2as :: (Contains_1a a, Contains_Value a, Foldable f) => (f (Verified Recursive_1b)) -> a -> (HashSet Phase_2a)
 conflicting_2as old_1bs new_message =
   let quorums_1bs = fromList $ filter (conflicts . (\x -> insert x $ singleton $ extract_value new_message) . extract_value) $ -- TODO: non-pairwise conflicts
