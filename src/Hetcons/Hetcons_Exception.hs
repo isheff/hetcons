@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
+-- | Defines the type of Exception which can be used in Hetcons, and passed via Thrift
 module Hetcons.Hetcons_Exception
     (Hetcons_Exception(Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided
                       ,Hetcons_Exception_Descriptor_Does_Not_Match_Hash_Sha2
@@ -62,12 +63,12 @@ import GHC.Generics ( Generic )
 
 
 -- | This is a wrapper datatype which exists primarily because I don't like Haskell's Control.Exception s, but Thrift does.
---   Yes, this code is ugly.
---   The basic idea is that we have a union type which handles all of the different Exceptions in Hetcons' Thrift.
---   We can throw a Hetcons_Exception, and it is equivalent to throwing the underlying Exception.
---   Likewise, anywhere we can catch an Exception from Thrift, we can catch a Hetcons_Exception.
---   Unlike SomeException, these are only the Exceptions from Thrift, and we can explicitly match for each.
---   In general, a Hetcons_Exceptions behaves pretty much like its underlying Exception from Thrift.
+-- | Yes, this code is ugly.
+-- | The basic idea is that we have a union type which handles all of the different Exceptions in Hetcons' Thrift.
+-- | We can throw a Hetcons_Exception, and it is equivalent to throwing the underlying Exception.
+-- | Likewise, anywhere we can catch an Exception from Thrift, we can catch a Hetcons_Exception.
+-- | Unlike SomeException, these are only the Exceptions from Thrift, and we can explicitly match for each.
+-- | In general, a Hetcons_Exceptions behaves pretty much like its underlying Exception from Thrift.
 data Hetcons_Exception =
     Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided              No_Supported_Hash_Sha2_Descriptor_Provided
   | Hetcons_Exception_Descriptor_Does_Not_Match_Hash_Sha2                     Descriptor_Does_Not_Match_Hash_Sha2
@@ -143,7 +144,7 @@ instance Exception Hetcons_Exception where
   displayException (Hetcons_Exception_Invalid_Proof_of_Consensus x) = displayException x
   fromException x = foldr (\g old ->let new = g x in if new == Nothing then old else new)
                           Nothing
-                          -- The below code is even dumber than the rest of this file, but it's a different fromException every time.
+                          -- The below code is even dumber than the rest of this file, but it's a "different fromException" every time.
                           [(liftM Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided) . fromException
                           ,(liftM Hetcons_Exception_Descriptor_Does_Not_Match_Hash_Sha2) . fromException
                           ,(liftM Hetcons_Exception_No_Supported_Hash_Sha3_Descriptor_Provided) . fromException
