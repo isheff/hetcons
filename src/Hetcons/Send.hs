@@ -19,6 +19,7 @@ import Hetcons.Receive_Message
       send )
 import Hetcons.Signed_Message
     ( Parsable,
+      Encodable,
       Monad_Verify(verify),
       Recursive_1a,
       Recursive_1b,
@@ -36,9 +37,8 @@ import Hetcons_Types
     ( Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus )
 
 import Crypto.Random ( drgNew )
-import Data.Serialize ( Serialize )
 
-sign_and_verify :: (Monad_Verify b (Hetcons_Transaction s), Serialize a, Parsable b, Hetcons_State s, Recursive a b) => a -> Hetcons_Transaction s (Verified b)
+sign_and_verify :: (Monad_Verify b (Hetcons_Transaction s), Encodable a, Parsable b, Hetcons_State s, Recursive a b) => a -> Hetcons_Transaction s (Verified b)
 sign_and_verify m = do { crypto_id <- get_my_crypto_id
                        ; private_key <- get_my_private_key
                        ; gen <- drgNew

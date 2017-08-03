@@ -20,6 +20,7 @@ import Hetcons.Hetcons_Exception
                       ,Hetcons_Exception_Invalid_Address
                       ,Hetcons_Exception_Impossible_Observer_Graph
                       ,Hetcons_Exception_Invalid_Proposal_1a))
+import Test.Util ()
 
 import Hetcons_Types (default_No_Supported_Hash_Sha2_Descriptor_Provided
                      ,default_Descriptor_Does_Not_Match_Hash_Sha2)

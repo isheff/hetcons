@@ -25,7 +25,9 @@ import Hetcons.Hetcons_Exception
                        ,Hetcons_Exception_Invalid_Phase_1b) )
 import Hetcons.Instances_1a ()
 import Hetcons.Signed_Message
-    ( Recursive_1b(Recursive_1b)
+    ( Encodable
+       ,encode
+     ,Recursive_1b(Recursive_1b)
        ,recursive_1b_non_recursive
        ,recursive_1b_proposal
        ,recursive_1b_conflicting_phase2as
@@ -47,8 +49,10 @@ import Hetcons_Types
      ,Invalid_Phase_1b(invalid_Phase_1b_explanation
                       ,invalid_Phase_1b_offending_phase_1b)
      ,Phase_2a(phase_2a_phase_1bs)
+              ,encode_Phase_2a
      ,Signed_Message(signed_Message_signature)
      ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
+              ,encode_Phase_1b
      ,Signed_Hash(signed_Hash_crypto_id)
      ,default_Phase_2a
      ,default_Invalid_Phase_2a
@@ -65,9 +69,15 @@ import Data.List ( head )
 import Data.Maybe ( catMaybes )
 import Data.Text.Lazy ( pack )
 import Data.Traversable ( mapM )
+import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 
+instance {-# OVERLAPPING #-} Encodable Phase_1b where
+  encode = encode_Phase_1b (BinaryProtocol EmptyTransport)
 
+instance {-# OVERLAPPING #-} Encodable Phase_2a where
+  encode = encode_Phase_2a (BinaryProtocol EmptyTransport)
 
 
 -- | Phase_1b s carry 1a and 2a messages with them.

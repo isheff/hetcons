@@ -8,7 +8,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hetcons.Signed_Message
-    (sign
+    (Encodable
+       ,encode
+       ,sign
     ,Monad_Verify
        ,verify
        ,verify'
@@ -261,16 +263,6 @@ instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
 class (MonadError Hetcons_Exception m, Parsable a) => Monad_Verify a m where
   verify :: Signed_Message -> m (Verified a)
 
--- TODO: this instance is used in testing only, so we should move it over to tests
-instance {-# OVERLAPPABLE #-} (Parsable Recursive_1a
-                              ,Parsable Recursive_1b
-                              ,Parsable Recursive_2a
-                              ,Parsable Recursive_2b
-                              ,Parsable Recursive_Proof_of_Consensus
-                              ,Monad_Verify_Quorums m
-                              ,MonadError Hetcons_Exception m, Parsable a)
-                               => Monad_Verify a m where
-  verify = verify'
 
 
 
@@ -407,9 +399,15 @@ verify' Signed_Message
 
 
 
+class Encodable a where
+  encode :: a -> ByteString
+
+-- instance {-# OVERLAPPABLE #-} Serialize a => Encodable a where
+--   encode = encodeLazy
+
 -- | builds a Signed_Message given a signing key, a matching certificate, something serializable, etc.
-sign ::(MonadError Hetcons_Exception m, Serialize serialize, X509.Signer signer, DRG gen) =>
-       Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> serialize -> m Signed_Message
+sign ::(MonadError Hetcons_Exception m, Encodable p, X509.Signer signer, DRG gen) =>
+       Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> p -> m Signed_Message
 -- | If everything is correct, and we've got just an x509 public key
 sign (Crypto_ID
        {crypto_ID_public_crypto_key = Just
@@ -434,7 +432,7 @@ sign (Crypto_ID
                                    32 -> X509.sign $ Just SHA256
                                    48 -> X509.sign $ Just SHA384
                                    _  -> X509.sign $ Just SHA512
-      ;let serialized_payload = encodeLazy payload
+      ;let serialized_payload = encode payload
       ;signature <- case sign_with_length random_generator private_key serialized_payload of
                       Left e -> throwError (Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
                                invalid_Signed_Hash_explanation = Just $ pack (

@@ -56,9 +56,6 @@ floyd_warshall a_join a_meet matrix =
 class (MonadError Hetcons_Exception m) => Monad_Verify_Quorums m where
   verify_quorums :: Proposal_1a -> m Observers
 
--- TODO: this instance is used in testing only, so we should move it over to tests
-instance {-# OVERLAPPABLE #-} (MonadError Hetcons_Exception m) => Monad_Verify_Quorums m where
-  verify_quorums = verify_quorums'
 
 
 -- | a strict generalization of :: Proposal_1a -> Either Hetcons_Exception Observers

@@ -20,6 +20,7 @@ import Hetcons.Signed_Message
      ,Parsable
      ,signed
      ,original )
+
 import Hetcons_Types
     ( Observers(Observers
        ,observers_observer_quorums)
@@ -30,6 +31,7 @@ import Hetcons_Types
      ,Value
      ,Signed_Hash(signed_Hash_signature)
      ,Participant_ID )
+
 import Data.ByteString.Lazy ( ByteString )
 import Data.HashMap.Strict ( HashMap )
 import Data.HashSet ( HashSet )

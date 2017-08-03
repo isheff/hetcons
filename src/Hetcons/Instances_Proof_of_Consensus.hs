@@ -24,7 +24,9 @@ import Hetcons.Hetcons_Exception
     ( Hetcons_Exception(Hetcons_Exception_Invalid_Proof_of_Consensus) )
 import Hetcons.Instances_2b ()
 import Hetcons.Signed_Message
-    ( Verified
+    ( Encodable
+       ,encode
+     ,Verified
      ,Parsable
        ,parse
      ,Recursive
@@ -44,7 +46,8 @@ import Hetcons_Types
      ,Proof_of_Consensus(
         proof_of_Consensus_phase_2bs)
        ,default_Proof_of_Consensus
-       ,default_Invalid_Proof_of_Consensus )
+       ,default_Invalid_Proof_of_Consensus
+       ,encode_Proof_of_Consensus )
 
 import Control.Monad.Except ( throwError )
 import Data.Foldable ( Foldable(length), any )
@@ -54,6 +57,11 @@ import Data.HashSet
 import qualified Data.HashSet as HashSet ( map, filter )
 import Data.List ( head )
 import Data.Traversable ( mapM )
+import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
+
+instance {-# OVERLAPPING #-} Encodable Proof_of_Consensus where
+  encode = encode_Proof_of_Consensus (BinaryProtocol EmptyTransport)
 
 -- | Proof_of_Consensus messages carry signed 2b messages with them.
 -- | Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.

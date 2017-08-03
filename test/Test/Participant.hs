@@ -15,13 +15,15 @@ import Hetcons.Receive_Message
 import Hetcons.Send_Message_IO
     ( send_Message_IO, default_Address_Book )
 import Hetcons.Signed_Message
-    ( Recursive_1b(recursive_1b_conflicting_phase2as)
+    ( Encodable
+     ,Recursive_1b(recursive_1b_conflicting_phase2as)
      ,Recursive_1a
      ,Verified
      ,Recursive_2b
      ,Monad_Verify(verify)
      ,sign
      ,original )
+import Test.Util ()
 
 import qualified Hetcons_Participant_Client as Client
     ( proposal_1a )
@@ -67,7 +69,6 @@ import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( readFile, concat, take, drop, singleton, index )
 import Data.HashSet ( fromList )
-import Data.Serialize ( Serialize )
 import Test.HUnit
     ( Test(TestList, TestLabel, TestCase), assertEqual, assertBool )
 import qualified Data.HashMap.Strict as HashMap ( fromList )
@@ -93,7 +94,7 @@ sample_message :: IO (Either Hetcons_Exception Signed_Message)
 sample_message = sample_sign sample_payload
 
 
-sample_sign :: (Serialize a) => a -> IO (Either Hetcons_Exception Signed_Message)
+sample_sign :: (Encodable a) => a -> IO (Either Hetcons_Exception Signed_Message)
 sample_sign payload =
   do { gen <- getSystemDRG
      ; cert <- ByteString.readFile "test/cert.pem"

@@ -13,7 +13,9 @@ import Hetcons.Contains_Value
      ,Contains_1a(extract_1a) )
 import Hetcons.Quorums ( verify_quorums )
 import Hetcons.Signed_Message
-    ( Recursive
+    ( Encodable
+       ,encode
+     ,Recursive
        ,non_recursive
      ,Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
@@ -23,9 +25,12 @@ import Hetcons.Signed_Message
      ,Verified )
 
 import Hetcons_Types
-    ( Proposal_1a(proposal_1a_observers, proposal_1a_value) )
+    ( Proposal_1a(proposal_1a_observers, proposal_1a_value)
+      ,encode_Proposal_1a )
 
 import Data.Hashable ( Hashable, hashWithSalt )
+import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 instance Hashable Recursive_1a where
   hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Proposal_1a)
@@ -33,6 +38,9 @@ instance Hashable Recursive_1a where
 instance Recursive Proposal_1a Recursive_1a where
   non_recursive = recursive_1a_non_recursive
 
+
+instance {-# OVERLAPPING #-} Encodable Proposal_1a where
+  encode = encode_Proposal_1a (BinaryProtocol EmptyTransport)
 
 -- | For a 1a object, we verify observer graph, and fill in quorums
 instance {-# OVERLAPPING #-} Parsable Recursive_1a where

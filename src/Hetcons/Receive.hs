@@ -29,7 +29,8 @@ import Hetcons.Receive_Message
      ,get_my_crypto_id )
 import Hetcons.Send ()
 import Hetcons.Signed_Message
-    ( Recursive_2a(Recursive_2a)
+    ( Encodable
+     ,Recursive_2a(Recursive_2a)
      ,Recursive_1b
      ,Verified
      ,Recursive_1a
@@ -56,9 +57,8 @@ import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.HashSet ( toList, member, insert, fromList )
 import qualified Data.HashSet as HashSet ( map, filter )
-import Data.Serialize ( Serialize )
 
-sign_m :: (Serialize a, Hetcons_State s) => a -> Hetcons_Transaction s Signed_Message
+sign_m :: (Encodable a, Hetcons_State s) => a -> Hetcons_Transaction s Signed_Message
 sign_m m = do
   { crypto_id <- get_my_crypto_id
   ; private_key <- get_my_private_key

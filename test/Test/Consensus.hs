@@ -26,13 +26,15 @@ import Hetcons.Send ()
 import Hetcons.Send_Message_IO
     ( Address_Book, default_Address_Book, send_Message_IO )
 import Hetcons.Signed_Message
-    ( Recursive_1b
+    ( Encodable
+     ,Recursive_1b
      ,Recursive_1a
      ,Verified
      ,Recursive_2b
      ,Monad_Verify(verify)
      ,sign )
 import Hetcons.Send_Message_IO ( domain_name )
+import Test.Util ()
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import qualified Hetcons_Observer as Observer ( process )
@@ -81,7 +83,6 @@ import qualified Data.ByteString.Lazy as ByteString
     ( singleton, readFile )
 import Data.ByteString.Lazy ( ByteString )
 import Data.HashSet ( insert, fromList, empty )
-import Data.Serialize ( Serialize )
 import Test.HUnit
     ( Test(TestList, TestLabel, TestCase), assertEqual, assertBool )
 import qualified Data.HashMap.Strict as HashMap ( fromList )
@@ -102,7 +103,7 @@ sample_message :: IO (Either Hetcons_Exception Signed_Message)
 sample_message = sample_sign sample_payload
 
 
-sample_sign :: (Serialize a) => a -> IO (Either Hetcons_Exception Signed_Message)
+sample_sign :: (Encodable a) => a -> IO (Either Hetcons_Exception Signed_Message)
 sample_sign payload =
   do { gen <- getSystemDRG
      ; cert <- ByteString.readFile "test/cert.pem"

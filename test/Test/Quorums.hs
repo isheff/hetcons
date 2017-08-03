@@ -4,11 +4,13 @@ module Test.Quorums (quorums_tests) where
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Signed_Message
-    ( Recursive_1a(recursive_1a_filled_in)
+    ( Encodable
+     ,Recursive_1a(recursive_1a_filled_in)
      ,Recursive(non_recursive)
      ,Monad_Verify(verify)
      ,sign
      ,original )
+import Test.Util ()
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
@@ -48,7 +50,6 @@ import qualified Data.HashMap.Lazy as HashMap ( toList )
 import Data.HashMap.Lazy ()
 import Data.HashSet ( fromList, toList )
 import Data.List ( sort, elemIndex )
-import Data.Serialize ( Serialize )
 import Test.HUnit
     ( Test(TestList, TestLabel, TestCase), assertEqual, assertBool )
 import Data.HashMap.Strict ( singleton )
@@ -79,7 +80,7 @@ listGen g = g:(listGen (snd (withDRG g (return ()))))
 
 
 
-sample_sign :: (Serialize a) => a -> IO (Either Hetcons_Exception Signed_Message)
+sample_sign :: (Encodable a) => a -> IO (Either Hetcons_Exception Signed_Message)
 sample_sign payload =
   do { gen <- getSystemDRG
      ; cert <- ByteString.readFile "test/cert.pem"
