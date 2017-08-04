@@ -1,4 +1,3 @@
-
 -- | A module for any and all functions pertaining to creating / discovering 2A messages from the set of past received 1Bs, that conflict with something.
 module Hetcons.Conflicting_2as (conflicting_2as) where
 

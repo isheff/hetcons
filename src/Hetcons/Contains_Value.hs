@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 -- | A module for some utility functions concerning extracting stuff from messages
 module Hetcons.Contains_Value
