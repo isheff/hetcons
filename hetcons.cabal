@@ -24,7 +24,6 @@ library
                      , Hetcons.Instances_1b_2a
                      , Hetcons.Instances_2b
                      , Hetcons.Instances_Proof_of_Consensus
-                     , Hetcons.Memoize
                      , Hetcons.Observer
                      , Hetcons.Participant
                      , Hetcons.Quorums

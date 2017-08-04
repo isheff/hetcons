@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
+-- | The Participant Server, which runs the Consensus algorithm, ultimately "accepting" and sending a 2B to Observer Servers
 module Hetcons.Participant (Participant, new_participant, participant_server, basic_participant_server, current_nanoseconds ) where
 
 import Hetcons.Contains_Value ( Contains_1a, extract_1a )
@@ -49,8 +49,10 @@ import Data.Thyme.Time.Core
      ,fromGregorian )
 import Thrift.Server ( runBasicServer )
 
+-- | The participant Datum is just a Hetcons_Server with a Participant_State (defined in Hetcons_State)
 type Participant = Hetcons_Server Participant_State
 
+-- | given a Cryptographic ID (public key), and a private key, produces a new Participant Datum
 new_participant :: Crypto_ID -> ByteString -> IO Participant
 new_participant cid pk =
   do { ab <- default_Address_Book
@@ -74,9 +76,11 @@ new_participant cid pk =
            ,hetcons_Server_verify_quorums = vq
            })}
 
+-- | Given a Participant Datum, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
 participant_server :: (Integral a) => Participant -> a -> IO ThreadId
 participant_server participant port = forkIO $ runBasicServer participant process $ fromIntegral port
 
+-- | Given a Cryptographic ID (public key), a private key, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
 basic_participant_server :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
 basic_participant_server cid pk port = do { participant <- new_participant cid pk
                                           ; participant_server participant port}
@@ -102,17 +106,23 @@ delay_message :: (Contains_1a a) => a -> IO ()
 delay_message m = do { now <- current_nanoseconds
                      ; delay_nanoseconds (now - (message_timestamp m))}
 
+-- | Technically, run_Hetcons_Transaction_IO needs something to do in the event a transaction returns a Proof_of_Consensus.
+-- | However, that should never happen on a Participant Server, so we just throw an error.
 on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
 
+-- | Participant implements the Thrift Hetcons_Participant_Iface, meaning it acts as a Participant Server using the API defined in Thrift.
 instance Hetcons_Participant_Iface Participant where
+  -- | When Pinged, a Participant returns ()
   ping _ = return ()
 
+  -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   proposal_1a participant message
     = do { (verified :: (Verified Recursive_1a)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message -- TODO: this doesn't technically need a TX
          ; delay_message verified
          ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}
 
+  -- | When it gets a 1B, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   phase_1b participant message
     = do { (verified :: (Verified Recursive_1b)) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message -- TODO: this doesn't technically need a TX
          ; delay_message verified
