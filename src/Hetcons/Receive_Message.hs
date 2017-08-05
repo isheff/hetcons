@@ -1,11 +1,10 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
 -- | From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
--- | change the Participant_State.
+-- | change the State.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
 module Hetcons.Receive_Message
@@ -54,7 +53,6 @@ import Hetcons.Signed_Message
 import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers )
 
 import Crypto.Random          (drgNew)
-import Data.Serialize         (Serialize)
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
 import Control.Concurrent.Map ( insertIfAbsent )
 import Control.Concurrent.MVar ( MVar )
@@ -67,9 +65,11 @@ import Control.Monad.Trans.Reader ( ReaderT, runReaderT )
 import Crypto.Random
     ( DRG(randomBytesGenerate), MonadRandom(getRandomBytes), getSystemDRG )
 import Data.ByteString.Lazy ( ByteString )
+import Data.Hashable ( Hashable )
 import Data.HashSet ( HashSet, insert, toList, empty )
 import Data.IORef
     ( IORef, writeIORef, readIORef, newIORef, atomicModifyIORef )
+import Data.Serialize         (Serialize)
 import Data.Tuple ( swap )
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
@@ -77,132 +77,124 @@ import Data.Tuple ( swap )
 -- | change the Participant_State.
 -- | You can also throw a Hetcons_Exception.
 -- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
+-- | It is constructed using the IO Monad, with a Reader Monad, so you can read environment veriables, that do stuff like
+-- |  list the Var referencing State.
+-- | As a Newtype, you can't use, say, arbitrary IO stuff in this Monad, but only stuff exported in this submodule.
+-- | TODO: We may want to make this an adjective, like any Monad m can be instance Hetcons_Transaction s a m where ...
 newtype Hetcons_Transaction s a =
   Hetcons_Transaction {unwrap :: (
     ReaderT (Hetcons_Transaction_Environment s)
-    IO a)}
+    IO a)
+  } deriving (Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s))
 
 
 
+-- | Defines all the data that constitute a server, which maintains some state of type `s`:
+-- | This includes Memoization Caches
 data (Hetcons_State s) => Hetcons_Server s = Hetcons_Server {
+  -- | The Server's Cryptographic ID (public key)
   hetcons_Server_crypto_id :: Crypto_ID
+  -- | The Server's Private Key
  ,hetcons_Server_private_key :: ByteString
+  -- | The Cache of the Server's open TCP connection handles to its neighbors
  ,hetcons_Server_address_book :: Address_Book
+  -- | References the Server's mutable state
  ,hetcons_Server_state_var :: MVar s
+  -- | The Memoization Cache for verifying 1As
  ,hetcons_Server_verify_1a :: CMap.Map Signed_Message (Verified Recursive_1a)
+  -- | The Memoization Cache for verifying 1Bs
  ,hetcons_Server_verify_1b :: CMap.Map Signed_Message (Verified Recursive_1b)
+  -- | The Memoization Cache for verifying 2As
  ,hetcons_Server_verify_2a :: CMap.Map Signed_Message (Verified Recursive_2a)
+  -- | The Memoization Cache for verifying 2Bs
  ,hetcons_Server_verify_2b :: CMap.Map Signed_Message (Verified Recursive_2b)
+  -- | The Memoization Cache for verifying Proof_of_Consensus
  ,hetcons_Server_verify_proof :: CMap.Map Signed_Message (Verified Recursive_Proof_of_Consensus)
+  -- | The Memoization Cache for computing Quorums
  ,hetcons_Server_verify_quorums :: CMap.Map Proposal_1a Observers
 }
 
 
 -- | The immutable part of the Hetcons_Transaction Monad's state.
+-- | For instance, this is how we reference stuff in the Server's definition.
 -- | You can read this stuff anywhere in the Monad, but never change it.
 data (Hetcons_State s) => Hetcons_Transaction_Environment s = Hetcons_Transaction_Environment {
+  -- | The data representing this server instance
   hetcons_Transaction_Environment_hetcons_server :: Hetcons_Server s
+  -- | A reference to this server's state
  ,hetcons_Transaction_Environment_transaction_state :: IORef (Hetcons_Transaction_State s)
 }
 
 -- | This is the internal state maintained by the Hetcons_Transaction Monad.
 -- | It tracks messages to be sent (recall that this Monad represents a transaction)
 -- | It also tracks what the new Participant_State should be.
+-- | This will be reset (except the hetcons_state) in each transaction.
 data (Hetcons_State s) => Hetcons_Transaction_State s = Hetcons_Transaction_State {
+  -- | The 1As sent thus far in this transaction
   sent_1as :: HashSet (Verified Recursive_1a)
+  -- | The 1Bs sent thus far in this transaction
  ,sent_1bs :: HashSet (Verified Recursive_1b)
+  -- | The 2As sent thus far in this transaction
  ,sent_2as :: HashSet (Verified Recursive_2a)
+  -- | The 2Bs sent thus far in this transaction
  ,sent_2bs :: HashSet (Verified Recursive_2b)
+  -- | The Proof_of_Consensus s sent thus far in this transaction
  ,sent_Proof_of_Consensus :: HashSet (Verified Recursive_Proof_of_Consensus)
+  -- | The state (possibly changed over the course of the transaction) of the server within the transaction.
+  -- | The server's "real" state will be set to this at the end of the transaction, if no Errors are thrown.
  ,hetcons_state :: s
 }
 
-
-
-
--- | A general implementation of Functor which works for all Monads
-instance (Hetcons_State s) => Functor (Hetcons_Transaction s) where
-  fmap ab ma = ma >>= (return . ab) -- this is generally true of Monads
-
--- | Applicative, inherited from the EitherT Monad which Hetcons_Transaction wraps
-instance (Hetcons_State s) => Applicative (Hetcons_Transaction s) where
-  pure = Hetcons_Transaction . pure
-  f <*> x = Hetcons_Transaction $ (unwrap f) <*> (unwrap x)
-
--- | Monad instantiation, inerited from the EitherT Monad which Hetcons_Transaction wraps
-instance (Hetcons_State s) => Monad (Hetcons_Transaction s) where
-  x >>= f = Hetcons_Transaction $ (unwrap x) >>= (unwrap . f)
-  -- | fail Should really take advantage of Hetcons_Exception, but there's no specific exception that works here, since it's a very general failing...
-
--- | MonadError instantiation, inherited from the EitherT Monad which Hetcons_Transaction wraps.
+-- | MonadError instantiation, In which we basically catch and throw errors into the IO Monad.
+-- | TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadError Hetcons_Exception m
 instance (Hetcons_State s) => MonadError Hetcons_Exception (Hetcons_Transaction s) where
   throwError = Hetcons_Transaction . throw
   catchError action handler = do { r <- ask
                                  ; Hetcons_Transaction $ liftIO $ catch (runReaderT (unwrap action) r) (\e -> runReaderT (unwrap (handler e)) r)}
 
--- | within a Hetcons_Transaction Monad, you can call Crypto.Random.drgNew to get a new ChaChaDRG
+-- | When we want to getRandomBytes, we just call getSystemDRG down in the IO Monad
+-- | TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadRandom m
 instance (Hetcons_State s) => MonadRandom (Hetcons_Transaction s) where
   getRandomBytes i = (Hetcons_Transaction $ liftIO getSystemDRG) >>= return . fst . (randomBytesGenerate i)
 
--- | within a Hetcons_Transaction Monad, you can call Control.Monad.Reader.ask to get the Hetcons_Transaction_Environment
-instance (Hetcons_State s) => MonadReader (Hetcons_Transaction_Environment s) (Hetcons_Transaction s) where
-  ask = Hetcons_Transaction ask
-  local f x = Hetcons_Transaction $ local f $ unwrap x
 
--- TODO: there must be a more compact way to write the following:
+
+-- | Helper function.
+-- | Creates a monadic, memoized version of the given function, given:
+-- |   - a function to memoize
+-- |   - a field which pulls the memoization cache from the Hetcons_Server
+memoize :: (Eq a, Hashable a, Hetcons_State s) => (a -> (Hetcons_Transaction s b)) -> ((Hetcons_Server s) -> (CMap.Map a b)) -> (a -> (Hetcons_Transaction s b))
+memoize f m x = do { table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
+                   ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
+                   ; case cached of
+                       Just y -> return y
+                       Nothing -> do { y <- f x
+                                     ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
+                                     ; return y}}
+
+-- | Memoization for verifying 1As in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_1a (Hetcons_Transaction s) where
-  verify x = do { table <- reader (hetcons_Server_verify_1a . hetcons_Transaction_Environment_hetcons_server)
-                ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                ; case cached of
-                    Just y -> return y
-                    Nothing -> do { y <- verify' x
-                                  ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                  ; return y}}
+  verify = memoize verify' hetcons_Server_verify_1a
 
+-- | Memoization for verifying 1Bs in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_1b (Hetcons_Transaction s) where
-  verify x = do { table <- reader (hetcons_Server_verify_1b . hetcons_Transaction_Environment_hetcons_server)
-                ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                ; case cached of
-                    Just y -> return y
-                    Nothing -> do { y <- verify' x
-                                  ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                  ; return y}}
+  verify = memoize verify' hetcons_Server_verify_1b
 
+-- | Memoization for verifying 2As in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_2a (Hetcons_Transaction s) where
-  verify x = do { table <- reader (hetcons_Server_verify_2a . hetcons_Transaction_Environment_hetcons_server)
-                ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                ; case cached of
-                    Just y -> return y
-                    Nothing -> do { y <- verify' x
-                                  ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                  ; return y}}
+  verify = memoize verify' hetcons_Server_verify_2a
 
+-- | Memoization for verifying 2Bs in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_2b (Hetcons_Transaction s) where
-  verify x = do { table <- reader (hetcons_Server_verify_2b . hetcons_Transaction_Environment_hetcons_server)
-                ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                ; case cached of
-                    Just y -> return y
-                    Nothing -> do { y <- verify' x
-                                  ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                  ; return y}}
+  verify = memoize verify' hetcons_Server_verify_2b
 
+-- | Memoization for verifying Proof_of_Consensus in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify Recursive_Proof_of_Consensus (Hetcons_Transaction s) where
-  verify x = do { table <- reader (hetcons_Server_verify_proof . hetcons_Transaction_Environment_hetcons_server)
-                ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                ; case cached of
-                    Just y -> return y
-                    Nothing -> do { y <- verify' x
-                                  ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                  ; return y}}
+  verify = memoize verify' hetcons_Server_verify_proof
 
+-- | Memoization for verifying Quorums in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s) => Monad_Verify_Quorums (Hetcons_Transaction s) where
-  verify_quorums x = do { table <- reader (hetcons_Server_verify_quorums . hetcons_Transaction_Environment_hetcons_server)
-                        ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                        ; case cached of
-                            Just y -> return y
-                            Nothing -> do { y <- verify_quorums' x
-                                          ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                          ; return y}}
+  verify_quorums = memoize verify_quorums' hetcons_Server_verify_quorums
 
 
 
@@ -235,9 +227,11 @@ update_state :: (Hetcons_State s) => (s -> (a, s)) -> Hetcons_Transaction s a
 update_state f = update_Hetcons_Transaction_State (\x -> let (y,z) = f $ hetcons_state x
                                                           in (y,x{hetcons_state = z}))
 
+-- | Reades the Crypto_ID (public key) from the Monad
 get_my_crypto_id :: (Hetcons_State s) => Hetcons_Transaction s Crypto_ID
 get_my_crypto_id = reader (hetcons_Server_crypto_id . hetcons_Transaction_Environment_hetcons_server)
 
+-- | Reades the private key from  the Monad
 get_my_private_key :: (Hetcons_State s) => Hetcons_Transaction s ByteString
 get_my_private_key = reader (hetcons_Server_private_key . hetcons_Transaction_Environment_hetcons_server)
 

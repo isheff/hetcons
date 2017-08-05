@@ -1,11 +1,5 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-
+-- | Implement Serialization for the Thrift messages using Thrift's Encode and Decode functions.
+-- | This is mostly used for testing, but also necessary for some derived types for some reason.
 module Hetcons.Serializable () where
 
 import Hetcons_Types
