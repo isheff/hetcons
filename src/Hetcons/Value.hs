@@ -1,3 +1,4 @@
+-- | Defines the two properties of a Value, a datatype defined in Thrift.
 module Hetcons.Value
     ( conflicts
     , garbage_collect
@@ -23,6 +24,9 @@ conflicts :: (Contains_Value a) => (HashSet a) -> Bool
 -- Are there the same number of values in this set as there are distinct slot numbers?
 conflicts s = (length s) /= (length (HashSet.map (value_slot . extract_value) s))
 
+-- | The state of a Participant maintains a set of known received Recursive_1bs.
+-- | Each time it is saved, this is run.
+-- | If there is ever a message we can just forget about, we should do that here.
 -- | TODO: figure out what should even be done here
 garbage_collect :: (HashSet (Verified Recursive_1b)) -> (HashSet (Verified Recursive_1b))
 garbage_collect = id
