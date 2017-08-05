@@ -4,6 +4,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-- | Defines what each type of server does upon receiving each type of message.
+-- | Thus, the consensus protocol is largely defined here.
+-- | Note that each message receipt will be in an atomic transaction.
 module Hetcons.Receive () where
 
 import Hetcons.Conflicting_2as ( conflicting_2as )
@@ -41,6 +44,7 @@ import Hetcons.Signed_Message
      ,signed
      ,sign
      ,original )
+
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
     ( Signed_Message(signed_Message_signature)
@@ -52,12 +56,14 @@ import Hetcons_Types
      ,default_Proof_of_Consensus
      ,default_Phase_2b
      ,default_Phase_1b )
+
 import Control.Monad ( mapM, mapM_ )
 import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.HashSet ( toList, member, insert, fromList )
 import qualified Data.HashSet as HashSet ( map, filter )
 
+-- | Helper function which signs a message using the Crypto_ID and Private_Key provided by the Mondic environment.
 sign_m :: (Encodable a, Hetcons_State s) => a -> Hetcons_Transaction s Signed_Message
 sign_m m = do
   { crypto_id <- get_my_crypto_id
@@ -66,8 +72,13 @@ sign_m m = do
   ; sign crypto_id private_key sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen m}
 
 
---  How Participants Receive ---------------------------------------------------
+--------------------------------------------------------------------------------
+--                                Participants                                --
+--------------------------------------------------------------------------------
 
+-- | Participant receives 1A
+-- | If we've seen anything with this Ballot number or higher before (featuring the same Quorums), then do nothing.
+-- | Otherwise, send a 1B.
 instance Receivable Participant_State (Verified Recursive_1a) where
   receive r1a = do
     { state <- get_state
@@ -79,6 +90,9 @@ instance Receivable Participant_State (Verified Recursive_1a) where
                  ; send (default_Phase_1b {phase_1b_proposal = signed r1a
                                           ,phase_1b_conflicting_phase2as = fromList conflicting})}}
 
+-- | Participant receives 1B
+-- | If we've received this 1B before, or one with matching quorums but a higher ballot number, do nothing.
+-- | Otherwise, we try to assemble a 2A out of all the 1Bs we've received for this ballot, and if we have enough (if that 2A is valid), we send it.
 instance Receivable Participant_State (Verified Recursive_1b) where
   receive r1b = do
     { old_state <- get_state
@@ -104,15 +118,23 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                  ; send r1b
                  ; send r1b}} -- echo the 1b
 
-
+-- | Participant receives 2A
+-- | Upon receiving a 2A, send a corresponding 2B.
+-- | Note that the only way for a participant to receive a 2A is for that participant to itself send it.
+-- | It can't come in over the wire.
 instance Receivable Participant_State (Verified Recursive_2a) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
-  -- | Therefore, we can be assured that this 2a comes to use exactly once, and that all 1bs therein have been received.
+  -- | Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
   receive r2a = send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}
 
+--------------------------------------------------------------------------------
+--                                 Observers                                  --
+--------------------------------------------------------------------------------
 
-
--- How Observers Receive ------------------------------------------------------
+-- | Observer receives 2B
+-- | If we've received this 2b before, do nothing.
+-- | Otherwise, assemble all received 2Bs with the same proposal and value, and see if those form a valid Proof_of_Consensus
+-- | If they do, send that Proof_of_Consensus
 instance Receivable Observer_State (Verified Recursive_2b) where
   receive r2b = do
     { old_state <- get_state
@@ -130,5 +152,9 @@ instance Receivable Observer_State (Verified Recursive_2b) where
                       else return ()
                  ; send r2b}}
 
+-- | Observer receives Proof_of_Consensus
+-- | Note that this can only be received if this Observer sends it to itself.
+-- | It cannot come in over the wire.
+-- | TODO: what do we do here? We have consensus (at least for some observers).
 instance Receivable Observer_State (Verified Recursive_Proof_of_Consensus) where
-  receive rpoc = return () -- TODO: what do we do here? We have consensus (at least for some observers).
+  receive rpoc = return ()
