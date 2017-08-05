@@ -3,6 +3,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+-- | Details the types, classes, and functions for signing and verifying stuff, including Recursive types.
+-- | For each type of Thrift message, we have a Recursive type, which contains the verified versions of any messages contained in the original.
+-- | We also have Verified a, which is a version of a that can only be created by cryptographic verification of a Signed Message.
 module Hetcons.Signed_Message
     (Encodable
        ,encode
@@ -130,10 +133,10 @@ import qualified EasyX509 as X509 ( sign, verify, Signer )
 import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
- -- | For storing data we've verified to be correctly signed
- -- | Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
- -- | Note that we do not export any constructors for Verified.
- -- | The only way data should end up in this type is if it's passed through the Verify function.
+-- | For storing data we've verified to be correctly signed
+-- | Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
+-- | Note that we do not export any constructors for Verified.
+-- | The only way data should end up in this type is if it's passed through the Verify function.
 data (Parsable a) => Verified a = Verified {
    -- | The original (parsed, but not "verified") datum
    verified_original :: a
