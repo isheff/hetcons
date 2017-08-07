@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | A Module for dealing with Quorums.
--- | Specifically, verifying that an Observer Graph is viable, and calculating Observers' quorums from it.
+--   Specifically, verifying that an Observer Graph is viable, and calculating Observers' quorums from it.
 module Hetcons.Quorums
   ( Monad_Verify_Quorums
      ,verify_quorums
@@ -41,7 +41,8 @@ import qualified Data.Vector as Vector ( fromList )
 import Data.Vector ( Vector, (!) )
 
 -- | Implements the Floyd-Warshall algorithm, given a join and meet over edge weights and a 2 dimensional matrix of edge weights
--- | returns a matrix (Vector of Vectors) of weights
+--
+--   returns a matrix (Vector of Vectors) of weights
 floyd_warshall :: (Foldable b, Foldable c) => (a -> a -> a) -> (a -> a -> a) -> (b (c a)) -> (Vector (Vector a))
 floyd_warshall a_join a_meet matrix =
   let fw (-1) i j = (v_matrix!i)!j
@@ -53,23 +54,23 @@ floyd_warshall a_join a_meet matrix =
    in v!n
 
 -- | We want to Memoize verify_quorums, so this class of Monads defines those Monads in which verify_quorums is memoized.
--- | Notably, Hetcons_Transaction (defined in Receive_Message) is an instance.
+--   Notably, Hetcons_Transaction (defined in Receive_Message) is an instance.
 class (MonadError Hetcons_Exception m) => Monad_Verify_Quorums m where
   -- | Verify Quorums takes in a Proposal_1a, and calculates the Observer Quorums from its observer Graph.
-  -- | Then, it checks if those are viable given the trust assumptions of the observer graph,
-  -- |  and returns a new version of the Observers in the 1A, but with the Quorums populated.
-  -- | If the 1A already had quorums filled in, but no graph, we just leave those untouched, and don't do anything.
-  -- | If there are no quorums or observer graph, we throw an exception.
+  --   Then, it checks if those are viable given the trust assumptions of the observer graph,
+  --    and returns a new version of the Observers in the 1A, but with the Quorums populated.
+  --   If the 1A already had quorums filled in, but no graph, we just leave those untouched, and don't do anything.
+  --   If there are no quorums or observer graph, we throw an exception.
   verify_quorums :: Proposal_1a -> m Observers
 
 
 
 -- | This is the non-memoized version of `verify_quorums`, and should really only be used when implementing memoization.
--- | Verify Quorums takes in a Proposal_1a, and calculates the Observer Quorums from its observer Graph (`graph_to_quorums`).
--- | Then, it checks if those are viable given the trust assumptions of the observer graph,
--- |  and returns a new version of the Observers in the 1A, but with the Quorums populated.
--- | If the 1A already had quorums filled in, but no graph, we just leave those untouched, and don't do anything.
--- | If there are no quorums or observer graph, we throw an exception.
+--   Verify Quorums takes in a Proposal_1a, and calculates the Observer Quorums from its observer Graph (`graph_to_quorums`).
+--   Then, it checks if those are viable given the trust assumptions of the observer graph,
+--    and returns a new version of the Observers in the 1A, but with the Quorums populated.
+--   If the 1A already had quorums filled in, but no graph, we just leave those untouched, and don't do anything.
+--   If there are no quorums or observer graph, we throw an exception.
 verify_quorums' :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
 -- | If there is no Observers object at all, throw an error
 verify_quorums' x@(Proposal_1a { proposal_1a_observers = Nothing }) =
@@ -88,11 +89,11 @@ verify_quorums' (Proposal_1a { proposal_1a_observers = Just x }) = return x
 
 
 -- | To assist in calculating Quorums from a graph, it's helpful to define a type representing an edge in that graph.
--- | This is simply a set of (Safe Set, Live Set) pairs.
+--   This is simply a set of (Safe Set, Live Set) pairs.
 type Observer_Graph_Edge = HashSet (HashSet Participant_ID, HashSet Participant_ID)
 
 -- | Remove all (safe, live) pairs from an edge which are just supersets of those found in some other pair in that edge.
--- | These represent redundant information under upward closure.
+--   These represent redundant information under upward closure.
 reduce :: Observer_Graph_Edge -> Observer_Graph_Edge
 reduce e = HashSet.filter (\(safe,live) -> (all (\(s,l) -> (((s,l) == (safe,live)) || (s /= intersection safe s) || (l /= intersection live l))) e)) e
 
@@ -101,13 +102,13 @@ e_union :: Observer_Graph_Edge -> Observer_Graph_Edge -> Observer_Graph_Edge
 e_union x y = reduce $ union x y
 
 -- | the intersection of two edges: If we fleshed out the edges with upward closure, this would just be "all pairs found in both," but we're reducing edges, so:
--- | given edges E1 and E2, for all (s1,l1) in E1 ad (s2,l2) in E2, we have (s1 union s2, l1 union l2).
--- | Then we reduce, for efficiency.
+--   given edges E1 and E2, for all (s1,l1) in E1 ad (s2,l2) in E2, we have (s1 union s2, l1 union l2).
+--   Then we reduce, for efficiency.
 e_intersection :: Observer_Graph_Edge -> Observer_Graph_Edge -> Observer_Graph_Edge
 e_intersection x y = reduce $ fromList [(union sx sy, union lx ly) | (sx, lx) <- toList x,  (sy, ly) <- toList y]
 
 -- | Given a 1A featuring an observers object with an observer graph, returns a new Observers object with the quorums filled in to match the graph, or
--- | throws an error if the graph isn't viable.
+--   throws an error if the graph isn't viable.
 graph_to_quorums :: (MonadError Hetcons_Exception m) => Proposal_1a -> m Observers
 graph_to_quorums x@(Proposal_1a { proposal_1a_observers = Just x_observers@(Observers {observers_observer_graph = Just constraints})}) =
   let observers = toList $ union (HashSet.map observer_Trust_Constraint_observer_1 constraints) (HashSet.map observer_Trust_Constraint_observer_2 constraints)

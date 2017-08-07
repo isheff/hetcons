@@ -63,8 +63,8 @@ instance {-# OVERLAPPING #-} Encodable Phase_2b where
   encode = encode_Phase_2b (BinaryProtocol EmptyTransport)
 
 -- | The Recursive version of a Phase_2b is a Recursive_2b
--- | Phase_2b s carry signed 1b messages with them.
--- | Recursive_2bs carry parsed and verified versions of these.
+--   Phase_2b s carry signed 1b messages with them.
+--   Recursive_2bs carry parsed and verified versions of these.
 instance Recursive Phase_2b Recursive_2b where
   non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
 
@@ -77,24 +77,24 @@ instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2b) where
   extract_1bs (Recursive_2b x) = x
 
 -- | the 1A of a 2B message is the latest 1A (ballot number) present in all of its 1Bs
--- | This is the same as the definition for 2As.
+--   This is the same as the definition for 2As.
 instance {-# OVERLAPPING #-} Contains_1a Recursive_2b where
   extract_1a (Recursive_2b x) = extract_1a $ Recursive_2a x
 
 -- | A well-formed 2B features 1Bs all featuring the same value,
--- | therefore the value of a 2B is the value of any of those 1Bs.
--- | This is the same as the definition for 2As.
+--   therefore the value of a 2B is the value of any of those 1Bs.
+--   This is the same as the definition for 2As.
 instance {-# OVERLAPPING #-} Contains_Value Recursive_2b where
   extract_value (Recursive_2b x) = extract_value $ Recursive_2a x
 
 
 -- | Throws a Hetcons_Exception if this 2B is not well-formed.
--- | A 2B is well-formed if it has all of:
--- |  - It has some 1Bs
--- |  - All 1Bs feature the same value
--- |  - All 1Bs feature Observers (we don't support not doing that)
--- |  - All 1Bs feature the same Observers
--- |  - The 1Bs satisfy at least one quorum of one Observer
+--   A 2B is well-formed if it has all of:
+--    - It has some 1Bs
+--    - All 1Bs feature the same value
+--    - All 1Bs feature Observers (we don't support not doing that)
+--    - All 1Bs feature the same Observers
+--    - The 1Bs satisfy at least one quorum of one Observer
 well_formed_2b :: (MonadError Hetcons_Exception m) => Recursive_2b -> m ()
 well_formed_2b r2b@(Recursive_2b s) =
   do { if 1 /= (length $ HashSet.map extract_value s)
@@ -123,8 +123,8 @@ well_formed_2b r2b@(Recursive_2b s) =
      }
 
 -- | Parse a Recursive_2b (part of verifying it)
--- | for a 2b message, we parse the original message, and verify the 1b messages it carries.
--- | Also, we check its well-formed-ness
+--   for a 2b message, we parse the original message, and verify the 1b messages it carries.
+--   Also, we check its well-formed-ness
 instance {-# OVERLAPPING #-} Parsable Recursive_2b where
   parse payload =
     do { non_recursive <- parse payload

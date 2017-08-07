@@ -44,7 +44,7 @@ import Prelude
 
 
 -- | To be a State type (the state kept by a server), you need a `write_prep` function, which is run on an object before saving it to state.
--- | This is where, say, any garbage collection would go.
+--   This is where, say, any garbage collection would go.
 class Hetcons_State a where
   write_prep :: a -> a
 
@@ -62,7 +62,7 @@ type Participant_State_Var = MVar Participant_State
 -- | Observers store the set of 2b messages received or sent thus far (or at least those which have been verified).
 type Observer_State = HashSet (Verified Recursive_2b)
 -- | For now, the `write_prep` for an `Observer_State` is `id`, meaning it does nothing.
--- | TODO: Can this be made more efficient? When can we delete 2bs from history?
+--   TODO: Can this be made more efficient? When can we delete 2bs from history?
 instance Hetcons_State Observer_State where
   write_prep = id
 
@@ -76,32 +76,32 @@ default_State = empty
 
 
 -- | Subsets of the proposals which have the same Condensed Observer Graph, for each Condensed Observer Graph in the State.
--- | strict superset of :: Participant_State -> (HashSet (Participant_State))
--- |               and  ::    Observer_State -> (HashSet (   Observer_State))
+--   strict superset of :: Participant_State -> (HashSet (Participant_State))
+--                 and  ::    Observer_State -> (HashSet (   Observer_State))
 state_by_observers :: (Contains_1a a, Hashable a, Eq a) => (HashSet a) -> (HashSet (HashSet a))
 state_by_observers s =
   (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 1bs per COG
                (HashSet.map extract_observer_quorums s)) -- all the COGs
 
 -- | Are there any conflicting proposals in this state?
--- | Bear in mind that two proposals with different COGs NEVER CONFLICT.
--- | We make no guarantees about different COGs.
--- | This is not implemented in a computationally efficient manner.
+--   Bear in mind that two proposals with different COGs NEVER CONFLICT.
+--   We make no guarantees about different COGs.
+--   This is not implemented in a computationally efficient manner.
 conflicting_state :: Participant_State -> Bool
 conflicting_state = (any conflicts) . state_by_observers
 
 -- | A reference to a new state containing all of the elements fo the given input
--- | a strict superset of :: (Foldable t) => (t (Verified Recursive_1b)) -> IO Participant_State_Var
+--   a strict superset of :: (Foldable t) => (t (Verified Recursive_1b)) -> IO Participant_State_Var
 new_State :: (Foldable t, Hashable a, Eq a) => (t a) -> IO (MVar (HashSet a))
 new_State = newMVar . fromList . toList
 
 -- | a reference to a new, empty, state
--- | a strict superset of :: IO Participant_State_Var
+--   a strict superset of :: IO Participant_State_Var
 start_State :: (Hashable a, Eq a, Hetcons_State (HashSet a)) => IO (MVar (HashSet a))
 start_State = new_State []
 
 -- | Returns the present value of the mutable state reference given
--- | a strict superset of :: Participant_State_Var -> IO Participant_State
+--   a strict superset of :: Participant_State_Var -> IO Participant_State
 read :: (MVar a) -> IO a
 read = readMVar
 

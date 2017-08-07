@@ -47,7 +47,7 @@ instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1a a) => Contains_1a (Verifi
 
 
 -- | a ballot "number" is an Int64, representing a timestamp, and a bytestring, representing a hashed value.
--- | These are, notably, orderable.
+--   These are, notably, orderable.
 type Ballot = (Int64, ByteString)
 extract_ballot :: (Parsable Recursive_1a, Contains_1a a) => a -> Ballot
 extract_ballot v = let proposal = extract_1a v
@@ -55,7 +55,7 @@ extract_ballot v = let proposal = extract_1a v
                            signed_Hash_signature $ signed_Message_signature $ signed proposal)
 
 -- | What are the quorums in the consensus of this Message?
--- | Specifically, for each observer, returns a set of sets of participants which represent quorums.
+--   Specifically, for each observer, returns a set of sets of participants which represent quorums.
 extract_observer_quorums :: (Parsable Recursive_1a) => (Contains_1a a) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
 extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original $ extract_1a x
                               in y
@@ -63,7 +63,7 @@ extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observe
 
 
 -- | Each message in consensus carries some kind of value, but this may not be the value carried by the 1A that kicked off that Ballot.
--- | For instance, 1Bs may carry 2As representing that a participant has "agreed" to some previous value.
+--   For instance, 1Bs may carry 2As representing that a participant has "agreed" to some previous value.
 class Contains_Value a where
   -- | The value carried by this message
   extract_value :: a -> Value

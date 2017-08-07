@@ -48,16 +48,16 @@ import Data.ByteString.Lazy ( ByteString )
 import Thrift.Server ( runBasicServer )
 
 -- | The Observer Server itself is defined as a data structure featuring:
--- |   - A Hetcons_Server whose state is an Observer_State (as defined in Hetcons_State)
--- |   - a function to execute whenever consensus is proven
--- |     (so it's given a Proof_of_Consensus)
+--     - A Hetcons_Server whose state is an Observer_State (as defined in Hetcons_State)
+--     - a function to execute whenever consensus is proven
+--       (so it's given a Proof_of_Consensus)
 data Observer = Observer {
   observer_hetcons_server :: Hetcons_Server Observer_State
  ,do_on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 }
 
 -- | Given a Cryptographic ID (public key), a private key, and a "Do on Consensus function", creates a new Observer datum.
--- | This establishes default values for a bunch of stuff (mostly memoization caches), which are mostly the empty set.
+--   This establishes default values for a bunch of stuff (mostly memoization caches), which are mostly the empty set.
 new_observer :: Crypto_ID -> ByteString -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO Observer
 new_observer cid pk doc =
   do { ab <- default_Address_Book
@@ -84,24 +84,24 @@ new_observer cid pk doc =
            ,do_on_consensus = doc}}
 
 -- | Given an Observer Datum and a Port Number, boots up an Observer Server.
--- | Returns the ThreadId of the newly started server.
+--   Returns the ThreadId of the newly started server.
 observer_server :: (Integral a) => Observer -> a -> IO ThreadId
 observer_server observer port = forkIO $ runBasicServer observer process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, and a "Do on Consensus function,"
--- |  boots up an Observer Server that runs that function on consensus.
--- | Returns the ThreadId of the newly started server.
+--    boots up an Observer Server that runs that function on consensus.
+--   Returns the ThreadId of the newly started server.
 basic_observer_server :: (Integral a) => Crypto_ID -> ByteString -> a -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO ThreadId
 basic_observer_server cid pk port doc = do { observer <- new_observer cid pk doc
                                            ; observer_server observer port}
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, boots up an Observer Server that prints out when it's reached consensus.
--- | Returns the ThreadId of the newly started server.
+--   Returns the ThreadId of the newly started server.
 basic_observer_server_print :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
 basic_observer_server_print cid pk port = basic_observer_server cid pk port on_consensus
 
 -- | The "Do on Consensus" function used by the basic_observer_server_print.
--- | It prints out when Consensus is Profen, with a set of observers for whom it is proven.
+--   It prints out when Consensus is Profen, with a set of observers for whom it is proven.
 on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 on_consensus proof = putStrLn $
   foldr (\n x -> x ++ "     " ++ (domain_name n) ++ " : "++ (show $ address_port_number $ participant_ID_address n) ++"\n")

@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | Defines the properties of 1B and 2A messages, most notably which typeclasses they're instances of
--- | 1B and 2A share a submodule because they're so inter-dependent
+--   1B and 2A share a submodule because they're so inter-dependent
 module Hetcons.Instances_1b_2a (well_formed_2a) where
 
 import Hetcons.Contains_Value
@@ -78,8 +78,8 @@ instance {-# OVERLAPPING #-} Encodable Phase_1b where
   encode = encode_Phase_1b (BinaryProtocol EmptyTransport)
 
 -- | The Recursive version of a Phase_1b is a Recursive_1b
--- | Phase_1b s carry 1a and 2a messages with them.
--- | Recursive_1b s carry parsed and verified versions of these.
+--   Phase_1b s carry 1a and 2a messages with them.
+--   Recursive_1b s carry parsed and verified versions of these.
 instance Recursive Phase_1b Recursive_1b where
   non_recursive = recursive_1b_non_recursive
 
@@ -100,9 +100,9 @@ instance {-# OVERLAPPING #-} Contains_1a Recursive_1b where
   extract_1a = extract_1a . recursive_1b_proposal
 
 -- | The "value" carried by a 1b is actually tricky: it may be set by the 2a s carried within.
--- | This relies on having already checked that the phase_2as do indeed conflict with the given 1b
--- | If there are no 2As, we return the value of the contained 1A.
--- | Otherwise, we return the value of the maximum 2A by Ballot.
+--   This relies on having already checked that the phase_2as do indeed conflict with the given 1b
+--   If there are no 2As, we return the value of the contained 1A.
+--   Otherwise, we return the value of the maximum 2A by Ballot.
 instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
   extract_value (Recursive_1b {
                    recursive_1b_conflicting_phase2as = phase_2as
@@ -112,7 +112,7 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
          else extract_value $ maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y)) phase_2as
 
 -- | Throws a Hetcons_Exception of the 1B is not well formed.
--- | A 1b is "well formed" if all the 2A s it contains feature the same Quorums, and values which conflict with this 1B.
+--   A 1b is "well formed" if all the 2A s it contains feature the same Quorums, and values which conflict with this 1B.
 well_formed_1b :: (MonadError Hetcons_Exception m) => Recursive_1b -> m ()
 well_formed_1b (Recursive_1b {
                   recursive_1b_non_recursive = non_recursive
@@ -132,8 +132,8 @@ well_formed_1b (Recursive_1b {
       $ toList conflicting_phase2as
 
 -- | We can parse Recursive_1b s. (Part of verifying them)
--- | For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
--- | We're also going to verify the 1b's well-formedness, because that has to happen somewhere.
+--   For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
+--   We're also going to verify the 1b's well-formedness, because that has to happen somewhere.
 instance {-# OVERLAPPING #-} Parsable Recursive_1b where
   parse payload =
     do { non_recursive <- parse payload -- (Either Hetcons_Exception) Monad
@@ -155,8 +155,8 @@ instance {-# OVERLAPPING #-} Encodable Phase_2a where
   encode = encode_Phase_2a (BinaryProtocol EmptyTransport)
 
 -- | The recursive version of a Phase_2a is a Recursive_2a
--- | Phase_2a s carry phase 1b messages with them.
--- | Recursive_2a s carry parsed and verified versions of these.
+--   Phase_2a s carry phase 1b messages with them.
+--   Recursive_2a s carry parsed and verified versions of these.
 instance Recursive Phase_2a Recursive_2a where
   non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
 
@@ -173,17 +173,17 @@ instance {-# OVERLAPPING #-} Contains_1a Recursive_2a where
   extract_1a = (maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y))) . (HashSet.map extract_1a) . extract_1bs
 
 -- | A well-formed 2A has all contained 1Bs feature the same value.
--- | Therefore, its value is the value of any one of its 1Bs
+--   Therefore, its value is the value of any one of its 1Bs
 instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
   extract_value = extract_value . head . toList . extract_1bs
 
 -- | Throws a Hetcons_Exception of the 2A is not well formed.
--- | a 2A is well-formed if all of the following hold:
--- |  - It contains some 1Bs
--- |  - All contained 1Bs have the same value
--- |  - All contained 1Bs have their Observer fields filled-in (we don't support not doing that)
--- |  - All contained 1Bs have the same Observers
--- |  - The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
+--   a 2A is well-formed if all of the following hold:
+--    - It contains some 1Bs
+--    - All contained 1Bs have the same value
+--    - All contained 1Bs have their Observer fields filled-in (we don't support not doing that)
+--    - All contained 1Bs have the same Observers
+--    - The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
 well_formed_2a :: (MonadError Hetcons_Exception m) => Recursive_2a -> m ()
 well_formed_2a r2a@(Recursive_2a s) =
   do { if 1 /= (length $ HashSet.map extract_value s)
@@ -212,8 +212,8 @@ well_formed_2a r2a@(Recursive_2a s) =
      }
 
 -- | Parse a Recursive_2a (part of verifying it)
--- | for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
--- | Also, we check its well-formed-ness
+--   for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
+--   Also, we check its well-formed-ness
 instance {-# OVERLAPPING #-} Parsable Recursive_2a where
   parse payload =
     do { non_recursive <- parse payload

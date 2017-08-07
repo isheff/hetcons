@@ -87,7 +87,7 @@ basic_participant_server cid pk port = do { participant <- new_participant cid p
 
 
 -- | The current time, in nanoseconds since 1970 began.
--- | Of course, our library only actually does microseconds, so we're multiplying by 1000
+--   Of course, our library only actually does microseconds, so we're multiplying by 1000
 current_nanoseconds :: IO Timestamp
 current_nanoseconds = do { now <- getCurrentTime
                          ; return $ 1000 * (toMicroseconds $ diffUTCTime now ((toThyme $ fromThyme (UTCTime (fromGregorian 1970 0 0) (fromMicroseconds 0))) :: UTCTime))}
@@ -97,7 +97,7 @@ message_timestamp :: (Contains_1a a) => a -> Timestamp
 message_timestamp = proposal_1a_timestamp . non_recursive . original . extract_1a
 
 -- | delay this thread by some number of nanoseconds
--- | note that the library we're using actually works in microseconds, so we're dividing by 1000, rounding down
+--   note that the library we're using actually works in microseconds, so we're dividing by 1000, rounding down
 delay_nanoseconds :: Timestamp -> IO ()
 delay_nanoseconds = threadDelay . floor . (/1000) . fromIntegral
 
@@ -107,7 +107,7 @@ delay_message m = do { now <- current_nanoseconds
                      ; delay_nanoseconds (now - (message_timestamp m))}
 
 -- | Technically, run_Hetcons_Transaction_IO needs something to do in the event a transaction returns a Proof_of_Consensus.
--- | However, that should never happen on a Participant Server, so we just throw an error.
+--   However, that should never happen on a Participant Server, so we just throw an error.
 on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
 on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
 

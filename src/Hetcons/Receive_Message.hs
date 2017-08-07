@@ -3,10 +3,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
--- | From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
--- | change the State.
--- | You can also throw a Hetcons_Exception.
--- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
+--   From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
+--   change the State.
+--   You can also throw a Hetcons_Exception.
+--   If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
 module Hetcons.Receive_Message
   (Hetcons_Transaction
     ,run_Hetcons_Transaction_IO
@@ -73,14 +73,14 @@ import Data.Serialize         (Serialize)
 import Data.Tuple ( swap )
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
--- | From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
--- | change the Participant_State.
--- | You can also throw a Hetcons_Exception.
--- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
--- | It is constructed using the IO Monad, with a Reader Monad, so you can read environment veriables, that do stuff like
--- |  list the Var referencing State.
--- | As a Newtype, you can't use, say, arbitrary IO stuff in this Monad, but only stuff exported in this submodule.
--- | TODO: We may want to make this an adjective, like any Monad m can be instance Hetcons_Transaction s a m where ...
+--   From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
+--   change the Participant_State.
+--   You can also throw a Hetcons_Exception.
+--   If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
+--   It is constructed using the IO Monad, with a Reader Monad, so you can read environment veriables, that do stuff like
+--    list the Var referencing State.
+--   As a Newtype, you can't use, say, arbitrary IO stuff in this Monad, but only stuff exported in this submodule.
+--   TODO: We may want to make this an adjective, like any Monad m can be instance Hetcons_Transaction s a m where ...
 newtype Hetcons_Transaction s a =
   Hetcons_Transaction {unwrap :: (
     ReaderT (Hetcons_Transaction_Environment s)
@@ -90,7 +90,7 @@ newtype Hetcons_Transaction s a =
 
 
 -- | Defines all the data that constitute a server, which maintains some state of type `s`:
--- | This includes Memoization Caches
+--   This includes Memoization Caches
 data (Hetcons_State s) => Hetcons_Server s = Hetcons_Server {
   -- | The Server's Cryptographic ID (public key)
   hetcons_Server_crypto_id :: Crypto_ID
@@ -116,8 +116,8 @@ data (Hetcons_State s) => Hetcons_Server s = Hetcons_Server {
 
 
 -- | The immutable part of the Hetcons_Transaction Monad's state.
--- | For instance, this is how we reference stuff in the Server's definition.
--- | You can read this stuff anywhere in the Monad, but never change it.
+--   For instance, this is how we reference stuff in the Server's definition.
+--   You can read this stuff anywhere in the Monad, but never change it.
 data (Hetcons_State s) => Hetcons_Transaction_Environment s = Hetcons_Transaction_Environment {
   -- | The data representing this server instance
   hetcons_Transaction_Environment_hetcons_server :: Hetcons_Server s
@@ -126,9 +126,9 @@ data (Hetcons_State s) => Hetcons_Transaction_Environment s = Hetcons_Transactio
 }
 
 -- | This is the internal state maintained by the Hetcons_Transaction Monad.
--- | It tracks messages to be sent (recall that this Monad represents a transaction)
--- | It also tracks what the new Participant_State should be.
--- | This will be reset (except the hetcons_state) in each transaction.
+--   It tracks messages to be sent (recall that this Monad represents a transaction)
+--   It also tracks what the new Participant_State should be.
+--   This will be reset (except the hetcons_state) in each transaction.
 data (Hetcons_State s) => Hetcons_Transaction_State s = Hetcons_Transaction_State {
   -- | The 1As sent thus far in this transaction
   sent_1as :: HashSet (Verified Recursive_1a)
@@ -146,23 +146,23 @@ data (Hetcons_State s) => Hetcons_Transaction_State s = Hetcons_Transaction_Stat
 }
 
 -- | MonadError instantiation, In which we basically catch and throw errors into the IO Monad.
--- | TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadError Hetcons_Exception m
+--   TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadError Hetcons_Exception m
 instance (Hetcons_State s) => MonadError Hetcons_Exception (Hetcons_Transaction s) where
   throwError = Hetcons_Transaction . throw
   catchError action handler = do { r <- ask
                                  ; Hetcons_Transaction $ liftIO $ catch (runReaderT (unwrap action) r) (\e -> runReaderT (unwrap (handler e)) r)}
 
 -- | When we want to getRandomBytes, we just call getSystemDRG down in the IO Monad
--- | TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadRandom m
+--   TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadRandom m
 instance (Hetcons_State s) => MonadRandom (Hetcons_Transaction s) where
   getRandomBytes i = (Hetcons_Transaction $ liftIO getSystemDRG) >>= return . fst . (randomBytesGenerate i)
 
 
 
 -- | Helper function.
--- | Creates a monadic, memoized version of the given function, given:
--- |   - a function to memoize
--- |   - a field which pulls the memoization cache from the Hetcons_Server
+--   Creates a monadic, memoized version of the given function, given:
+--     - a function to memoize
+--     - a field which pulls the memoization cache from the Hetcons_Server
 memoize :: (Eq a, Hashable a, Hetcons_State s) => (a -> (Hetcons_Transaction s b)) -> ((Hetcons_Server s) -> (CMap.Map a b)) -> (a -> (Hetcons_Transaction s b))
 memoize f m x = do { table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
                    ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
@@ -238,11 +238,11 @@ get_my_private_key = reader (hetcons_Server_private_key . hetcons_Transaction_En
 
 
 -- | Given a Participant_State_Var which points to the current Participant_State,
--- | atomically changes the Hetcons_Stae by running a Hetcons_Transaction.
--- | This will then send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
--- | return the returned value into the IO Monad.
--- | You can also throw a Hetcons_Exception.
--- | If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
+--   atomically changes the Hetcons_Stae by running a Hetcons_Transaction.
+--   This will then send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
+--   return the returned value into the IO Monad.
+--   You can also throw a Hetcons_Exception.
+--   If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
 run_Hetcons_Transaction_IO :: (Hetcons_State s) => (Hetcons_Server s) -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> (Hetcons_Transaction s a) -> IO a
 run_Hetcons_Transaction_IO server do_on_consensus receive_message =
   do { (answer, final_state) <- modify_and_read (hetcons_Server_state_var server)
@@ -274,37 +274,37 @@ run_Hetcons_Transaction_IO server do_on_consensus receive_message =
 
 class Add_Sent a where
   -- | Adds a message to the set of outgoing messages in this Monadic transaction.
-  -- | This is intended to be used from within the `send` function.
-  -- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+  --   This is intended to be used from within the `send` function.
+  --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
   add_sent :: (Hetcons_State s) => a -> Hetcons_Transaction s ()
 
 -- | Adds a Proposal_1a to the set of outgoing messages in this Monadic transaction.
--- | This is intended to be used from within the `send` function.
--- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+--   This is intended to be used from within the `send` function.
+--   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
 instance Add_Sent (Verified Recursive_1a) where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_1as = insert p $ sent_1as x}))
 
 -- | Adds a Phase_1b to the set of outgoing messages in this Monadic transaction.
--- | This is intended to be used from within the `send` function.
--- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+--   This is intended to be used from within the `send` function.
+--   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
 instance Add_Sent (Verified Recursive_1b) where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_1bs = insert p $ sent_1bs x}))
 
 -- | Adds a Phase_2a to the set of outgoing messages in this Monadic transaction.
--- | This is intended to be used from within the `send` function.
--- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+--   This is intended to be used from within the `send` function.
+--   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
 instance Add_Sent (Verified Recursive_2a) where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_2as = insert p $ sent_2as x}))
 
 -- | Adds a Phase_2b to the set of outgoing messages in this Monadic transaction.
--- | This is intended to be used from within the `send` function.
--- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+--   This is intended to be used from within the `send` function.
+--   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
 instance Add_Sent (Verified Recursive_2b) where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_2bs = insert p $ sent_2bs x}))
 
 -- | Adds a Proof_of_Consensus to the set of outgoing messages in this Monadic transaction.
--- | This is intended to be used from within the `send` function.
--- | Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
+--   This is intended to be used from within the `send` function.
+--   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
 instance Add_Sent (Verified Recursive_Proof_of_Consensus) where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_Proof_of_Consensus = insert p $ sent_Proof_of_Consensus x}))
 

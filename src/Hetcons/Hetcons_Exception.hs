@@ -63,12 +63,12 @@ import GHC.Generics ( Generic )
 
 
 -- | This is a wrapper datatype which exists primarily because I don't like Haskell's Control.Exception s, but Thrift does.
--- | Yes, this code is ugly.
--- | The basic idea is that we have a union type which handles all of the different Exceptions in Hetcons' Thrift.
--- | We can throw a Hetcons_Exception, and it is equivalent to throwing the underlying Exception.
--- | Likewise, anywhere we can catch an Exception from Thrift, we can catch a Hetcons_Exception.
--- | Unlike SomeException, these are only the Exceptions from Thrift, and we can explicitly match for each.
--- | In general, a Hetcons_Exceptions behaves pretty much like its underlying Exception from Thrift.
+--   Yes, this code is ugly.
+--   The basic idea is that we have a union type which handles all of the different Exceptions in Hetcons' Thrift.
+--   We can throw a Hetcons_Exception, and it is equivalent to throwing the underlying Exception.
+--   Likewise, anywhere we can catch an Exception from Thrift, we can catch a Hetcons_Exception.
+--   Unlike SomeException, these are only the Exceptions from Thrift, and we can explicitly match for each.
+--   In general, a Hetcons_Exceptions behaves pretty much like its underlying Exception from Thrift.
 data Hetcons_Exception =
     Hetcons_Exception_No_Supported_Hash_Sha2_Descriptor_Provided              No_Supported_Hash_Sha2_Descriptor_Provided
   | Hetcons_Exception_Descriptor_Does_Not_Match_Hash_Sha2                     Descriptor_Does_Not_Match_Hash_Sha2

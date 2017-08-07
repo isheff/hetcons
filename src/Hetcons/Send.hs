@@ -46,13 +46,13 @@ sign_and_verify m = do { crypto_id <- get_my_crypto_id
                        ; verify signed}
 
 -- | Note that sending a message will inherently involve receiving int BEFORE the transaction is finished.
--- | Infinite loops of messages would be bad.
+--   Infinite loops of messages would be bad.
 instance {-# OVERLAPPABLE #-} (Hetcons_State s, Receivable s a, Add_Sent a) => Sendable s a where
   send m = do { receive m
               ; add_sent m}
 
--- How Participants send:
--- | Participants can receive 1as, so this send will run a receive within the same transaction.
+-- | How Participants send:
+--   Participants can receive 1as, so this send will run a receive within the same transaction.
 instance {-# OVERLAPPING #-} (Receivable Participant_State (Verified (Recursive_1a))) => Sendable Participant_State Proposal_1a where
   send m = do { (verified :: Verified (Recursive_1a)) <- sign_and_verify m
               ; send verified}
@@ -78,8 +78,8 @@ instance {-# OVERLAPPING #-} Sendable Participant_State Proof_of_Consensus where
               ; add_sent verified}
 
 
--- How Observers send:
--- | Observers can't receive 1as, so this send won't run a receive
+-- | How Observers send:
+--   Observers can't receive 1as, so this send won't run a receive
 instance {-# OVERLAPPING #-} Sendable Observer_State Proposal_1a where
   send m = do { (verified :: Verified (Recursive_1a)) <- sign_and_verify m
               ; add_sent verified}
