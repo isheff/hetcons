@@ -48,8 +48,10 @@ import Data.ByteString.Lazy ( ByteString )
 import Thrift.Server ( runBasicServer )
 
 -- | The Observer Server itself is defined as a data structure featuring:
---     - A Hetcons_Server whose state is an Observer_State (as defined in Hetcons_State)
---     - a function to execute whenever consensus is proven
+--
+--     * A Hetcons_Server whose state is an Observer_State (as defined in Hetcons_State)
+--
+--     * a function to execute whenever consensus is proven
 --       (so it's given a Proof_of_Consensus)
 data Observer = Observer {
   observer_hetcons_server :: Hetcons_Server Observer_State

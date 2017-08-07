@@ -79,6 +79,8 @@ domain_name (Participant_ID{participant_ID_address=(Address{address_host_address
 -- | An address book maintains a list (used as a stack) of open communication handles for each other participant.
 --   This is a list because, if all existing handles are busy, we will spin up a new one and later add it to the list.
 type Address_Book = Concurrent_Map.Map Participant_ID (MVar [(BinaryProtocol Handle, BinaryProtocol Handle)])
+
+-- | A default starter address book contains no handles.
 default_Address_Book :: IO Address_Book
 default_Address_Book = Concurrent_Map.empty
 

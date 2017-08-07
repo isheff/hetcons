@@ -161,8 +161,10 @@ instance (Hetcons_State s) => MonadRandom (Hetcons_Transaction s) where
 
 -- | Helper function.
 --   Creates a monadic, memoized version of the given function, given:
---     - a function to memoize
---     - a field which pulls the memoization cache from the Hetcons_Server
+--
+--     * a function to memoize
+--
+--     * a field which pulls the memoization cache from the Hetcons_Server
 memoize :: (Eq a, Hashable a, Hetcons_State s) => (a -> (Hetcons_Transaction s b)) -> ((Hetcons_Server s) -> (CMap.Map a b)) -> (a -> (Hetcons_Transaction s b))
 memoize f m x = do { table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
                    ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table

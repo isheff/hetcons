@@ -121,9 +121,12 @@ instance (Parsable a, Observers_Provable a) => Observers_Provable (Verified a) w
 -- | We can parse a Recursive_Proof_of_Consensus (part of verifying it)
 --   For a Proof_of_Consensus message, we parse the original message, and verify the 2b messages it carries.
 --   We also check its well-formed-ness, meaning it must have all of:
---     - All 2Bs must feature the same 1A
---     - All 2Bs must feature the same Value
---     - The 2Bs must prove consensus for at least one observer
+--
+--     * All 2Bs must feature the same 1A
+--
+--     * All 2Bs must feature the same Value
+--
+--     * The 2Bs must prove consensus for at least one observer
 instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
   parse payload =
     do { non_recursive <- parse payload

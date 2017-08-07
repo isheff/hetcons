@@ -178,12 +178,17 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
   extract_value = extract_value . head . toList . extract_1bs
 
 -- | Throws a Hetcons_Exception of the 2A is not well formed.
---   a 2A is well-formed if all of the following hold:
---    - It contains some 1Bs
---    - All contained 1Bs have the same value
---    - All contained 1Bs have their Observer fields filled-in (we don't support not doing that)
---    - All contained 1Bs have the same Observers
---    - The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
+--   A 2A is well-formed if all of the following hold:
+--
+--    * It contains some 1Bs
+--
+--    * All contained 1Bs have the same value
+--
+--    * All contained 1Bs have their Observer fields filled-in (we don't support not doing that)
+--
+--    * All contained 1Bs have the same Observers
+--
+--    * The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
 well_formed_2a :: (MonadError Hetcons_Exception m) => Recursive_2a -> m ()
 well_formed_2a r2a@(Recursive_2a s) =
   do { if 1 /= (length $ HashSet.map extract_value s)

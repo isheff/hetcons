@@ -90,11 +90,16 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_2b where
 
 -- | Throws a Hetcons_Exception if this 2B is not well-formed.
 --   A 2B is well-formed if it has all of:
---    - It has some 1Bs
---    - All 1Bs feature the same value
---    - All 1Bs feature Observers (we don't support not doing that)
---    - All 1Bs feature the same Observers
---    - The 1Bs satisfy at least one quorum of one Observer
+--
+--    * It has some 1Bs
+--
+--    * All 1Bs feature the same value
+--
+--    * All 1Bs feature Observers (we don't support not doing that)
+--
+--    * All 1Bs feature the same Observers
+--
+--    * The 1Bs satisfy at least one quorum of one Observer
 well_formed_2b :: (MonadError Hetcons_Exception m) => Recursive_2b -> m ()
 well_formed_2b r2b@(Recursive_2b s) =
   do { if 1 /= (length $ HashSet.map extract_value s)
