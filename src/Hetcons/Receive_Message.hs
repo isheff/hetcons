@@ -272,6 +272,7 @@ run_Hetcons_Transaction_IO server do_on_consensus receive_message =
      ; return answer}
 
 
+-- | Class of types which can be sent as messages from within a Hetcons_Transaction monad.
 class Add_Sent a where
   -- | Adds a message to the set of outgoing messages in this Monadic transaction.
   --   This is intended to be used from within the `send` function.
