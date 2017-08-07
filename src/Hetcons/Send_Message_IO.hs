@@ -1,9 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ExplicitForAll #-}
-{-# LANGUAGE Rank2Types #-}
-
+-- | The machinery for actually sending a message over the wire
 module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name) where
 
 import Hetcons.Contains_Value ( extract_observer_quorums )
@@ -50,6 +45,9 @@ import Text.Printf ( printf )
 import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
 import Thrift.Transport.Handle ( hOpen )
 
+-- | A utility function to convert a `Participant_ID` to a HostName (String).
+--   If it's a domain name, this is trivial.
+--   However, if it's an IP address (which we encode with bytes), we convert it up to a String format.
 domain_name :: Participant_ID -> HostName
 domain_name (Participant_ID{participant_ID_address=(Address{address_host_address=(Host_Address{host_Address_dns_name=(Just x)})})}) = unpack x
 domain_name (Participant_ID{participant_ID_address=(Address{address_host_address=(Host_Address{host_Address_ipv4_address=(Just (IPv4_Address{
@@ -79,13 +77,17 @@ domain_name (Participant_ID{participant_ID_address=(Address{address_host_address
 
 
 -- | An address book maintains a list (used as a stack) of open communication handles for each other participant.
--- | This is a list because, if all existing handles are busy, we will spin up a new one and later add it to the list.
+--   This is a list because, if all existing handles are busy, we will spin up a new one and later add it to the list.
 type Address_Book = Concurrent_Map.Map Participant_ID (MVar [(BinaryProtocol Handle, BinaryProtocol Handle)])
 default_Address_Book :: IO Address_Book
 default_Address_Book = Concurrent_Map.empty
 
 
 
+-- | Given an `Address_Book`, a recipient, a Thrift prompt (e.g. ping or proposal_1a), and an input for that prompt,
+--    executes the thrift prompt (over the wire) using a tcp channel from the address book (creating a new one if necessary).
+--   This is thread safe.
+--   It will not block on the address book elements, and if all known handles are in use, it spins up a new one.
 send_to :: Address_Book -> Participant_ID -> ((BinaryProtocol Handle, BinaryProtocol Handle) -> a -> IO b) ->  a -> IO b
 send_to address_book recipient prompt message = do
   { client <- do { first_look <- Concurrent_Map.lookup recipient address_book
@@ -113,28 +115,35 @@ send_to address_book recipient prompt message = do
 
 
 
--- | As it is conceivable that sending a message could take an arbitrary amount of time (especially as we wait for the recipient to potentially return an Exception), we send all messages in parallel, so no one waits for any other.
+-- | As it is conceivable that sending a message could take an arbitrary amount of time
+--    (especially as we wait for the recipient to potentially return an Exception),
+--    we send all messages in parallel, so no one waits for any other.
 class (Parsable a) => Send_Message_IO a where
   send_Message_IO :: Address_Book -> (Verified a) -> IO ()
 
+-- | Send a 1A to all participants listed in any quorum.
 instance Send_Message_IO Recursive_1a where
   send_Message_IO address_book v1a =
     Parallel.mapM_ (\participant -> (send_to address_book participant proposal_1a $ signed v1a)) $
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1a
 
+-- | Send a 1B to all participants listed in any quorum.
 instance Send_Message_IO Recursive_1b where
   send_Message_IO address_book v1b =
     Parallel.mapM_ (\participant -> (send_to address_book participant phase_1b $ signed v1b)) $
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1b
 
+-- | 2As are not actually sent over the wire.
 instance Send_Message_IO Recursive_2a where
   send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
 
+-- | 2Bs are sent to each observer listed in the Quorums.
 instance Send_Message_IO Recursive_2b where
   send_Message_IO address_book v2b =
     Parallel.mapM_ (\participant -> (send_to address_book participant phase_2b $ signed v2b)) $
                keys $ extract_observer_quorums v2b
 
+-- | Proofs of Consensus are not send over the wire.
 instance Send_Message_IO Recursive_Proof_of_Consensus where
-  send_Message_IO address_book = (Parallel.mapM_ $ send_Message_IO address_book) . toList . (\(Recursive_Proof_of_Consensus v2bs) -> v2bs) . original
+  send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . (\(Recursive_Proof_of_Consensus v2bs) -> v2bs) . original
 
