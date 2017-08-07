@@ -4,8 +4,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 -- | Details the types, classes, and functions for signing and verifying stuff, including Recursive types.
--- | For each type of Thrift message, we have a Recursive type, which contains the verified versions of any messages contained in the original.
--- | We also have Verified a, which is a version of a that can only be created by cryptographic verification of a Signed Message.
+--   For each type of Thrift message, we have a Recursive type, which contains the verified versions of any messages contained in the original.
+--   We also have Verified a, which is a version of a that can only be created by cryptographic verification of a Signed Message.
 module Hetcons.Signed_Message
     (Encodable
        ,encode
@@ -134,9 +134,9 @@ import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | For storing data we've verified to be correctly signed
--- | Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
--- | Note that we do not export any constructors for Verified.
--- | The only way data should end up in this type is if it's passed through the Verify function.
+--   Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
+--   Note that we do not export any constructors for Verified.
+--   The only way data should end up in this type is if it's passed through the Verify function.
 data (Parsable a) => Verified a = Verified {
    -- | The original (parsed, but not "verified") datum
    verified_original :: a
@@ -155,32 +155,32 @@ instance (Parsable a, Show a) => Show (Verified a) where
 
 
 -- | The original (parsed, but not "verified") datum
--- | An accessor function for the `verified_original' field of Verified s.
--- | We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
+--   An accessor function for the `verified_original' field of Verified s.
+--   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
 original :: (Parsable a) => Verified a -> a
 original = verified_original
 
 -- | The signed message from which this darum was parsed and verified.
--- | An accessor function for the `verified_signed field of Verified s.
--- | We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
+--   An accessor function for the `verified_signed field of Verified s.
+--   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
 signed :: (Parsable a) => Verified a -> Signed_Message
 signed = verified_signed
 
 
 -- | We want to parse incoming messages into their `recursive' version, which is
--- |  to say we will verify that message, and also any messages its carrying in
--- |  any of their fields, and store the original signed messages as well as the
--- |  parsed data structures.
--- | This class defines what the Recursive version of a basic Thrift datatype is.
+--    to say we will verify that message, and also any messages its carrying in
+--    any of their fields, and store the original signed messages as well as the
+--    parsed data structures.
+--   This class defines what the Recursive version of a basic Thrift datatype is.
 class Recursive a b where
   -- | Sometimes it's useful to have access to the basic thrift data structure.
-  -- | This function should grand that access.
+  --   This function should grand that access.
   non_recursive :: b -> a
 
 
 
 -- | Proposal_1a s carry no signed messages within them, but their recursive version can fill in some stuff, like calculating quorums from an observer graph
--- | Therefore we store both the original, non_recursive version, and the "filled-in" version.
+--   Therefore we store both the original, non_recursive version, and the "filled-in" version.
 data Recursive_1a = Recursive_1a {
    -- | The original non-recursive version from which this is parsed
    recursive_1a_non_recursive ::Proposal_1a
@@ -193,7 +193,7 @@ instance Serialize Recursive_1a -- I'm not clear on why this is necessary, but t
 
 
 -- | Phase_1b s carry 1a and 2a messages with them.
--- | Recursive_1b s carry parsed and verified versions of these.
+--   Recursive_1b s carry parsed and verified versions of these.
 data Recursive_1b = Recursive_1b {
    -- | The original, non-recursive version from which this is parsed
    recursive_1b_non_recursive :: Phase_1b
@@ -208,7 +208,7 @@ instance Eq Recursive_1b
 
 
 -- | Phase_2a s carry phase 1b messages with them.
--- | Recursive_2a s carry parsed and verified versions of these.
+--   Recursive_2a s carry parsed and verified versions of these.
 newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b)) deriving (Generic)
 instance Show Recursive_2a
 instance Eq Recursive_2a
@@ -216,24 +216,25 @@ instance Eq Recursive_2a
 
 
 -- | Phase_2b s carry signed 1b messages with them.
--- | Recursive_2bs carry parsed and verified versions of these.
+--   Recursive_2bs carry parsed and verified versions of these.
 newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b)) deriving (Generic)
 instance Show Recursive_2b
 instance Eq Recursive_2b
 
 -- | Proof_of_Consensus messages carry signed 2b messages with them.
--- | Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
+--   Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
 newtype Recursive_Proof_of_Consensus = Recursive_Proof_of_Consensus (HashSet (Verified Recursive_2b)) deriving (Generic)
 instance Show Recursive_Proof_of_Consensus
 instance Eq Recursive_Proof_of_Consensus
 
 
 -- | We have messages serialized for transport within Signed_Messages.
--- | However, deserializing them into their thrift data structures is not enough, if we want to recursively parse and verify the signed messags they carry within themselves.
--- | Therefore, we create the Parsable class for stuff which might require such recursive verification.
+--   However, deserializing them into their thrift data structures is not enough,
+--    if we want to recursively parse and verify the signed messags they carry within themselves.
+--   Therefore, we create the Parsable class for stuff which might require such recursive verification.
 class Parsable a where
   -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
-  -- | Of course, this depends on the type of the object.
+  --   Of course, this depends on the type of the object.
   parse :: (Monad_Verify Recursive_1a m
            ,Monad_Verify Recursive_1b m
            ,Monad_Verify Recursive_2a m
@@ -269,15 +270,15 @@ instance {-# OVERLAPPING #-} Parsable Proof_of_Consensus where
 
 
 -- | verify is only way to construct a Verified object.
--- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
--- | Otherwise, you get an exception.
--- | Verify is Memoized, and thus should be called in a Monad which maintains its memoization cache.
--- | Such a monad is Hetcons_Transaction, defined in Receive_Message.
--- | verify should be a memoized version of verify'
+--   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+--   Otherwise, you get an exception.
+--   Verify is Memoized, and thus should be called in a Monad which maintains its memoization cache.
+--   Such a monad is Hetcons_Transaction, defined in Receive_Message.
+--   verify should be a memoized version of verify'
 class (MonadError Hetcons_Exception m, Parsable a) => Monad_Verify a m where
   -- | verify is only way to construct a Verified object.
-  -- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
-  -- | Otherwise, you get an exception.
+  --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+  --   Otherwise, you get an exception.
   verify :: Signed_Message -> m (Verified a)
 
 
@@ -300,8 +301,8 @@ sha2_length length_set =
 
 
 -- | This is the only pure way to construct a Verified object.
--- | If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
--- | Otherwise, you get an exception.
+--   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+--   Otherwise, you get an exception.
 verify' :: (Monad_Verify Recursive_1a m
            ,Monad_Verify Recursive_1b m
            ,Monad_Verify Recursive_2a m
@@ -419,8 +420,8 @@ verify' Signed_Message
 -- | a class for those types which Thrift can encode. Alas, thrift doesn't seem to provide this itself.
 class Encodable a where
   -- | encode it to a Lazy ByteString using Thrift's encode function with BinaryProtocol, EmptyTransport.
-  -- | Instantiations for all the types we care about are in their Instances_XX files.
-  -- | For testing purposes, Test.Util provides instance Serialize a => Encodable a
+  --   Instantiations for all the types we care about are in their Instances_XX files.
+  --   For testing purposes, Test.Util provides instance Serialize a => Encodable a
   encode :: a -> ByteString
 
 
