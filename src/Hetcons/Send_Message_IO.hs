@@ -117,10 +117,13 @@ send_to address_book recipient prompt message = do
 
 
 
--- | As it is conceivable that sending a message could take an arbitrary amount of time
---    (especially as we wait for the recipient to potentially return an Exception),
---    we send all messages in parallel, so no one waits for any other.
+-- | The class of all messages which can be sent over the wire.
 class (Parsable a) => Send_Message_IO a where
+  -- | Send this message over the wire.
+  --   Note that the recipients are derived from the message itself, depending on the message's type.
+  --   As it is conceivable that sending a message could take an arbitrary amount of time
+  --    (especially as we wait for the recipient to potentially return an Exception),
+  --    we send all messages in parallel, so no one waits for any other.
   send_Message_IO :: Address_Book -> (Verified a) -> IO ()
 
 -- | Send a 1A to all participants listed in any quorum.
