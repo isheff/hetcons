@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-9.0
+resolver: lts-7.24 # this could be lts-9.1 at least, if it weren't for thrift's unnecessary hspec-core < 2.4.0 requirement
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -42,8 +42,8 @@ packages:
     commit: 01a40cf10689552b946dd43cbfb1b961397bb957
   extra-dep: true
 - location:
-    git: git@github.com:isheff/thrift.git
-    commit: 043a4fb23311ef9302f1c5ac9910c207ed68a5dd # this is my own fork of thrift. The ONLY difference is that Thrift.cabal is now thrift.cabal.
+    git: git://git.apache.org/thrift.git
+    commit: ec64f23d236d7874e3b28ae86c833f57c7aa3389 
   subdirs:
   - lib/hs
   extra-dep: true
