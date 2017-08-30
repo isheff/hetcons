@@ -113,7 +113,6 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                                     ; (v :: (Verified Recursive_2a)) <- verify signed
                                     ; send v}
                      (Left _) -> return ()
-                 ; send r1b
                  ; send r1b}} -- echo the 1b
 
 -- | Participant receives 2A

@@ -123,7 +123,7 @@ well_formed_1b (Recursive_1b {
                        invalid_Phase_1b_offending_phase_1b = non_recursive
                        ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as had the same quorums as this phase_1b"
                        })
-                else if not $ conflicts $ fromList [extract_value proposal, extract_value x]
+                else if not $ conflicts $ fromList [proposal, extract_1a x]
                         then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
                                invalid_Phase_1b_offending_phase_1b = non_recursive
                                ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal"
@@ -196,10 +196,10 @@ well_formed_2a r2a@(Recursive_2a s) =
                          invalid_Phase_2a_offending_phase_2a = non_recursive r2a
                         ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different values in this 2a, or no 1bs at all"})
           else return ()
-     ; if 1 /= (length $ HashSet.map extract_observer_quorums s)
+     ; if 1 /= (length $ HashSet.map extract_1a s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
                          invalid_Phase_2a_offending_phase_2a = non_recursive r2a
-                        ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different observers in this 2a"})
+                        ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different 1as in this 2a"})
           else return ()
      ; let observers = extract_observer_quorums r2a
      ; if 0 == length observers

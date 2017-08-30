@@ -88,7 +88,7 @@ state_by_observers s =
 --   We make no guarantees about different COGs.
 --   This is not implemented in a computationally efficient manner.
 conflicting_state :: Participant_State -> Bool
-conflicting_state = (any conflicts) . state_by_observers
+conflicting_state = conflicts
 
 -- | A reference to a new state containing all of the elements fo the given input
 --   a strict superset of :: (Foldable t) => (t (Verified Recursive_1b)) -> IO Participant_State_Var
