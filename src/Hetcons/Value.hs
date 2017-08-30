@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- | Defines the two properties of a Value, a datatype defined in Thrift.
 module Hetcons.Value
-    ( conflicts
+    ( valid
+    , conflicts
     , garbage_collect
     ) where
 
@@ -20,6 +21,12 @@ import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet, fromList, toList)
 
 
+-- | Is this value, in a vacuum, acceptable, for some application-specific definition of acceptable?
+--   It may be useful to the programmer to note that, as the valid function may wish to look at quorums and such,
+--    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
+--   This is why `valid` is called in `receive`, rather than in `parse`.
+valid :: (Parsable Recursive_1a, Contains_Value a, Contains_1a a) => a -> Bool
+valid _ = True -- For now, everything is acceptable.
 
 
 -- | Does this set of entities contain conflicitng values?

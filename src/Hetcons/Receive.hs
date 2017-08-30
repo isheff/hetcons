@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Defines what each type of server does upon receiving each type of message.
 --   Thus, the consensus protocol is largely defined here.
@@ -14,6 +15,7 @@ import Hetcons.Contains_Value
      ,Contains_1bs(extract_1bs)
      ,extract_observer_quorums
      ,extract_ballot )
+import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a))
 import Hetcons.Hetcons_State
     ( Participant_State, Observer_State, Hetcons_State )
 import Hetcons.Instances_1b_2a ( well_formed_2a )
@@ -42,6 +44,7 @@ import Hetcons.Signed_Message
      ,signed
      ,sign
      ,original )
+import Hetcons.Value (valid)
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
@@ -53,9 +56,13 @@ import Hetcons_Types
      ,Proof_of_Consensus(proof_of_Consensus_phase_2bs)
      ,default_Proof_of_Consensus
      ,default_Phase_2b
-     ,default_Phase_1b )
+     ,default_Phase_1b
+     ,default_Invalid_Proposal_1a
+     ,invalid_Proposal_1a_offending_proposal
+     ,invalid_Proposal_1a_explanation)
 
 import Control.Monad ( mapM, mapM_ )
+import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.HashSet ( toList, member, insert, fromList )
@@ -79,7 +86,12 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance Receivable Participant_State (Verified Recursive_1a) where
   receive r1a = do
-    { state <- get_state
+    { if valid r1a
+         then return ()
+         else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+                             invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,
+                             invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
+    ; state <- get_state
     ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1a) ==) . extract_observer_quorums) state
       -- If we've seen this 1a before, or we've seen one with a greater ballot and the same quorums
     ; if ((not (null ballots_with_matching_quorums)) && ((extract_ballot r1a) <= (maximum ballots_with_matching_quorums)))
