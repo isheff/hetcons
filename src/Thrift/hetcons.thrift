@@ -277,15 +277,15 @@ union Observers {
 //////////////////////////////// 1a ///////////////////////////////
 typedef binary Value_Payload // the type of whatever we're consenting on
 typedef i64 Slot
-struct Value {  // Technically, this is what the consensus agrees to. We'll need "conflict_with" functions, as well as "garbage collect" functions for any redefinition of this. Otherwise, it's opaque.
+struct Slot_Value {  // This is a possible type for what the consensus agrees to. We'll need "conflict_with" functions, as well as "garbage collect" functions for any redefinition of this.
   1: Value_Payload value_payload,
-  2: Slot          slot
+  2: Slot          slot // two values conflict if they share a slot
 }
 
 struct Proposal_1a { // remember, this will be wrapped in a Signed_Message
-  1: Value     value,
+  1: binary    value, // This can be anything, but for most of our tests it's a Slot_Value
   2: Timestamp timestamp,
-  3: optional Observers observers
+  3: optional  Observers observers
 }
 exception Invalid_Proposal_1a {
   1: Proposal_1a offending_proposal,
