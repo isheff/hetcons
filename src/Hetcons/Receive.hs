@@ -86,8 +86,8 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance Receivable Participant_State (Verified Recursive_1a) where
   receive r1a = do
-    { if valid r1a
-         then return ()
+    { if valid r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
+         then return () -- However, the first time we receive a value, we always must end up here.
          else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                              invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,
                              invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
