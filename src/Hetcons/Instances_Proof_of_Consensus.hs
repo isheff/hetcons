@@ -63,21 +63,21 @@ instance {-# OVERLAPPING #-} Encodable Proof_of_Consensus where
 -- | The Recursive version of a Proof_of_Consensus is a Recursive_Proof_of_Consensus
 --   Proof_of_Consensus messages carry signed 2b messages with them.
 --   Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
-instance Recursive Proof_of_Consensus Recursive_Proof_of_Consensus where
+instance Recursive Proof_of_Consensus (Recursive_Proof_of_Consensus v) where
   non_recursive (Recursive_Proof_of_Consensus x) = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = HashSet.map signed x}
 
 -- | A Proof_of_Consensus contains 1Bs, notably all the 1Bs in the 2Bs that make up the proof
-instance {-# OVERLAPPING #-} Contains_1bs (Recursive_Proof_of_Consensus) where
+instance {-# OVERLAPPING #-} Contains_1bs (Recursive_Proof_of_Consensus v) v where
   extract_1bs (Recursive_Proof_of_Consensus x) = unions $ map extract_1bs $ toList x
 
 -- | A well-formed Proof_of_Consensus features 2Bs each of which contain the same 1A.
 --   Therefore, the 1A of a Proof_of_Consensus is the 1A of any of those 2Bs.
-instance {-# OVERLAPPING #-} Contains_1a Recursive_Proof_of_Consensus where
+instance {-# OVERLAPPING #-} Contains_1a (Recursive_Proof_of_Consensus v) v where
   extract_1a (Recursive_Proof_of_Consensus x) = extract_1a $ head $ toList x
 
 -- | A well-formed Proof_of_Consensus contains 2Bs each of which feature the same Value.
 --   Therefore, the Value of a Proof_of_Consensus is the value of any one of those 2Bs.
-instance {-# OVERLAPPING #-} Contains_Value Recursive_Proof_of_Consensus where
+instance {-# OVERLAPPING #-} Contains_Value (Recursive_Proof_of_Consensus v) v where
   extract_value (Recursive_Proof_of_Consensus x) = extract_value $ head $ toList x
 
 -- | The class of things which can prove an observer Consents to a value.
@@ -91,7 +91,7 @@ class Observers_Provable a where
 -- | For which observers does:
 --     there exists a quorum (according to that observer) such that:
 --       each participant in that quorum received 1bs from the same quorum (according to that observer)
-instance Observers_Provable Recursive_Proof_of_Consensus where
+instance (Value v) => Observers_Provable (Recursive_Proof_of_Consensus v) where
   observers_proven rpoc@(Recursive_Proof_of_Consensus set) =
     let observers = extract_observer_quorums rpoc
         -- given a quorum (set) of Participant_IDs, filters the given set of Verified anythings for only those elements signed by a quorum member
@@ -111,7 +111,7 @@ instance Observers_Provable Recursive_Proof_of_Consensus where
      in fromList $ filter is_proven $ keys observers -- which observers have achieved consensus?
 
 -- | Given that a Recursive_Proof_of_Consensus is Observers_Provable, and it's balically a set of 2B, we can make sets of 2B Observers_Provable as well.
-instance Observers_Provable (HashSet (Verified Recursive_2b)) where
+instance (Value v) => Observers_Provable (HashSet (Verified (Recursive_2b v))) where
   observers_proven = observers_proven . Recursive_Proof_of_Consensus
 
 -- | If something is Observers_Provable, so is its Verified version.
@@ -127,7 +127,7 @@ instance (Parsable a, Observers_Provable a) => Observers_Provable (Verified a) w
 --     * All 2Bs must feature the same Value
 --
 --     * The 2Bs must prove consensus for at least one observer
-instance {-# OVERLAPPING #-} Parsable Recursive_Proof_of_Consensus where
+instance {-# OVERLAPPING #-} (Parsable v) => Parsable (Recursive_Proof_of_Consensus v) where
   parse payload =
     do { non_recursive <- parse payload
        ; l_set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive

@@ -20,7 +20,7 @@ import Hetcons.Signed_Message
      ,non_recursive
      ,signed
      ,original)
-import Hetcons.Value ( conflicts )
+import Hetcons.Value (Value, conflicts )
 
 import Hetcons_Types ( Phase_2a
                       ,default_Phase_1b
@@ -38,7 +38,7 @@ import Data.HashSet ( HashSet, singleton, insert, fromList, empty )
 -- | Phase_2as with identical quorums to the message, but conflicting values
 --   takes in old, known 1bs, and a new message, and filters the old 1Bs by quorums, and then by conflicts, and tests to see if they are a valid 2A
 --   NOTE: only pariwise conflicts are handled.
-conflicting_2as :: (Foldable f) => (f (Verified Recursive_1b)) -> (Verified Recursive_1a) -> (HashSet Phase_2a)
+conflicting_2as :: (Foldable f, Value v) => (f (Verified (Recursive_1b v))) -> (Verified (Recursive_1a v)) -> (HashSet (Phase_2a v))
 conflicting_2as old_1bs new_message =
   let naive_1b = Recursive_1b {
                    recursive_1b_non_recursive = default_Phase_1b {phase_1b_proposal = signed new_message

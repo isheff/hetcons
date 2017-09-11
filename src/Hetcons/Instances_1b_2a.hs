@@ -37,7 +37,7 @@ import Hetcons.Signed_Message
      ,Monad_Verify(verify)
      ,signed
      ,original )
-import Hetcons.Value ( conflicts )
+import Hetcons.Value ( Value, conflicts )
 
 import Hetcons_Types
     ( Participant_ID(participant_ID_crypto_id)
@@ -80,30 +80,30 @@ instance {-# OVERLAPPING #-} Encodable Phase_1b where
 -- | The Recursive version of a Phase_1b is a Recursive_1b
 --   Phase_1b s carry 1a and 2a messages with them.
 --   Recursive_1b s carry parsed and verified versions of these.
-instance Recursive Phase_1b Recursive_1b where
+instance Recursive Phase_1b (Recursive_1b v) where
   non_recursive = recursive_1b_non_recursive
 
 -- | Recursive_1b s can be hashed by hashing their non-recursive version
-instance Hashable Recursive_1b where
+instance Hashable (Recursive_1b v) where
   hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Phase_1b)
 
 -- | All the 1Bs contained within the (2As within the) Recursive_1b
-instance {-# OVERLAPPING #-} Contains_1bs (Recursive_1b) where
+instance {-# OVERLAPPING #-} (Contains_1bs (Recursive_1b v) v) where
   extract_1bs (Recursive_1b {recursive_1b_conflicting_phase2as = phase_2as}) = unions $ map extract_1bs $ toList phase_2as
 
 -- | The 1Bs contained in a Verified Recursive_1b are slightly different, in that they include the Verified Recursive_1b itself.
-instance {-# OVERLAPPING #-} Contains_1bs (Verified (Recursive_1b)) where
+instance {-# OVERLAPPING #-} Contains_1bs (Verified (Recursive_1b v)) v where
   extract_1bs b = insert b $ extract_1bs b
 
 -- | 1Bs contain a 1A
-instance {-# OVERLAPPING #-} Contains_1a Recursive_1b where
+instance {-# OVERLAPPING #-} Contains_1a (Recursive_1b v) v where
   extract_1a = extract_1a . recursive_1b_proposal
 
 -- | The "value" carried by a 1b is actually tricky: it may be set by the 2a s carried within.
 --   This relies on having already checked that the phase_2as do indeed conflict with the given 1b
 --   If there are no 2As, we return the value of the contained 1A.
 --   Otherwise, we return the value of the maximum 2A by Ballot.
-instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
+instance {-# OVERLAPPING #-} Contains_Value (Recursive_1b v) v where
   extract_value (Recursive_1b {
                    recursive_1b_conflicting_phase2as = phase_2as
                   ,recursive_1b_proposal = proposal})
@@ -113,7 +113,7 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_1b where
 
 -- | Throws a Hetcons_Exception of the 1B is not well formed.
 --   A 1b is "well formed" if all the 2A s it contains feature the same Quorums, and values which conflict with this 1B.
-well_formed_1b :: (MonadError Hetcons_Exception m) => Recursive_1b -> m ()
+well_formed_1b :: (Value v, MonadError Hetcons_Exception m) => (Recursive_1b v) -> m ()
 well_formed_1b (Recursive_1b {
                   recursive_1b_non_recursive = non_recursive
                  ,recursive_1b_proposal = proposal
@@ -134,7 +134,7 @@ well_formed_1b (Recursive_1b {
 -- | We can parse Recursive_1b s. (Part of verifying them)
 --   For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
 --   We're also going to verify the 1b's well-formedness, because that has to happen somewhere.
-instance {-# OVERLAPPING #-} Parsable Recursive_1b where
+instance {-# OVERLAPPING #-} (Parsable v) => Parsable (Recursive_1b v) where
   parse payload =
     do { non_recursive <- parse payload -- (Either Hetcons_Exception) Monad
        ; proposal <- verify $ phase_1b_proposal non_recursive
@@ -157,24 +157,24 @@ instance {-# OVERLAPPING #-} Encodable Phase_2a where
 -- | The recursive version of a Phase_2a is a Recursive_2a
 --   Phase_2a s carry phase 1b messages with them.
 --   Recursive_2a s carry parsed and verified versions of these.
-instance Recursive Phase_2a Recursive_2a where
+instance Recursive Phase_2a (Recursive_2a v) where
   non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
 
 -- | Hash a Recursive_2a by hashing its non-recursive version
-instance Hashable Recursive_2a where
+instance Hashable (Recursive_2a v) where
   hashWithSalt s (Recursive_2a x) = hashWithSalt s x
 
 -- | A 2A contains 1Bs
-instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2a) where
+instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2a v) v where
   extract_1bs (Recursive_2a x) = x
 
 -- | the 1A of a 2A message is the latest 1A (ballot number) present in all of its 1Bs
-instance {-# OVERLAPPING #-} Contains_1a Recursive_2a where
+instance {-# OVERLAPPING #-} Contains_1a (Recursive_2a v) v where
   extract_1a = (maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y))) . (HashSet.map extract_1a) . extract_1bs
 
 -- | A well-formed 2A has all contained 1Bs feature the same value.
 --   Therefore, its value is the value of any one of its 1Bs
-instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
+instance {-# OVERLAPPING #-} Contains_Value (Recursive_2a v) v where
   extract_value = extract_value . head . toList . extract_1bs
 
 -- | Throws a Hetcons_Exception of the 2A is not well formed.
@@ -189,7 +189,7 @@ instance {-# OVERLAPPING #-} Contains_Value Recursive_2a where
 --    * All contained 1Bs have the same Observers
 --
 --    * The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
-well_formed_2a :: (MonadError Hetcons_Exception m) => Recursive_2a -> m ()
+well_formed_2a :: (Value v, MonadError Hetcons_Exception m) => (Recursive_2a v) -> m ()
 well_formed_2a r2a@(Recursive_2a s) =
   do { if 1 /= (length $ HashSet.map extract_value s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
@@ -219,7 +219,7 @@ well_formed_2a r2a@(Recursive_2a s) =
 -- | Parse a Recursive_2a (part of verifying it)
 --   for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
 --   Also, we check its well-formed-ness
-instance {-# OVERLAPPING #-} Parsable Recursive_2a where
+instance {-# OVERLAPPING #-} (Parsable v) => Parsable (Recursive_2a v) where
   parse payload =
     do { non_recursive <- parse payload
        ; l_set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive

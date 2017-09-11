@@ -30,11 +30,11 @@ import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Hash a Recursive_1a by hashing its non-recursive version
-instance Hashable Recursive_1a where
+instance Hashable (Recursive_1a v) where
   hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Proposal_1a)
 
 -- | The non-recursive version of a Recursive_1a is a Proposal_1a
-instance Recursive Proposal_1a Recursive_1a where
+instance Recursive Proposal_1a (Recursive_1a v) where
   non_recursive = recursive_1a_non_recursive
 
 -- | Encode a Proposal_1a to a bytestring using Thrift
@@ -42,22 +42,20 @@ instance {-# OVERLAPPING #-} Encodable Proposal_1a where
   encode = encode_Proposal_1a (BinaryProtocol EmptyTransport)
 
 -- | To parse a Recursive_1a object, we verify observer graph, and fill in quorums
-instance {-# OVERLAPPING #-} Parsable Recursive_1a where
+instance {-# OVERLAPPING #-} (Parsable v) => Parsable (Recursive_1a v) where
   parse payload =
     do { non_recursive <- parse payload
+       ; value <- parse $ proposal_1a_value payload
        ; filled_in <- verify_quorums non_recursive
        ; return Recursive_1a {
               recursive_1a_non_recursive = non_recursive
-       ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}}}
+             ,recursive_1a_filled_in = non_recursive {proposal_1a_observers = Just filled_in}
+             ,recursive_1a_value = value}}
 
 -- | A 1A contains a 1A, itself.
-instance {-# OVERLAPPING #-} Contains_1a (Verified Recursive_1a) where
+instance {-# OVERLAPPING #-} Contains_1a (Verified (Recursive_1a v)) v where
   extract_1a = id
 
--- | A Proposal_1a contains a value
-instance {-# OVERLAPPING #-} Contains_Value Proposal_1a where
-  extract_value = proposal_1a_value
-
 -- | a Recursive_1a contains a value
-instance {-# OVERLAPPING #-} Contains_Value Recursive_1a where
-  extract_value = extract_value . recursive_1a_filled_in
+instance {-# OVERLAPPING #-} Contains_Value (Recursive_1a v) v where
+  extract_value = recursive_1a_value

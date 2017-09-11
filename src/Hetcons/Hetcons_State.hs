@@ -26,7 +26,7 @@ import Hetcons.Signed_Message
     ( Recursive_1b
      ,Verified
      ,Recursive_2b )
-import Hetcons.Value ( garbage_collect, conflicts )
+import Hetcons.Value ( Value, garbage_collect, conflicts )
 
 import Control.Concurrent.MVar
     ( MVar
@@ -49,25 +49,25 @@ class Hetcons_State a where
   write_prep :: a -> a
 
 -- | Participants store literally the set of 1b messages received or sent thus far (or at least those which have been verified)
-type Participant_State = HashSet (Verified Recursive_1b)
+type (Value v) => Participant_State v = HashSet (Verified (Recursive_1b v))
 -- | Therefore, the `write_prep` for a `Participant_State` is `garbage_collect`, as defined in `Value`.
-instance Hetcons_State Participant_State where
+instance (Value v) => Hetcons_State (Participant_State v) where
   write_prep = garbage_collect
 
 -- | Mutable references to Participant State that work in the Hetcons_Transaction monad.
-type Participant_State_Var = MVar Participant_State
+type (Value v) => Participant_State_Var v = MVar (Participant_State v)
 
 
 
 -- | Observers store the set of 2b messages received or sent thus far (or at least those which have been verified).
-type Observer_State = HashSet (Verified Recursive_2b)
+type (Value v) => Observer_State v = HashSet (Verified (Recursive_2b v))
 -- | For now, the `write_prep` for an `Observer_State` is `id`, meaning it does nothing.
 --   TODO: Can this be made more efficient? When can we delete 2bs from history?
-instance Hetcons_State Observer_State where
+instance Hetcons_State (Observer_State v) where
   write_prep = id
 
 -- | Mutable references to Observer State that work in the Hetcons_Transaction monad.
-type Observer_State_Var = MVar Observer_State
+type (Value v) => (Observer_State_Var v) = MVar (Observer_State v)
 
 
 -- | The "Start" or "default" state for both Observers and Participants happens to be the empty set.
@@ -78,7 +78,7 @@ default_State = empty
 -- | Subsets of the proposals which have the same Condensed Observer Graph, for each Condensed Observer Graph in the State.
 --   strict superset of :: Participant_State -> (HashSet (Participant_State))
 --                 and  ::    Observer_State -> (HashSet (   Observer_State))
-state_by_observers :: (Contains_1a a, Hashable a, Eq a) => (HashSet a) -> (HashSet (HashSet a))
+state_by_observers :: (Contains_1a a v, Hashable a, Eq a) => (HashSet a) -> (HashSet (HashSet a))
 state_by_observers s =
   (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 1bs per COG
                (HashSet.map extract_observer_quorums s)) -- all the COGs
@@ -87,7 +87,7 @@ state_by_observers s =
 --   Bear in mind that two proposals with different COGs NEVER CONFLICT.
 --   We make no guarantees about different COGs.
 --   This is not implemented in a computationally efficient manner.
-conflicting_state :: Participant_State -> Bool
+conflicting_state :: (Participant_State v) -> Bool
 conflicting_state = conflicts
 
 -- | A reference to a new state containing all of the elements fo the given input
