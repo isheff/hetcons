@@ -239,11 +239,11 @@ instance Eq (Recursive_Proof_of_Consensus v)
 class Parsable a where
   -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
   --   Of course, this depends on the type of the object.
-  parse :: (Monad_Verify Recursive_1a m
-           ,Monad_Verify Recursive_1b m
-           ,Monad_Verify Recursive_2a m
-           ,Monad_Verify Recursive_2b m
-           ,Monad_Verify Recursive_Proof_of_Consensus m
+  parse :: (Monad_Verify (Recursive_1a v) m
+           ,Monad_Verify (Recursive_1b v) m
+           ,Monad_Verify (Recursive_2a v) m
+           ,Monad_Verify (Recursive_2b v) m
+           ,Monad_Verify (Recursive_Proof_of_Consensus v) m
            ,Monad_Verify_Quorums m
            ,MonadError Hetcons_Exception m) => ByteString -> m a
 
@@ -311,11 +311,11 @@ sha2_length length_set =
 -- | This is the only pure way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
-verify' :: (Monad_Verify Recursive_1a m
-           ,Monad_Verify Recursive_1b m
-           ,Monad_Verify Recursive_2a m
-           ,Monad_Verify Recursive_2b m
-           ,Monad_Verify Recursive_Proof_of_Consensus m
+verify' :: (Monad_Verify (Recursive_1a v) m
+           ,Monad_Verify (Recursive_1b v) m
+           ,Monad_Verify (Recursive_2a v) m
+           ,Monad_Verify (Recursive_2b v) m
+           ,Monad_Verify (Recursive_Proof_of_Consensus v) m
            ,Monad_Verify_Quorums m
            ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
 -- In the case where everything's done correctly:

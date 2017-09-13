@@ -127,28 +127,28 @@ class (Parsable a) => Send_Message_IO a where
   send_Message_IO :: Address_Book -> (Verified a) -> IO ()
 
 -- | Send a 1A to all participants listed in any quorum.
-instance Send_Message_IO Recursive_1a where
+instance (Value v) => Send_Message_IO (Recursive_1a v) where
   send_Message_IO address_book v1a =
     Parallel.mapM_ (\participant -> (send_to address_book participant proposal_1a $ signed v1a)) $
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1a
 
 -- | Send a 1B to all participants listed in any quorum.
-instance Send_Message_IO Recursive_1b where
+instance (Value v) => Send_Message_IO (Recursive_1b v) where
   send_Message_IO address_book v1b =
     Parallel.mapM_ (\participant -> (send_to address_book participant phase_1b $ signed v1b)) $
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1b
 
 -- | 2As are not actually sent over the wire.
-instance Send_Message_IO Recursive_2a where
+instance (Value v) => Send_Message_IO (Recursive_2a v) where
   send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
 
 -- | 2Bs are sent to each observer listed in the Quorums.
-instance Send_Message_IO Recursive_2b where
+instance (Value v) Send_Message_IO (Recursive_2b v) where
   send_Message_IO address_book v2b =
     Parallel.mapM_ (\participant -> (send_to address_book participant phase_2b $ signed v2b)) $
                keys $ extract_observer_quorums v2b
 
 -- | Proofs of Consensus are not send over the wire.
-instance Send_Message_IO Recursive_Proof_of_Consensus where
+instance (Value v) => Send_Message_IO (Recursive_Proof_of_Consensus v) where
   send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . (\(Recursive_Proof_of_Consensus v2bs) -> v2bs) . original
 

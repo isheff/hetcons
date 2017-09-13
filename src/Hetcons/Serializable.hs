@@ -6,6 +6,9 @@ import Hetcons_Types
     ( Signed_Message
        ,encode_Signed_Message
        ,decode_Signed_Message
+     ,Slot_Value
+       ,encode_Slot_Value
+       ,decode_Slot_Value
      ,Proposal_1a
        ,encode_Proposal_1a
        ,decode_Proposal_1a
@@ -29,6 +32,14 @@ import Data.Serialize.Get ( remaining, getLazyByteString )
 import Data.Serialize.Put ( putWord8 )
 import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
+
+-- | Serialize and deserialize this Thrift type using Thrift's functions.
+-- | This should probably be done natively by Thrift.
+instance Serialize Slot_Value where
+  put = (mapM_ putWord8) . unpack . (encode_Slot_Value (BinaryProtocol EmptyTransport))
+  get = liftM (decode_Slot_Value (BinaryProtocol EmptyTransport)) (
+         do { length <- remaining
+            ; getLazyByteString (fromIntegral length)})
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
