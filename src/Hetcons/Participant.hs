@@ -30,11 +30,14 @@ import Hetcons.Signed_Message
      ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify)
      ,original )
+import Hetcons.Value (Value)
+
 import Hetcons_Participant ( process )
 import Hetcons_Participant_Iface
     ( Hetcons_Participant_Iface, ping, proposal_1a, phase_1b )
 import Hetcons_Types
-    ( Proposal_1a(proposal_1a_timestamp), Crypto_ID, Timestamp )
+    ( Proposal_1a(proposal_1a_timestamp), Crypto_ID, Timestamp, Slot_Value )
+
 import Control.Concurrent ( forkIO, ThreadId, threadDelay )
 import qualified Control.Concurrent.Map as CMap ( empty )
 import Data.ByteString.Lazy ( ByteString )
@@ -50,10 +53,10 @@ import Data.Thyme.Time.Core
 import Thrift.Server ( runBasicServer )
 
 -- | The participant Datum is just a Hetcons_Server with a Participant_State (defined in Hetcons_State)
-type Participant = Hetcons_Server Participant_State
+type Participant v = Hetcons_Server (Participant_State v)
 
 -- | given a Cryptographic ID (public key), and a private key, produces a new Participant Datum
-new_participant :: Crypto_ID -> ByteString -> IO Participant
+new_participant :: (Value v) => Crypto_ID -> ByteString -> IO (Participant v)
 new_participant cid pk =
   do { ab <- default_Address_Book
      ; sv <- start_State
@@ -77,23 +80,24 @@ new_participant cid pk =
            })}
 
 -- | Given a Participant Datum, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
-participant_server :: (Integral a) => Participant -> a -> IO ThreadId
+participant_server :: (Value v, Integral a) => (Participant v) -> a -> IO ThreadId
 participant_server participant port = forkIO $ runBasicServer participant process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a private key, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
+--   For value type Slot_Value
 basic_participant_server :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
-basic_participant_server cid pk port = do { participant <- new_participant cid pk
+basic_participant_server cid pk port = do { (participant :: (Participant Slot_Value)) <- new_participant cid pk
                                           ; participant_server participant port}
 
 
 -- | The current time, in nanoseconds since 1970 began.
---   Of course, our library only actually does microseconds, so we're multiplying by 1000
+--   Of course, our clock library only actually does microseconds, so we're multiplying by 1000
 current_nanoseconds :: IO Timestamp
 current_nanoseconds = do { now <- getCurrentTime
                          ; return $ 1000 * (toMicroseconds $ diffUTCTime now ((toThyme $ fromThyme (UTCTime (fromGregorian 1970 0 0) (fromMicroseconds 0))) :: UTCTime))}
 
 -- | the timestamp contained in (the proposal of) this message
-message_timestamp :: (Contains_1a a) => a -> Timestamp
+message_timestamp :: (Contains_1a a v) => a -> Timestamp
 message_timestamp = proposal_1a_timestamp . non_recursive . original . extract_1a
 
 -- | delay this thread by some number of nanoseconds
@@ -102,13 +106,13 @@ delay_nanoseconds :: Timestamp -> IO ()
 delay_nanoseconds = threadDelay . floor . (/1000) . fromIntegral
 
 -- | delay this thread until the current time in nanoseconds is at least that of the timestamp in the message
-delay_message :: (Contains_1a a) => a -> IO ()
+delay_message :: (Contains_1a a v) => a -> IO ()
 delay_message m = do { now <- current_nanoseconds
                      ; delay_nanoseconds (now - (message_timestamp m))}
 
 -- | Technically, run_Hetcons_Transaction_IO needs something to do in the event a transaction returns a Proof_of_Consensus.
 --   However, that should never happen on a Participant Server, so we just throw an error.
-on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
+on_consensus :: (Verified (Recursive_Proof_of_Consensus v)) -> IO ()
 on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
 
 -- | Participant implements the Thrift Hetcons_Participant_Iface, meaning it acts as a Participant Server using the API defined in Thrift.

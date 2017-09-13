@@ -44,7 +44,7 @@ import Hetcons.Signed_Message
      ,signed
      ,sign
      ,original )
-import Hetcons.Value (valid)
+import Hetcons.Value (Value, valid)
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
@@ -69,7 +69,7 @@ import Data.HashSet ( toList, member, insert, fromList )
 import qualified Data.HashSet as HashSet ( map, filter )
 
 -- | Helper function which signs a message using the Crypto_ID and Private_Key provided by the Mondic environment.
-sign_m :: (Encodable a, Hetcons_State s) => a -> Hetcons_Transaction s Signed_Message
+sign_m :: (Encodable a, Hetcons_State s) => a -> Hetcons_Transaction s v Signed_Message
 sign_m m = do
   { crypto_id <- get_my_crypto_id
   ; private_key <- get_my_private_key
@@ -84,7 +84,7 @@ sign_m m = do
 -- | Participant receives 1A
 --   If we've seen anything with this Ballot number or higher before (featuring the same Quorums), then do nothing.
 --   Otherwise, send a 1B.
-instance Receivable Participant_State (Verified Recursive_1a) where
+instance (Value v) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
     { if valid r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
          then return () -- However, the first time we receive a value, we always must end up here.
@@ -103,7 +103,7 @@ instance Receivable Participant_State (Verified Recursive_1a) where
 -- | Participant receives 1B
 --   If we've received this 1B before, or one with matching quorums but a higher ballot number, do nothing.
 --   Otherwise, we try to assemble a 2A out of all the 1Bs we've received for this ballot, and if we have enough (if that 2A is valid), we send it.
-instance Receivable Participant_State (Verified Recursive_1b) where
+instance (Value v) => Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
     { old_state <- get_state
     ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1b) ==) . extract_observer_quorums) old_state
@@ -122,8 +122,9 @@ instance Receivable Participant_State (Verified Recursive_1b) where
                          HashSet.filter (((extract_value r1b) ==) . extract_value) state
                  ; case well_formed_2a potential_2a of
                      (Right _)-> do { signed <- sign_m $ ((non_recursive potential_2a) :: Phase_2a)
-                                    ; (v :: (Verified Recursive_2a)) <- verify signed
-                                    ; send v}
+                                    ; value <- verify signed
+                                    ; let (value', unused) = (value, old_state) :: (Verified (Recursive_2a v), Participant_State v) -- this line is just for the types
+                                    ; send value}
                      (Left _) -> return ()
                  ; send r1b}} -- echo the 1b
 
@@ -131,7 +132,7 @@ instance Receivable Participant_State (Verified Recursive_1b) where
 --   Upon receiving a 2A, send a corresponding 2B.
 --   Note that the only way for a participant to receive a 2A is for that participant to itself send it.
 --   It can't come in over the wire.
-instance Receivable Participant_State (Verified Recursive_2a) where
+instance (Value v) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
   receive r2a = send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}
@@ -144,7 +145,7 @@ instance Receivable Participant_State (Verified Recursive_2a) where
 --   If we've received this 2b before, do nothing.
 --   Otherwise, assemble all received 2Bs with the same proposal and value, and see if those form a valid Proof_of_Consensus
 --   If they do, send that Proof_of_Consensus
-instance Receivable Observer_State (Verified Recursive_2b) where
+instance (Value v) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
     { old_state <- get_state
     ; if (member r2b old_state)
@@ -156,8 +157,9 @@ instance Receivable Observer_State (Verified Recursive_2b) where
                          HashSet.filter (((extract_value r2b) ==) . extract_value) state  -- all the 2bs with the same value
                  ; if (length (observers_proven potential_proof)) > 0
                       then do { signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed potential_proof})
-                              ; (v :: (Verified Recursive_Proof_of_Consensus)) <- verify signed
-                              ; send v}
+                              ; value <- verify signed
+                              ; let (value', unused) = (value, old_state) :: (Verified (Recursive_Proof_of_Consensus v), Participant_State v) -- this line is just for types
+                              ; send value}
                       else return ()
                  ; send r2b}}
 
@@ -165,5 +167,5 @@ instance Receivable Observer_State (Verified Recursive_2b) where
 --   Note that this can only be received if this Observer sends it to itself.
 --   It cannot come in over the wire.
 --   TODO: what do we do here? We have consensus (at least for some observers).
-instance Receivable Observer_State (Verified Recursive_Proof_of_Consensus) where
+instance (Value v) => Receivable (Observer_State v) v (Verified (Recursive_Proof_of_Consensus v)) where
   receive rpoc = return ()
