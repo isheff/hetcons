@@ -97,7 +97,7 @@ current_nanoseconds = do { now <- getCurrentTime
                          ; return $ 1000 * (toMicroseconds $ diffUTCTime now ((toThyme $ fromThyme (UTCTime (fromGregorian 1970 0 0) (fromMicroseconds 0))) :: UTCTime))}
 
 -- | the timestamp contained in (the proposal of) this message
-message_timestamp :: (Contains_1a a v) => a -> Timestamp
+message_timestamp :: (Contains_1a a v) => (a v) -> Timestamp
 message_timestamp = proposal_1a_timestamp . non_recursive . original . extract_1a
 
 -- | delay this thread by some number of nanoseconds
@@ -106,7 +106,7 @@ delay_nanoseconds :: Timestamp -> IO ()
 delay_nanoseconds = threadDelay . floor . (/1000) . fromIntegral
 
 -- | delay this thread until the current time in nanoseconds is at least that of the timestamp in the message
-delay_message :: (Contains_1a a v) => a -> IO ()
+delay_message :: (Contains_1a a v) => (a v) -> IO ()
 delay_message m = do { now <- current_nanoseconds
                      ; delay_nanoseconds (now - (message_timestamp m))}
 

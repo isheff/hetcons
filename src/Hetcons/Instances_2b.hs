@@ -78,7 +78,7 @@ instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2b v) v where
 
 -- | the 1A of a 2B message is the latest 1A (ballot number) present in all of its 1Bs
 --   This is the same as the definition for 2As.
-instance {-# OVERLAPPING #-} Contains_1a (Recursive_2b v) v where
+instance {-# OVERLAPPING #-} Contains_1a Recursive_2b v where
   extract_1a (Recursive_2b x) = extract_1a $ Recursive_2a x
 
 -- | A well-formed 2B features 1Bs all featuring the same value,

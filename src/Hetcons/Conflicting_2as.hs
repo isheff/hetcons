@@ -4,7 +4,6 @@ module Hetcons.Conflicting_2as (conflicting_2as) where
 import Hetcons.Contains_Value
     ( Contains_Value
         ,extract_value
-    , Contains_1a
         ,extract_1a
         ,extract_observer_quorums
     )

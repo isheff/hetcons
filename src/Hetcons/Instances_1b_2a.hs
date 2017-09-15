@@ -10,6 +10,7 @@ import Hetcons.Contains_Value
     ( Contains_Value
         ,extract_value
      ,Contains_1a
+        ,extract_1a'
         ,extract_1a
         ,extract_observer_quorums
      ,Ballot
@@ -80,30 +81,30 @@ instance {-# OVERLAPPING #-} Encodable Phase_1b where
 -- | The Recursive version of a Phase_1b is a Recursive_1b
 --   Phase_1b s carry 1a and 2a messages with them.
 --   Recursive_1b s carry parsed and verified versions of these.
-instance Recursive Phase_1b (Recursive_1b v) where
+instance (Value v) => Recursive Phase_1b (Recursive_1b v) where
   non_recursive = recursive_1b_non_recursive
 
 -- | Recursive_1b s can be hashed by hashing their non-recursive version
-instance Hashable (Recursive_1b v) where
+instance (Value v) => Hashable (Recursive_1b v) where
   hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Phase_1b)
 
 -- | All the 1Bs contained within the (2As within the) Recursive_1b
-instance {-# OVERLAPPING #-} (Contains_1bs (Recursive_1b v) v) where
+instance {-# OVERLAPPING #-} (Value v) => (Contains_1bs (Recursive_1b v) v) where
   extract_1bs (Recursive_1b {recursive_1b_conflicting_phase2as = phase_2as}) = unions $ map extract_1bs $ toList phase_2as
 
 -- | The 1Bs contained in a Verified Recursive_1b are slightly different, in that they include the Verified Recursive_1b itself.
-instance {-# OVERLAPPING #-} Contains_1bs (Verified (Recursive_1b v)) v where
+instance {-# OVERLAPPING #-} (Value v) => Contains_1bs (Verified (Recursive_1b v)) v where
   extract_1bs b = insert b $ extract_1bs b
 
 -- | 1Bs contain a 1A
-instance {-# OVERLAPPING #-} Contains_1a (Recursive_1b v) v where
-  extract_1a = extract_1a . recursive_1b_proposal
+instance {-# OVERLAPPING #-} (Value v) => Contains_1a (Recursive_1b v) v where
+  extract_1a' = recursive_1b_proposal
 
 -- | The "value" carried by a 1b is actually tricky: it may be set by the 2a s carried within.
 --   This relies on having already checked that the phase_2as do indeed conflict with the given 1b
 --   If there are no 2As, we return the value of the contained 1A.
 --   Otherwise, we return the value of the maximum 2A by Ballot.
-instance {-# OVERLAPPING #-} Contains_Value (Recursive_1b v) v where
+instance {-# OVERLAPPING #-} (Value v) => Contains_Value (Recursive_1b v) v where
   extract_value (Recursive_1b {
                    recursive_1b_conflicting_phase2as = phase_2as
                   ,recursive_1b_proposal = proposal})
@@ -170,7 +171,7 @@ instance {-# OVERLAPPING #-} Contains_1bs (Recursive_2a v) v where
 
 -- | the 1A of a 2A message is the latest 1A (ballot number) present in all of its 1Bs
 instance {-# OVERLAPPING #-} Contains_1a (Recursive_2a v) v where
-  extract_1a = (maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y))) . (HashSet.map extract_1a) . extract_1bs
+  extract_1a' = (maximumBy (\x y -> compare (extract_ballot x) (extract_ballot y))) . (HashSet.map extract_1a) . extract_1bs
 
 -- | A well-formed 2A has all contained 1Bs feature the same value.
 --   Therefore, its value is the value of any one of its 1Bs

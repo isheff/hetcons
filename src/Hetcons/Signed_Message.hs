@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -21,6 +22,7 @@ module Hetcons.Signed_Message
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
+       ,recursive_1a_value
     , Recursive_1b(Recursive_1b)
        ,recursive_1b_non_recursive
        ,recursive_1b_proposal
@@ -183,15 +185,14 @@ class Recursive a b where
 
 -- | Proposal_1a s carry no signed messages within them, but their recursive version can fill in some stuff, like calculating quorums from an observer graph
 --   Therefore we store both the original, non_recursive version, and the "filled-in" version.
-data (Parsable v, Show v, Serialize v) => Recursive_1a v = Recursive_1a {
+data (Parsable v, Show v, Serialize v, Generic v) => Recursive_1a v = Recursive_1a {
    -- | The original non-recursive version from which this is parsed
    recursive_1a_non_recursive ::Proposal_1a
    -- | The "filled-in" version, in which we have, for example, calculated Quorums from the observer graph.
   ,recursive_1a_filled_in :: Proposal_1a
    -- | The verified Value
   ,recursive_1a_value :: v
-  } deriving (Show, Eq, Generic)
-instance Serialize (Recursive_1a v) -- I'm not clear on why this is necessary, but the compiler asks for it to derive Eq for Recursive_1b
+} deriving (Show, Eq)
 
 
 
@@ -205,7 +206,7 @@ data (Parsable v, Show v, Serialize v) => Recursive_1b v = Recursive_1b {
   ,recursive_1b_proposal :: Verified (Recursive_1a v)
    -- | The Recursive version of the 1B's contained 2As
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified (Recursive_2a v)))
-  } deriving (Generic)
+  }
 instance Show (Recursive_1b v)
 instance Eq (Recursive_1b v)
 
@@ -213,7 +214,7 @@ instance Eq (Recursive_1b v)
 
 -- | Phase_2a s carry phase 1b messages with them.
 --   Recursive_2a s carry parsed and verified versions of these.
-newtype (Parsable v, Show v, Serialize v) => Recursive_2a v = Recursive_2a (HashSet (Verified (Recursive_1b v))) deriving (Generic)
+newtype (Parsable v, Show v, Serialize v) => Recursive_2a v = Recursive_2a (HashSet (Verified (Recursive_1b v)))
 instance Show (Recursive_2a v)
 instance Eq (Recursive_2a v)
 
@@ -221,13 +222,13 @@ instance Eq (Recursive_2a v)
 
 -- | Phase_2b s carry signed 1b messages with them.
 --   Recursive_2bs carry parsed and verified versions of these.
-newtype (Parsable v, Show v, Serialize v) => Recursive_2b v = Recursive_2b (HashSet (Verified (Recursive_1b v))) deriving (Generic)
+newtype (Parsable v, Show v, Serialize v) => Recursive_2b v = Recursive_2b (HashSet (Verified (Recursive_1b v)))
 instance Show (Recursive_2b v)
 instance Eq (Recursive_2b v)
 
 -- | Proof_of_Consensus messages carry signed 2b messages with them.
 --   Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
-newtype (Parsable v, Show v, Serialize v) => Recursive_Proof_of_Consensus v = Recursive_Proof_of_Consensus (HashSet (Verified (Recursive_2b v))) deriving (Generic)
+newtype (Parsable v, Show v, Serialize v) => Recursive_Proof_of_Consensus v = Recursive_Proof_of_Consensus (HashSet (Verified (Recursive_2b v)))
 instance Show (Recursive_Proof_of_Consensus v)
 instance Eq (Recursive_Proof_of_Consensus v)
 
@@ -239,11 +240,7 @@ instance Eq (Recursive_Proof_of_Consensus v)
 class Parsable a where
   -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
   --   Of course, this depends on the type of the object.
-  parse :: (Monad_Verify (Recursive_1a v) m
-           ,Monad_Verify (Recursive_1b v) m
-           ,Monad_Verify (Recursive_2a v) m
-           ,Monad_Verify (Recursive_2b v) m
-           ,Monad_Verify (Recursive_Proof_of_Consensus v) m
+  parse :: (Monad m
            ,Monad_Verify_Quorums m
            ,MonadError Hetcons_Exception m) => ByteString -> m a
 
@@ -311,13 +308,12 @@ sha2_length length_set =
 -- | This is the only pure way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
-verify' :: (Monad_Verify (Recursive_1a v) m
-           ,Monad_Verify (Recursive_1b v) m
-           ,Monad_Verify (Recursive_2a v) m
-           ,Monad_Verify (Recursive_2b v) m
-           ,Monad_Verify (Recursive_Proof_of_Consensus v) m
+verify' :: (Monad m
            ,Monad_Verify_Quorums m
-           ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
+           ,Monad_Verify a m
+           ,MonadError Hetcons_Exception m
+           ,Parsable a) =>
+           Signed_Message -> m (Verified a)
 -- In the case where everything's done correctly:
 verify' signed_message@Signed_Message
        {signed_Message_payload = payload

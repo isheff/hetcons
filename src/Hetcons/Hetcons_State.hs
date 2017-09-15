@@ -78,7 +78,7 @@ default_State = empty
 -- | Subsets of the proposals which have the same Condensed Observer Graph, for each Condensed Observer Graph in the State.
 --   strict superset of :: Participant_State -> (HashSet (Participant_State))
 --                 and  ::    Observer_State -> (HashSet (   Observer_State))
-state_by_observers :: (Contains_1a a v, Hashable a, Eq a) => (HashSet a) -> (HashSet (HashSet a))
+state_by_observers :: (Contains_1a a v, Hashable (a v), Eq (a v)) => (HashSet (a v)) -> (HashSet (HashSet (a v)))
 state_by_observers s =
   (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 1bs per COG
                (HashSet.map extract_observer_quorums s)) -- all the COGs

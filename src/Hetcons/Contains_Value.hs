@@ -1,10 +1,14 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | A module for some utility functions concerning extracting stuff from messages
 module Hetcons.Contains_Value
     ( Contains_Value
         ,extract_value
     , Contains_1a
+        ,extract_1a'
         ,extract_1a
         ,extract_observer_quorums
     , Ballot
@@ -16,7 +20,7 @@ module Hetcons.Contains_Value
 import Hetcons.Signed_Message
     ( Verified
      ,Recursive_1b
-     ,Recursive_1a(recursive_1a_filled_in)
+     ,Recursive_1a(recursive_1a_filled_in, recursive_1a_value)
      ,Parsable
      ,signed
      ,original )
@@ -28,7 +32,7 @@ import Hetcons_Types
      ,Proposal_1a(Proposal_1a
        ,proposal_1a_observers
        ,proposal_1a_timestamp)
-     ,Value
+     ,Slot_Value
      ,Signed_Hash(signed_Hash_signature)
      ,Participant_ID )
 
@@ -36,28 +40,42 @@ import Data.ByteString.Lazy ( ByteString )
 import Data.HashMap.Strict ( HashMap )
 import Data.HashSet ( HashSet )
 import Data.Int ( Int64 )
+import Data.Serialize (Serialize)
+import GHC.Generics (Generic)
 
 -- | Messages which are part of a ballot of consensus contain a 1A message which kicked off that ballot.
 class Contains_1a a v where
   -- | The 1a message that originated the Ballot of which this message is a part.
-  extract_1a :: a -> (Verified (Recursive_1a v))
+  extract_1a' :: a -> (Verified (Recursive_1a v))
 
-instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1a a v) => Contains_1a (Verified a) v where
-  extract_1a = extract_1a . original
 
+instance {-# OVERLAPPABLE #-} (Parsable a, Contains_1a a v)  => Contains_1a (Verified a) v where
+  extract_1a' = extract_1a' . original
+
+class Contains_1a_Kluge a v where
+  extract_1a :: (a v) -> (Verified (Recursive_1a v))
+
+instance (Parsable v, Show v, Serialize v, Generic v, Parsable (Recursive_1a v), Contains_1a (a v) v) => Contains_1a_Kluge a v where
+  extract_1a = extract_1a'
 
 -- | a ballot "number" is an Int64, representing a timestamp, and a bytestring, representing a hashed value.
 --   These are, notably, orderable.
 type Ballot = (Int64, ByteString)
-extract_ballot :: (Parsable (Recursive_1a v), Contains_1a a v) => a -> Ballot
-extract_ballot v = let proposal = extract_1a v
-                       in (proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
-                           signed_Hash_signature $ signed_Message_signature $ signed proposal)
+class Contains_Ballot a where
+  extract_ballot :: a -> Ballot
+
+instance (Parsable v, Show v, Serialize v, Generic v, Parsable (a v), Parsable (Recursive_1a v), Contains_1a (a v) v) => Contains_Ballot (Verified (a v)) where
+  extract_ballot x = let proposal = extract_1a $ original x
+                      in (proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
+                          signed_Hash_signature $ signed_Message_signature $ signed proposal)
+
+
 
 -- | What are the quorums in the consensus of this Message?
 --   Specifically, for each observer, returns a set of sets of participants which represent quorums.
-extract_observer_quorums :: (Parsable (Recursive_1a v)) => (Contains_1a a v) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
-extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original $ extract_1a x
+extract_observer_quorums :: (Show v, Serialize v, Generic v, Parsable v, Parsable (Recursive_1a v), Parsable (a v)) => (Contains_1a (a v) v) =>
+                            (Verified (a v)) -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
+extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original $ extract_1a $ original x
                               in y
 
 
@@ -73,7 +91,7 @@ instance {-# OVERLAPPABLE #-} (Parsable a, Contains_Value a v) => Contains_Value
   extract_value = extract_value . original
 
 -- | A Value contains a Value: itself.
-instance {-# OVERLAPPING #-} Contains_Value v where
+instance {-# OVERLAPPING #-} Contains_Value v v where
   extract_value = id
 
 

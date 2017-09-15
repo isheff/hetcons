@@ -72,7 +72,7 @@ instance {-# OVERLAPPING #-} Contains_1bs (Recursive_Proof_of_Consensus v) v whe
 
 -- | A well-formed Proof_of_Consensus features 2Bs each of which contain the same 1A.
 --   Therefore, the 1A of a Proof_of_Consensus is the 1A of any of those 2Bs.
-instance {-# OVERLAPPING #-} Contains_1a (Recursive_Proof_of_Consensus v) v where
+instance {-# OVERLAPPING #-} Contains_1a Recursive_Proof_of_Consensus v where
   extract_1a (Recursive_Proof_of_Consensus x) = extract_1a $ head $ toList x
 
 -- | A well-formed Proof_of_Consensus contains 2Bs each of which feature the same Value.
