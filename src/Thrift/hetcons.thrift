@@ -276,8 +276,9 @@ union Observers {
 
 //////////////////////////////// 1a ///////////////////////////////
 typedef binary Value_Payload // the type of whatever we're consenting on
+typedef binary Value // Technically, this is what the consensus agrees to. We'll need "conflict_with" functions, as well as "garbage collect" functions for any redefinition of this. Otherwise, it's opaque.
 typedef i64 Slot
-struct Value {  // Technically, this is what the consensus agrees to. We'll need "conflict_with" functions, as well as "garbage collect" functions for any redefinition of this. Otherwise, it's opaque.
+struct Slot_Value {  // One possible decoding of Values: they confict if their slot numbers conflict.
   1: Value_Payload value_payload,
   2: Slot          slot
 }
