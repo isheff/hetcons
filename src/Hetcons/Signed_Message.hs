@@ -41,6 +41,7 @@ import Hetcons.Hetcons_Exception
                        ,Hetcons_Exception_Invalid_Signed_Hash
                        ,Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
                        ,Hetcons_Exception_Unparsable_Hashable_Message) )
+import Hetcons.Parsable (Parsable, parse)
 import Hetcons.Quorums ( Monad_Verify_Quorums )
 import Hetcons.Serializable ()
 
@@ -137,33 +138,33 @@ import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 --   Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
 --   Note that we do not export any constructors for Verified.
 --   The only way data should end up in this type is if it's passed through the Verify function.
-data (Parsable a) => Verified a = Verified {
+data Verified a = Verified {
    -- | The original (parsed, but not "verified") datum
    verified_original :: a
    -- | The signed message from which this was parsed and verified
   ,verified_signed   :: Signed_Message
   }
 -- | Verified things are equal precisely when their original signed messages are equal
-instance (Parsable a) => Eq (Verified a) where
+instance Eq (Verified a) where
   (==) x y = (signed x) == (signed y)
 -- | We can hash Verified things by hashing their signed message version
-instance (Parsable a) => Hashable (Verified a) where
+instance Hashable (Verified a) where
   hashWithSalt i = hashWithSalt i . signed
 -- | We print out verified stuff by printing the parsed version preceded by "VERIFIED: "
-instance (Parsable a, Show a) => Show (Verified a) where
+instance (Show a) => Show (Verified a) where
   show = ("VERIFIED:  " ++) . show . original
 
 
 -- | The original (parsed, but not "verified") datum
 --   An accessor function for the `verified_original' field of Verified s.
 --   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
-original :: (Parsable a) => Verified a -> a
+original :: Verified a -> a
 original = verified_original
 
 -- | The signed message from which this darum was parsed and verified.
 --   An accessor function for the `verified_signed field of Verified s.
 --   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
-signed :: (Parsable a) => Verified a -> Signed_Message
+signed :: Verified a -> Signed_Message
 signed = verified_signed
 
 
@@ -227,55 +228,13 @@ newtype Recursive_Proof_of_Consensus = Recursive_Proof_of_Consensus (HashSet (Ve
 instance Show Recursive_Proof_of_Consensus
 instance Eq Recursive_Proof_of_Consensus
 
-
--- | We have messages serialized for transport within Signed_Messages.
---   However, deserializing them into their thrift data structures is not enough,
---    if we want to recursively parse and verify the signed messags they carry within themselves.
---   Therefore, we create the Parsable class for stuff which might require such recursive verification.
-class Parsable a where
-  -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
-  --   Of course, this depends on the type of the object.
-  parse :: (Monad_Verify Recursive_1a m
-           ,Monad_Verify Recursive_1b m
-           ,Monad_Verify Recursive_2a m
-           ,Monad_Verify Recursive_2b m
-           ,Monad_Verify Recursive_Proof_of_Consensus m
-           ,Monad_Verify_Quorums m
-           ,MonadError Hetcons_Exception m) => ByteString -> m a
-
--- | Parse a Proposal_1a using Thrift
-instance {-# OVERLAPPING #-} Parsable Proposal_1a where
-  parse = return . (decode_Proposal_1a (BinaryProtocol EmptyTransport))
-
--- | Parse a Phase_1b using Thrift
-instance {-# OVERLAPPING #-} Parsable Phase_1b where
-  parse = return . (decode_Phase_1b (BinaryProtocol EmptyTransport))
-
--- | Parse a Phase_2a using Thrift
-instance {-# OVERLAPPING #-} Parsable Phase_2a where
-  parse = return . (decode_Phase_2a (BinaryProtocol EmptyTransport))
-
--- | Parse a Phase_2b using Thrift
-instance {-# OVERLAPPING #-} Parsable Phase_2b where
-  parse = return . (decode_Phase_2b (BinaryProtocol EmptyTransport))
-
--- | Parse a Proof_of_Consensus using Thrift
-instance {-# OVERLAPPING #-} Parsable Proof_of_Consensus where
-  parse = return . (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
-
-
-
-
-
-
-
 -- | verify is only way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
 --   Verify is Memoized, and thus should be called in a Monad which maintains its memoization cache.
 --   Such a monad is Hetcons_Transaction, defined in Receive_Message.
 --   verify should be a memoized version of verify'
-class (MonadError Hetcons_Exception m, Parsable a) => Monad_Verify a m where
+class (MonadError Hetcons_Exception m, Parsable (m a)) => Monad_Verify a m where
   -- | verify is only way to construct a Verified object.
   --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
   --   Otherwise, you get an exception.
@@ -309,7 +268,7 @@ verify' :: (Monad_Verify Recursive_1a m
            ,Monad_Verify Recursive_2b m
            ,Monad_Verify Recursive_Proof_of_Consensus m
            ,Monad_Verify_Quorums m
-           ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable a) => Signed_Message -> m (Verified a)
+           ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable (m a)) => Signed_Message -> m (Verified a)
 -- In the case where everything's done correctly:
 verify' signed_message@Signed_Message
        {signed_Message_payload = payload
