@@ -5,9 +5,6 @@
 -- | The properties of a 1A message,such as how to parse it, extract valuese from it, etc.
 module Hetcons.Instances_1a () where
 
-import Hetcons.Contains_Value
-    ( Contains_Value(extract_value)
-     ,Contains_1a(extract_1a) )
 import Hetcons.Quorums ( verify_quorums )
 import Hetcons.Signed_Message
     ( Encodable
@@ -20,6 +17,9 @@ import Hetcons.Signed_Message
      ,Parsable
        ,parse
      ,Verified )
+import Hetcons.Value
+    ( Contains_Value(extract_value)
+     ,Contains_1a(extract_1a) )
 
 import Hetcons_Types
     ( Proposal_1a(proposal_1a_observers, proposal_1a_value)

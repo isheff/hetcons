@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | Defines the two properties of a Value, a datatype defined in Thrift.
 module Hetcons.Value
@@ -23,11 +24,20 @@ module Hetcons.Value
 import Hetcons.Parsable (Parsable)
 import Hetcons.Signed_Message (Recursive_1a, Recursive_1b, Verified)
 
-import Hetcons_Types  (Value
-                         ,value_slot)
+import Hetcons_Types  (Slot_Value
+                         ,slot_Value_slot
+                      ,Participant_ID
+                      ,Proposal_1a(Proposal_1a)
+                         ,proposal_1a_observers
+                         ,observers_observer_quorums
+                      ,Observers(Observers)
+                         ,observers_observer_quorums)
 
+import Data.ByteString.Lazy ( ByteString )
 import Data.Foldable (length)
 import Data.Hashable (Hashable)
+import Data.HashMap.Lazy ( HashMap )
+import Data.Int (Int64)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet, fromList, toList)
 
@@ -71,11 +81,11 @@ conflicts = value_conflicts . (HashSet.map (extract_value :: a -> v))
 
 
 
-instance Value Value_Slot where
+instance Value Slot_Value where
   value_valid _ = True
 -- Are there the same number of values in this set as there are distinct slot numbers, for each different observer value?
   value_conflicts x =
-    any (\s -> ((length s) /= (length (HashSet.map (value_slot . recursive_1a_value . original) s)))) $
+    any (\s -> ((length s) /= (length (HashSet.map (slot_Value_slot . recursive_1a_value . original) s)))) $
         map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original)) (toList x))
             (toList x)
   garbage_collect = id
@@ -118,6 +128,6 @@ class Contains_1bs a v where
   extract_1bs :: a -> (HashSet (Verified (Recursive_1b v)))
 
 -- | when a type contains 1Bs, so does the Verified version of that type.
-instance {-# overlappable #-} (Value v, contains_1bs a v) => contains_1bs (verified a) where
+instance {-# overlappable #-} (Value v, Contains_1bs a v) => Contains_1bs (Verified a) v where
   extract_1bs = extract_1bs . original
 
