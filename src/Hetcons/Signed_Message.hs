@@ -198,13 +198,13 @@ instance Serialize Recursive_1a -- I'm not clear on why this is necessary, but t
 
 -- | Phase_1b s carry 1a and 2a messages with them.
 --   Recursive_1b s carry parsed and verified versions of these.
-data Recursive_1b = Recursive_1b {
+data Recursive_1b v = Recursive_1b {
    -- | The original, non-recursive version from which this is parsed
    recursive_1b_non_recursive :: Phase_1b
    -- | The Recursive version of the 1B's contained 1A
-  ,recursive_1b_proposal :: Verified Recursive_1a
+  ,recursive_1b_proposal :: Verified (Recursive_1a v)
    -- | The Recursive version of the 1B's contained 2As
-  ,recursive_1b_conflicting_phase2as :: (HashSet (Verified Recursive_2a))
+  ,recursive_1b_conflicting_phase2as :: (HashSet (Verified (Recursive_2a v)))
   } deriving (Generic)
 instance Show Recursive_1b
 instance Eq Recursive_1b
@@ -213,7 +213,7 @@ instance Eq Recursive_1b
 
 -- | Phase_2a s carry phase 1b messages with them.
 --   Recursive_2a s carry parsed and verified versions of these.
-newtype Recursive_2a = Recursive_2a (HashSet (Verified Recursive_1b)) deriving (Generic)
+newtype Recursive_2a v = Recursive_2a (HashSet (Verified (Recursive_1b v))) deriving (Generic)
 instance Show Recursive_2a
 instance Eq Recursive_2a
 
@@ -221,13 +221,13 @@ instance Eq Recursive_2a
 
 -- | Phase_2b s carry signed 1b messages with them.
 --   Recursive_2bs carry parsed and verified versions of these.
-newtype Recursive_2b = Recursive_2b (HashSet (Verified Recursive_1b)) deriving (Generic)
+newtype Recursive_2b v = Recursive_2b (HashSet (Verified (Recursive_1b v))) deriving (Generic)
 instance Show Recursive_2b
 instance Eq Recursive_2b
 
 -- | Proof_of_Consensus messages carry signed 2b messages with them.
 --   Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
-newtype Recursive_Proof_of_Consensus = Recursive_Proof_of_Consensus (HashSet (Verified Recursive_2b)) deriving (Generic)
+newtype Recursive_Proof_of_Consensus v = Recursive_Proof_of_Consensus (HashSet (Verified (Recursive_2b v))) deriving (Generic)
 instance Show Recursive_Proof_of_Consensus
 instance Eq Recursive_Proof_of_Consensus
 

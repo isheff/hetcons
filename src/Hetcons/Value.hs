@@ -4,15 +4,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | Defines the two properties of a Value, a datatype defined in Thrift.
 module Hetcons.Value
-    ( valid
+    ( Value
+       ,value_valid
+       ,value_conflicts
+       ,garbage_collect
+    , valid
     , conflicts
-    , garbage_collect
+    , Contains_1a
+       ,extract_1a
+       ,extract_observer_quorums
+       ,extract_ballot
+    , Contains_Value
+       ,extract_value
+    , Contains_1bs
+       ,extract_1bs
     ) where
 
-import Hetcons.Contains_Value (Contains_Value
-                                ,extract_value
-                              ,Contains_1a
-                                ,extract_observer_quorums)
 import Hetcons.Parsable (Parsable)
 import Hetcons.Signed_Message (Recursive_1a, Recursive_1b, Verified)
 
