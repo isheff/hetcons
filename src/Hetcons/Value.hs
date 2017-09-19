@@ -15,6 +15,7 @@ module Hetcons.Value
     , Contains_1a
        ,extract_1a
        ,extract_observer_quorums
+    , Ballot
        ,extract_ballot
     , Contains_Value
        ,extract_value
