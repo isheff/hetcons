@@ -19,6 +19,8 @@ import Hetcons_Types
        ,decode_Phase_2a
      ,Phase_1b
        ,decode_Phase_1b
+     ,Slot_Value
+       ,decode_Slot_Value
     )
 
 import Data.ByteString.Lazy ( ByteString )
@@ -33,6 +35,10 @@ class Parsable a where
   -- | The parse function is meant to deserialize an object, but also deserialize and verify any signed messages within it.
   --   Of course, this depends on the type of the object.
   parse :: ByteString -> a
+
+-- | Parse a Slot_Value using Thrift
+instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Slot_Value) where
+  parse = return . (decode_Slot_Value (BinaryProtocol EmptyTransport))
 
 -- | Parse a Proposal_1a using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Proposal_1a) where

@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -22,24 +23,35 @@ module Hetcons.Value
     ) where
 
 import Hetcons.Parsable (Parsable)
-import Hetcons.Signed_Message (Recursive_1a, Recursive_1b, Verified)
+import Hetcons.Signed_Message (Recursive_1a
+                                 ,recursive_1a_value
+                                 ,recursive_1a_filled_in
+                              ,Recursive_1b
+                              ,Verified
+                                ,original
+                                ,signed
+                              )
 
 import Hetcons_Types  (Slot_Value
                          ,slot_Value_slot
                       ,Participant_ID
                       ,Proposal_1a(Proposal_1a)
                          ,proposal_1a_observers
+                         ,proposal_1a_timestamp
                          ,observers_observer_quorums
                       ,Observers(Observers)
-                         ,observers_observer_quorums)
+                         ,observers_observer_quorums
+                      ,signed_Hash_signature
+                      ,signed_Message_signature
+                      )
 
 import Data.ByteString.Lazy ( ByteString )
-import Data.Foldable (length)
+import Data.Foldable (length, toList)
 import Data.Hashable (Hashable)
 import Data.HashMap.Lazy ( HashMap )
 import Data.Int (Int64)
 import qualified Data.HashSet as HashSet (map, filter)
-import Data.HashSet (HashSet, fromList, toList)
+import Data.HashSet (HashSet, fromList)
 
 -- | Messages which are part of a ballot of consensus contain a 1A message which kicked off that ballot.
 class (Value v) => Contains_1a a v where
@@ -53,7 +65,7 @@ class (Value v) => Contains_Value a v where
   extract_value :: a -> v
 
 
-class (Parsable v) => Value v where
+class Value v where
   -- | Is this value, in a vacuum, acceptable, for some application-specific definition of acceptable?
   --   It may be useful to the programmer to note that, as the valid function may wish to look at quorums and such,
   --    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
@@ -71,13 +83,13 @@ class (Parsable v) => Value v where
   garbage_collect :: HashSet (Verified (Recursive_1b v)) -> HashSet (Verified (Recursive_1b v))
 
 
-valid :: (Value v, Contains_Value a v) => a -> Bool
-valid = value_valid . (extract_value  :: a -> v)
+valid :: forall a v . (Value v, Contains_Value a v) => a -> Bool
+valid = (value_valid :: v -> Bool) . (extract_value  :: a -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
 
-conflicts :: (Value v, Contains_Value a v,  Hashable a, Eq a) => (HashSet a) -> Bool
-conflicts = value_conflicts . (HashSet.map (extract_value :: a -> v))
+conflicts :: forall a v . (Value v, Contains_1a a v,  Hashable a, Eq a) => (HashSet a) -> Bool
+conflicts = value_conflicts . (HashSet.map (extract_1a :: a -> (Verified (Recursive_1a v))))
 
 
 
@@ -102,14 +114,14 @@ instance {-# OVERLAPPABLE #-} (Value v, Contains_Value a v) => Contains_Value (V
 -- | a ballot "number" is an Int64, representing a timestamp, and a bytestring, representing a hashed value.
 --   These are, notably, orderable.
 type Ballot = (Int64, ByteString)
-extract_ballot :: (Value v, Contains_1a a v) => a -> Ballot
+extract_ballot :: forall a v . (Value v, Contains_1a a v) => a -> Ballot
 extract_ballot x = let proposal = (extract_1a x) :: Verified (Recursive_1a v)
                     in (proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
                         signed_Hash_signature $ signed_Message_signature $ signed proposal)
 
 -- | What are the quorums in the consensus of this Message?
 --   Specifically, for each observer, returns a set of sets of participants which represent quorums.
-extract_observer_quorums :: (Value v, Contains_1a a v) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
+extract_observer_quorums :: forall a v . (Value v, Contains_1a a v) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
 extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original $ ((extract_1a x) :: Verified (Recursive_1a v))
                               in y
 
