@@ -1,4 +1,7 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Defines the two properties of a Value, a datatype defined in Thrift.
 module Hetcons.Value
     ( valid
@@ -10,7 +13,8 @@ import Hetcons.Contains_Value (Contains_Value
                                 ,extract_value
                               ,Contains_1a
                                 ,extract_observer_quorums)
-import Hetcons.Signed_Message (Parsable, Recursive_1a, Recursive_1b, Verified)
+import Hetcons.Parsable (Parsable)
+import Hetcons.Signed_Message (Recursive_1a, Recursive_1b, Verified)
 
 import Hetcons_Types  (Value
                          ,value_slot)
@@ -20,25 +24,93 @@ import Data.Hashable (Hashable)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet, fromList, toList)
 
+-- | Messages which are part of a ballot of consensus contain a 1A message which kicked off that ballot.
+class (Value v) => Contains_1a a v where
+  -- | The 1a message that originated the Ballot of which this message is a part.
+  extract_1a :: a -> (Verified (Recursive_1a v))
 
--- | Is this value, in a vacuum, acceptable, for some application-specific definition of acceptable?
---   It may be useful to the programmer to note that, as the valid function may wish to look at quorums and such,
---    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
---   This is why `valid` is called in `receive`, rather than in `parse`.
-valid :: (Parsable Recursive_1a, Contains_Value a, Contains_1a a) => a -> Bool
-valid _ = True -- For now, everything is acceptable.
+-- | Each message in consensus carries some kind of value, but this may not be the value carried by the 1A that kicked off that Ballot.
+--   For instance, 1Bs may carry 2As representing that a participant has "agreed" to some previous value.
+class (Value v) => Contains_Value a v where
+  -- | The value carried by this message
+  extract_value :: a -> v
 
 
--- | Does this set of entities contain conflicitng values?
---   In this case, do any two of them have the same value_slot and observers?
-conflicts :: (Parsable Recursive_1a, Contains_Value a, Contains_1a a, Hashable a, Eq a) => (HashSet a) -> Bool
+class (Parsable v) => Value v where
+  -- | Is this value, in a vacuum, acceptable, for some application-specific definition of acceptable?
+  --   It may be useful to the programmer to note that, as the valid function may wish to look at quorums and such,
+  --    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
+  --   This is why `valid` is called in `receive`, rather than in `parse`.
+  value_valid :: v -> Bool
+
+  -- | Does this set of entities contain conflicitng values?
+  --   In this case, do any two of them have the same value_slot and observers?
+  value_conflicts :: (Foldable f) => (f (Verified (Recursive_1a v))) -> Bool
+
+  -- | The state of a Participant maintains a set of known received Recursive_1bs.
+  --   Each time it is saved, this is run.
+  --   If there is ever a message we can just forget about, we should do that here.
+  --   TODO: figure out what should even be done here
+  garbage_collect :: HashSet (Verified (Recursive_1b v)) -> HashSet (Verified (Recursive_1b v))
+
+
+valid :: (Value v, Contains_Value a v) => a -> Bool
+valid = value_valid . (extract_value  :: a -> v)
+-- valid _ = True -- For now, everything is acceptable.
+
+
+conflicts :: (Value v, Contains_Value a v,  Hashable a, Eq a) => (HashSet a) -> Bool
+conflicts = value_conflicts . (HashSet.map (extract_value :: a -> v))
+
+
+
+instance Value Value_Slot where
+  value_valid _ = True
 -- Are there the same number of values in this set as there are distinct slot numbers, for each different observer value?
-conflicts x ={-# SCC conflicts #-} any (\s -> ((length s) /= (length (HashSet.map (value_slot . extract_value) s)))) $
-                                       map (\y -> fromList $ filter (((extract_observer_quorums y) ==) . extract_observer_quorums) (toList x)) (toList x)
+  value_conflicts x =
+    any (\s -> ((length s) /= (length (HashSet.map (value_slot . recursive_1a_value . original) s)))) $
+        map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original)) (toList x))
+            (toList x)
+  garbage_collect = id
 
--- | The state of a Participant maintains a set of known received Recursive_1bs.
---   Each time it is saved, this is run.
---   If there is ever a message we can just forget about, we should do that here.
---   TODO: figure out what should even be done here
-garbage_collect :: (HashSet (Verified Recursive_1b)) -> (HashSet (Verified Recursive_1b))
-garbage_collect = id
+
+
+
+instance {-# OVERLAPPABLE #-} (Value v, Contains_1a a v) => Contains_1a (Verified a) v where
+  extract_1a = extract_1a . original
+instance {-# OVERLAPPABLE #-} (Value v, Contains_Value a v) => Contains_Value (Verified a) v where
+  extract_value = extract_value . original
+
+
+-- | a ballot "number" is an Int64, representing a timestamp, and a bytestring, representing a hashed value.
+--   These are, notably, orderable.
+type Ballot = (Int64, ByteString)
+extract_ballot :: (Value v, Contains_1a a v) => a -> Ballot
+extract_ballot x = let proposal = (extract_1a x) :: Verified (Recursive_1a v)
+                    in (proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
+                        signed_Hash_signature $ signed_Message_signature $ signed proposal)
+
+-- | What are the quorums in the consensus of this Message?
+--   Specifically, for each observer, returns a set of sets of participants which represent quorums.
+extract_observer_quorums :: (Value v, Contains_1a a v) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
+extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original $ ((extract_1a x) :: Verified (Recursive_1a v))
+                              in y
+
+
+
+
+
+-- | A Value contains a Value: itself.
+instance {-# OVERLAPPING #-} (Value v) => Contains_Value v v where
+  extract_value = id
+
+
+-- | Some messages, like 2as, carry 1bs within them. Sometimes it's useful to get a set of all the 1bs within.
+class Contains_1bs a v where
+  -- | the set of 1bs within a given message
+  extract_1bs :: a -> (HashSet (Verified (Recursive_1b v)))
+
+-- | when a type contains 1Bs, so does the Verified version of that type.
+instance {-# overlappable #-} (Value v, contains_1bs a v) => contains_1bs (verified a) where
+  extract_1bs = extract_1bs . original
+

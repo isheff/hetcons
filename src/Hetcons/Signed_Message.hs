@@ -21,6 +21,7 @@ module Hetcons.Signed_Message
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
+       ,recursive_1a_value
     , Recursive_1b(Recursive_1b)
        ,recursive_1b_non_recursive
        ,recursive_1b_proposal
@@ -182,11 +183,13 @@ class Recursive a b where
 
 -- | Proposal_1a s carry no signed messages within them, but their recursive version can fill in some stuff, like calculating quorums from an observer graph
 --   Therefore we store both the original, non_recursive version, and the "filled-in" version.
-data Recursive_1a = Recursive_1a {
+data Recursive_1a v = Recursive_1a {
    -- | The original non-recursive version from which this is parsed
    recursive_1a_non_recursive ::Proposal_1a
    -- | The "filled-in" version, in which we have, for example, calculated Quorums from the observer graph.
   ,recursive_1a_filled_in :: Proposal_1a
+   -- | The parsed value
+  ,recursive_1a_value :: v
   } deriving (Show, Eq, Generic)
 instance Serialize Recursive_1a -- I'm not clear on why this is necessary, but the compiler asks for it to derive Eq for Recursive_1b
 
