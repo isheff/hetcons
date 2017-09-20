@@ -27,8 +27,9 @@ import Hetcons.Signed_Message
 import Hetcons.Value
     ( Contains_1a
      ,extract_observer_quorums
-     ,garbage_collect
-     ,conflicts
+     ,Value
+       ,garbage_collect
+       ,conflicts
     )
 
 import Control.Concurrent.MVar
@@ -54,7 +55,7 @@ class Hetcons_State a where
 -- | Participants store literally the set of 1b messages received or sent thus far (or at least those which have been verified)
 type Participant_State v = HashSet (Verified (Recursive_1b v))
 -- | Therefore, the `write_prep` for a `Participant_State` is `garbage_collect`, as defined in `Value`.
-instance Hetcons_State (Participant_State v) where
+instance (Value v) => Hetcons_State (Participant_State v) where
   write_prep = garbage_collect
 
 -- | Mutable references to Participant State that work in the Hetcons_Transaction monad.
@@ -78,19 +79,24 @@ default_State :: (HashSet a)
 default_State = empty
 
 
+class State_by_Observers a where
+  state_by_observers :: (Contains_1a (a v) v, Hashable (Verified (a v)), Eq (Verified (a v))) => (HashSet (Verified (a v))) -> (HashSet (HashSet (Verified (a v))))
+
 -- | Subsets of the proposals which have the same Condensed Observer Graph, for each Condensed Observer Graph in the State.
 --   strict superset of :: Participant_State -> (HashSet (Participant_State))
 --                 and  ::    Observer_State -> (HashSet (   Observer_State))
-state_by_observers :: forall a v . (Contains_1a (a v), Hashable (Verified (a v)), Eq (Verified (a v))) => (HashSet (Verified (a v))) -> (HashSet (HashSet (Verified (a v))))
-state_by_observers s =
-  (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 1bs per COG
-               (HashSet.map extract_observer_quorums s)) -- all the COGs
+instance State_by_Observers Recursive_1b where
+  state_by_observers s = (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 1bs per COG
+                                      (HashSet.map extract_observer_quorums s)) -- all the COGs
+instance State_by_Observers Recursive_2b where
+  state_by_observers s = (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 2bs per COG
+                                      (HashSet.map extract_observer_quorums s)) -- all the COGs
 
 -- | Are there any conflicting proposals in this state?
 --   Bear in mind that two proposals with different COGs NEVER CONFLICT.
 --   We make no guarantees about different COGs.
 --   This is not implemented in a computationally efficient manner.
-conflicting_state :: (Participant_State v) -> Bool
+conflicting_state :: (Value v) => (Participant_State v) -> Bool
 conflicting_state = conflicts
 
 -- | A reference to a new state containing all of the elements fo the given input
