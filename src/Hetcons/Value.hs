@@ -91,9 +91,14 @@ valid :: forall a v . (Value v, Contains_Value a v) => a -> Bool
 valid = (value_valid :: v -> Bool) . (extract_value  :: a -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
+class Conflictable a where
+  conflicts :: a -> Bool
 
-conflicts :: forall a v . (Value v, Contains_1a (Verified (a v)) v,  Hashable (Verified (a v)), Eq (Verified (a v))) => (HashSet (Verified (a v))) -> Bool
-conflicts = value_conflicts . (HashSet.map (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v))))
+instance {-# OVERLAPPING #-} forall a v . (Value v, Contains_1a (Verified (a v)) v,  Hashable (Verified (a v)), Eq (Verified (a v))) => Conflictable (HashSet (Verified (a v))) where
+  conflicts = value_conflicts . (HashSet.map (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v))))
+
+instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v,  Hashable (a v), Eq (a v)) => Conflictable (HashSet (a v)) where
+  conflicts = value_conflicts . (HashSet.map (extract_1a :: (a v) -> (Verified (Recursive_1a v))))
 
 
 
