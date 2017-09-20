@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -37,6 +38,7 @@ module Hetcons.Receive_Message
 
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Hetcons_State ( Hetcons_State, modify_and_read )
+import Hetcons.Parsable (Parsable)
 import Hetcons.Quorums (Monad_Verify_Quorums, verify_quorums, verify_quorums')
 import Hetcons.Send_Message_IO ( send_Message_IO, Address_Book )
 import Hetcons.Signed_Message
@@ -49,6 +51,7 @@ import Hetcons.Signed_Message
      ,Monad_Verify
        ,verify
        ,verify' )
+import Hetcons.Value (Value)
 
 import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers )
 
@@ -175,23 +178,24 @@ memoize f m x = do { table <- reader (m . hetcons_Transaction_Environment_hetcon
                                      ; return y}}
 
 -- | Memoization for verifying 1As in a Hetcons Transaction
-instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify (Recursive_1a v) (Hetcons_Transaction s v) where
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_1a v) (Hetcons_Transaction s v) where
   verify = memoize verify' hetcons_Server_verify_1a
 
 -- | Memoization for verifying 1Bs in a Hetcons Transaction
-instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify (Recursive_1b v) (Hetcons_Transaction s v) where
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_1b v) (Hetcons_Transaction s v) where
   verify = memoize verify' hetcons_Server_verify_1b
 
 -- | Memoization for verifying 2As in a Hetcons Transaction
-instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify (Recursive_2a v) (Hetcons_Transaction s v) where
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_2a v) (Hetcons_Transaction s v) where
   verify = memoize verify' hetcons_Server_verify_2a
 
 -- | Memoization for verifying 2Bs in a Hetcons Transaction
-instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify (Recursive_2b v) (Hetcons_Transaction s v) where
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_2b v) (Hetcons_Transaction s v) where
   verify = memoize verify' hetcons_Server_verify_2b
 
 -- | Memoization for verifying Proof_of_Consensus in a Hetcons Transaction
-instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify (Recursive_Proof_of_Consensus v) (Hetcons_Transaction s v) where
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) =>
+                             Monad_Verify (Recursive_Proof_of_Consensus v) (Hetcons_Transaction s v) where
   verify = memoize verify' hetcons_Server_verify_proof
 
 -- | Memoization for verifying Quorums in a Hetcons Transaction
@@ -245,7 +249,7 @@ get_my_private_key = reader (hetcons_Server_private_key . hetcons_Transaction_En
 --   return the returned value into the IO Monad.
 --   You can also throw a Hetcons_Exception.
 --   If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-run_Hetcons_Transaction_IO :: (Hetcons_State s, Value b) => (Hetcons_Server s v) -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> (Hetcons_Transaction s v a) -> IO a
+run_Hetcons_Transaction_IO :: (Hetcons_State s, Value v) => (Hetcons_Server s v) -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> (Hetcons_Transaction s v a) -> IO a
 run_Hetcons_Transaction_IO server do_on_consensus receive_message =
   do { (answer, final_state) <- modify_and_read (hetcons_Server_state_var server)
                                   (\start_state -> do { start_transaction_state <- newIORef (
@@ -275,40 +279,40 @@ run_Hetcons_Transaction_IO server do_on_consensus receive_message =
 
 
 -- | Class of types which can be sent as messages from within a Hetcons_Transaction monad.
-class Add_Sent a where
+class (Value v) => Add_Sent a v where
   -- | Adds a message to the set of outgoing messages in this Monadic transaction.
   --   This is intended to be used from within the `send` function.
   --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-  add_sent :: (Hetcons_State s, Value v) => a -> Hetcons_Transaction s v ()
+  add_sent :: (Hetcons_State s) => a -> Hetcons_Transaction s v ()
 
 -- | Adds a Proposal_1a to the set of outgoing messages in this Monadic transaction.
 --   This is intended to be used from within the `send` function.
 --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-instance (Value v) => Add_Sent (Verified (Recursive_1a v)) where
+instance (Value v) => Add_Sent (Verified (Recursive_1a v)) v where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_1as = insert p $ sent_1as x}))
 
 -- | Adds a Phase_1b to the set of outgoing messages in this Monadic transaction.
 --   This is intended to be used from within the `send` function.
 --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-instance (Value v) => Add_Sent (Verified (Recursive_1b v)) where
+instance (Value v) => Add_Sent (Verified (Recursive_1b v)) v where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_1bs = insert p $ sent_1bs x}))
 
 -- | Adds a Phase_2a to the set of outgoing messages in this Monadic transaction.
 --   This is intended to be used from within the `send` function.
 --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-instance (Value v) => Add_Sent (Verified (Recursive_2a v)) where
+instance (Value v) => Add_Sent (Verified (Recursive_2a v)) v where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_2as = insert p $ sent_2as x}))
 
 -- | Adds a Phase_2b to the set of outgoing messages in this Monadic transaction.
 --   This is intended to be used from within the `send` function.
 --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-instance (Value v) => Add_Sent (Verified (Recursive_2b v)) where
+instance (Value v) => Add_Sent (Verified (Recursive_2b v)) v where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_2bs = insert p $ sent_2bs x}))
 
 -- | Adds a Proof_of_Consensus to the set of outgoing messages in this Monadic transaction.
 --   This is intended to be used from within the `send` function.
 --   Most of the time, you'll want to use `send`, which may have stuff to check to ensure everything's going correctly.
-instance (Value v) => Add_Sent (Verified (Recursive_Proof_of_Consensus v)) where
+instance (Value v) => Add_Sent (Verified (Recursive_Proof_of_Consensus v)) v where
   add_sent p = update_Hetcons_Transaction_State (\x -> ((),x{sent_Proof_of_Consensus = insert p $ sent_Proof_of_Consensus x}))
 
 
