@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | The Observer Server, which waits to receive 2Bs from Participants, and produces Proof_of_Consensus when possible.
@@ -26,13 +28,16 @@ import Hetcons.Receive_Message
        ,hetcons_Server_verify_proof
        ,hetcons_Server_verify_quorums
      ,Receivable(receive)
+     ,Hetcons_Transaction
      ,run_Hetcons_Transaction_IO )
 import Hetcons.Send_Message_IO ( domain_name, default_Address_Book )
 import Hetcons.Signed_Message
     ( Verified
+     ,Parsable
      ,Recursive_2b
      ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify) )
+import Hetcons.Value (Value)
 
 import Hetcons_Observer ( process )
 import Hetcons_Observer_Iface
@@ -40,11 +45,13 @@ import Hetcons_Observer_Iface
 import Hetcons_Types
     ( Participant_ID(participant_ID_address)
      ,Crypto_ID
+     ,Slot_Value
      ,Address(address_port_number) )
 
 import Control.Concurrent ( forkIO, ThreadId )
 import qualified Control.Concurrent.Map as CMap ( empty )
 import Data.ByteString.Lazy ( ByteString )
+import Data.Hashable (Hashable)
 import Thrift.Server ( runBasicServer )
 
 -- | The Observer Server itself is defined as a data structure featuring:
@@ -53,14 +60,14 @@ import Thrift.Server ( runBasicServer )
 --
 --     * a function to execute whenever consensus is proven
 --       (so it's given a Proof_of_Consensus)
-data Observer = Observer {
-  observer_hetcons_server :: Hetcons_Server Observer_State
- ,do_on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
+data (Value v) => Observer v = Observer {
+  observer_hetcons_server :: Hetcons_Server (Observer_State v) v
+ ,do_on_consensus :: (Verified (Recursive_Proof_of_Consensus v)) -> IO ()
 }
 
 -- | Given a Cryptographic ID (public key), a private key, and a "Do on Consensus function", creates a new Observer datum.
 --   This establishes default values for a bunch of stuff (mostly memoization caches), which are mostly the empty set.
-new_observer :: Crypto_ID -> ByteString -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO Observer
+new_observer :: (Value v) => Crypto_ID -> ByteString -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO (Observer v)
 new_observer cid pk doc =
   do { ab <- default_Address_Book
      ; sv <- start_State
@@ -87,31 +94,32 @@ new_observer cid pk doc =
 
 -- | Given an Observer Datum and a Port Number, boots up an Observer Server.
 --   Returns the ThreadId of the newly started server.
-observer_server :: (Integral a) => Observer -> a -> IO ThreadId
+observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => (Observer v) -> a -> IO ThreadId
 observer_server observer port = forkIO $ runBasicServer observer process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, and a "Do on Consensus function,"
 --    boots up an Observer Server that runs that function on consensus.
 --   Returns the ThreadId of the newly started server.
-basic_observer_server :: (Integral a) => Crypto_ID -> ByteString -> a -> ((Verified Recursive_Proof_of_Consensus) -> IO ()) -> IO ThreadId
+basic_observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
+                         Crypto_ID -> ByteString -> a -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO ThreadId
 basic_observer_server cid pk port doc = do { observer <- new_observer cid pk doc
                                            ; observer_server observer port}
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, boots up an Observer Server that prints out when it's reached consensus.
 --   Returns the ThreadId of the newly started server.
 basic_observer_server_print :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
-basic_observer_server_print cid pk port = basic_observer_server cid pk port on_consensus
+basic_observer_server_print cid pk port = basic_observer_server cid pk port (on_consensus :: (Verified (Recursive_Proof_of_Consensus Slot_Value)) -> IO ())
 
 -- | The "Do on Consensus" function used by the basic_observer_server_print.
 --   It prints out when Consensus is Profen, with a set of observers for whom it is proven.
-on_consensus :: (Verified Recursive_Proof_of_Consensus) -> IO ()
+on_consensus :: (Value v) => (Verified (Recursive_Proof_of_Consensus v)) -> IO ()
 on_consensus proof = putStrLn $
   foldr (\n x -> x ++ "     " ++ (domain_name n) ++ " : "++ (show $ address_port_number $ participant_ID_address n) ++"\n")
         "\nCONSENSUS PROVEN for observers:\n"
         $ observers_proven proof
 
 -- | Observer Data are instances of the Thrift Hetcons_Observer_Iface class, meaning they fulfil the requirements of the Thrift interface:
-instance Hetcons_Observer_Iface Observer where
+instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Hetcons_Observer_Iface (Observer v) where
   -- | When pinged, the server returns ()
   ping _ = return ()
 
@@ -120,5 +128,5 @@ instance Hetcons_Observer_Iface Observer where
                         observer_hetcons_server = s
                        ,do_on_consensus = doc})
               message
-    = run_Hetcons_Transaction_IO s doc (do { (verified :: (Verified Recursive_2b)) <-  verify message -- TODO: this doesn't technically need to be in the TX
+    = run_Hetcons_Transaction_IO s doc (do { (verified :: (Verified (Recursive_2b v))) <-  verify message -- TODO: this doesn't technically need to be in the TX
                                            ; receive verified})
