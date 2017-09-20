@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE KindSignatures #-}
@@ -15,7 +16,9 @@ module Hetcons.Value
     , Contains_1a
        ,extract_1a
        ,extract_observer_quorums
+    , Contains_Quorums
     , Ballot
+    , Contains_Ballot
        ,extract_ballot
     , Contains_Value
        ,extract_value
@@ -89,8 +92,8 @@ valid = (value_valid :: v -> Bool) . (extract_value  :: a -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
 
-conflicts :: forall a v . (Value v, Contains_1a a v,  Hashable a, Eq a) => (HashSet a) -> Bool
-conflicts = value_conflicts . (HashSet.map (extract_1a :: a -> (Verified (Recursive_1a v))))
+conflicts :: forall a v . (Value v, Contains_1a (Verified (a v)) v,  Hashable (Verified (a v)), Eq (Verified (a v))) => (HashSet (Verified (a v))) -> Bool
+conflicts = value_conflicts . (HashSet.map (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v))))
 
 
 
@@ -108,6 +111,7 @@ instance Value Slot_Value where
 
 instance {-# OVERLAPPABLE #-} (Value v, Contains_1a a v) => Contains_1a (Verified a) v where
   extract_1a = extract_1a . original
+
 instance {-# OVERLAPPABLE #-} (Value v, Contains_Value a v) => Contains_Value (Verified a) v where
   extract_value = extract_value . original
 
@@ -115,16 +119,27 @@ instance {-# OVERLAPPABLE #-} (Value v, Contains_Value a v) => Contains_Value (V
 -- | a ballot "number" is an Int64, representing a timestamp, and a bytestring, representing a hashed value.
 --   These are, notably, orderable.
 type Ballot = (Int64, ByteString)
-extract_ballot :: forall a v . (Value v, Contains_1a a v) => a -> Ballot
-extract_ballot x = let proposal = (extract_1a x) :: Verified (Recursive_1a v)
-                    in (proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
-                        signed_Hash_signature $ signed_Message_signature $ signed proposal)
 
+class Contains_Ballot a where
+  extract_ballot :: a -> Ballot
+
+instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v) => Contains_Ballot (Verified (a v)) where
+  extract_ballot x = extract_ballot ((extract_1a x) :: Verified (Recursive_1a v))
+
+instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Ballot (Verified (Recursive_1a v)) where
+  extract_ballot proposal =(proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
+                            signed_Hash_signature $ signed_Message_signature $ signed proposal)
+
+class Contains_Quorums a where
+  extract_observer_quorums :: a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
 -- | What are the quorums in the consensus of this Message?
 --   Specifically, for each observer, returns a set of sets of participants which represent quorums.
-extract_observer_quorums :: forall a v . (Value v, Contains_1a a v) => a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))
-extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original $ ((extract_1a x) :: Verified (Recursive_1a v))
-                              in y
+instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Quorums (Verified (Recursive_1a v)) where
+  extract_observer_quorums x = let (Proposal_1a{proposal_1a_observers=Just Observers{observers_observer_quorums=Just y}})= recursive_1a_filled_in $ original x
+                                in y
+
+instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v) => Contains_Quorums (Verified (a v)) where
+  extract_observer_quorums = extract_observer_quorums . (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v)))
 
 
 
