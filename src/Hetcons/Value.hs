@@ -87,8 +87,8 @@ class Value v where
   garbage_collect :: HashSet (Verified (Recursive_1b v)) -> HashSet (Verified (Recursive_1b v))
 
 
-valid :: forall a v . (Value v, Contains_Value a v) => a -> Bool
-valid = (value_valid :: v -> Bool) . (extract_value  :: a -> v)
+valid :: forall a v . (Value v, Contains_Value (Verified (a v)) v) => (Verified (a v)) -> Bool
+valid = (value_valid :: v -> Bool) . (extract_value  :: (Verified (a v)) -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
 class Conflictable a where
