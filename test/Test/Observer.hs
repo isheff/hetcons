@@ -4,7 +4,7 @@ module Test.Observer (observer_tests) where
 
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Instances_Proof_of_Consensus ( observers_proven )
-import Hetcons.Observer ( basic_observer_server )
+import Hetcons.Observer (Observer, basic_observer_server )
 import Hetcons.Participant ( current_nanoseconds )
 import Hetcons.Send_Message_IO
     ( Address_Book
@@ -13,10 +13,12 @@ import Hetcons.Send_Message_IO
      ,domain_name )
 import Hetcons.Signed_Message
     ( Encodable
+       ,encode
      ,Recursive_1b
      ,Recursive_1a
      ,Verified
      ,Recursive_2b
+     ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify)
      ,sign )
 import Test.Util ()
@@ -32,8 +34,8 @@ import Hetcons_Participant_Iface
 import Hetcons_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
                     ,default_Participant_ID
-     ,Value(value_slot, value_value_payload)
-           ,default_Value
+     ,Slot_Value(slot_Value_slot, slot_Value_value_payload)
+           ,default_Slot_Value
      ,Observers(observers_observer_quorums)
                ,default_Observers
      ,Proposal_1a(proposal_1a_observers, proposal_1a_timestamp
@@ -109,9 +111,9 @@ sample_id cert port =
 
 -- sample_1a :: Proposal_1a
 sample_1a now recipients = default_Proposal_1a {
-   proposal_1a_value = default_Value {
-                          value_value_payload = ByteString.singleton 42
-                         ,value_slot = 6}
+   proposal_1a_value = encode default_Slot_Value {
+                          slot_Value_value_payload = ByteString.singleton 42
+                         ,slot_Value_slot = 6}
   ,proposal_1a_timestamp = now
   ,proposal_1a_observers = Just default_Observers {
      observers_observer_quorums = Just $ HashMap.fromList
@@ -157,11 +159,11 @@ launch_dummy_observer port = do
   ; address_book <- default_Address_Book
   ; cert <- ByteString.readFile "test/cert.pem"
   ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert (fromIntegral port)]
-  ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
+  ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
   ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
-  ; let (Right (v1b :: (Verified Recursive_1b))) = verify signed_1b
+  ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
   ; (Right signed_2b) <- sample_sign $ default_Phase_2b { phase_2b_phase_1bs = fromList [signed_1b]}
-  ; let (Right (v2b :: (Verified Recursive_2b))) = verify signed_2b
+  ; let (Right (v2b :: (Verified (Recursive_2b Slot_Value)))) = verify signed_2b
   ; dummy_observer <- dummy_observer_server port (Dummy_Observer { dummy_observer_on_ping = return ()
                                                                  , dummy_observer_on_phase_2b = putMVar receipt_2b})
   ; send_Message_IO address_book v2b
@@ -182,13 +184,13 @@ launch_observer port = do
                               public_Crypto_Key_public_crypto_key_x509 = Just cert})})
                   private
                   (fromIntegral new_port)
-                  $ putMVar proof_receipt)
+                  (putMVar proof_receipt :: ((Verified (Recursive_Proof_of_Consensus Slot_Value)) -> IO ())))
   ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert (fromIntegral new_port)]
-  ; let (Right (v1a :: (Verified Recursive_1a))) = verify signed_1a
+  ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
   ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
-  ; let (Right (v1b :: (Verified Recursive_1b))) = verify signed_1b
+  ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
   ; (Right signed_2b) <- sample_sign $ default_Phase_2b { phase_2b_phase_1bs = fromList [signed_1b]}
-  ; let (Right (v2b :: (Verified Recursive_2b))) = verify signed_2b
+  ; let (Right (v2b :: (Verified (Recursive_2b Slot_Value)))) = verify signed_2b
   ; send_Message_IO address_book v2b
   ; assertBool "have launched an observer" True
   ; received_proof <- takeMVar proof_receipt
