@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Quorums (quorums_tests) where
 
@@ -5,9 +6,11 @@ import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Signed_Message
     ( Encodable
+       ,encode
      ,Recursive_1a(recursive_1a_filled_in)
      ,Recursive(non_recursive)
      ,Monad_Verify(verify)
+     ,Verified
      ,sign
      ,original )
 import Test.Util ()
@@ -16,8 +19,8 @@ import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
                     ,default_Participant_ID
-     ,Value(value_slot, value_value_payload)
-           ,default_Value
+     ,Slot_Value(slot_Value_slot, slot_Value_value_payload)
+           ,default_Slot_Value
      ,Observers(Observers
                ,observers_observer_graph
                ,observers_observer_quorums)
@@ -61,10 +64,10 @@ fill_in_observers observers =
   do { cert <- ByteString.readFile "test/cert.pem"
      ; let sample = ((sample_1a cert) {proposal_1a_observers = Just observers})
      ; signed <- sample_sign $ sample
-     ; let verified = mapRight ((mapRight ((non_recursive :: Recursive_1a -> Proposal_1a).original)).verify) signed
+     ; let verified = mapRight ((mapRight ((non_recursive :: (Recursive_1a Slot_Value) -> Proposal_1a).original)).verify) signed
      ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right sample) verified
      ; let answer = do { s <- signed
-                       ; v_r1a <- verify s
+                       ; (v_r1a :: Verified (Recursive_1a Slot_Value)) <- verify s
                        ; return $ proposal_1a_observers $ recursive_1a_filled_in $ original v_r1a}
      ; assertBool "Exception while parsing signed Proposal_1a" $ isRight answer
      ; return ((\(Right (Just x)) -> x) answer)}
@@ -107,9 +110,9 @@ sample_id cert =
 
 -- sample_1a :: Proposal_1a
 sample_1a cert = default_Proposal_1a {
-   proposal_1a_value = default_Value {
-                          value_value_payload = ByteString.singleton 42
-                         ,value_slot = 6}
+   proposal_1a_value = encode default_Slot_Value {
+                          slot_Value_value_payload = ByteString.singleton 42
+                         ,slot_Value_slot = 6}
   ,proposal_1a_timestamp = 1111111
   ,proposal_1a_observers = Just default_Observers {
      observers_observer_quorums = Just $ singleton (sample_id cert) (fromList [ fromList [sample_id cert]])}}
