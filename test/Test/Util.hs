@@ -36,13 +36,8 @@ import Data.Serialize ( Serialize, encodeLazy, decodeLazy )
 import Data.Text.Lazy (pack)
 
 -- TODO: this instance is used in testing only, so we should move it over to tests
-instance {-# OVERLAPPABLE #-} (Parsable Recursive_1a
-                              ,Parsable Recursive_1b
-                              ,Parsable Recursive_2a
-                              ,Parsable Recursive_2b
-                              ,Parsable Recursive_Proof_of_Consensus
-                              ,Monad_Verify_Quorums m
-                              ,MonadError Hetcons_Exception m, Parsable a)
+instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m
+                              ,MonadError Hetcons_Exception m, Parsable (m a))
                                => Monad_Verify a m where
   verify = verify'
 
@@ -58,7 +53,7 @@ instance {-# OVERLAPPABLE #-} (Serialize a) => Encodable a where
 
 -- | By default, anythign serializable is simply deserialized.
 -- | the only possible error is if parsing fails
-instance {-# OVERLAPPABLE #-} Serialize a => Parsable a where
+instance {-# OVERLAPPABLE #-} (Monad m, MonadError Hetcons_Exception m, Serialize a) => Parsable (m a) where
   parse payload =
     case decodeLazy payload of
       (Left e) ->
