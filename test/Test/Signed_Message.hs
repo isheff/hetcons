@@ -1,7 +1,7 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Signed_Message (signed_message_tests) where
 
-import Hetcons.Contains_Value ( extract_1a )
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Signed_Message
@@ -17,14 +17,16 @@ import Hetcons.Signed_Message
      ,Recursive_2a(Recursive_2a)
      ,Monad_Verify(verify)
      ,sign
+     ,encode
     )
+import Hetcons.Value ( extract_1a )
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Hetcons_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
                     ,default_Participant_ID
-     ,Value(value_slot, value_value_payload)
-           ,default_Value
+     ,Slot_Value(slot_Value_slot, slot_Value_value_payload)
+           ,default_Slot_Value
      ,Observers(observers_observer_graph, observers_observer_quorums)
                ,default_Observers
      ,Proposal_1a(proposal_1a_observers, proposal_1a_timestamp
@@ -57,7 +59,7 @@ import Hetcons_Types
 import Test.Util ()
 
 import Control.Monad ( join )
-import Crypto.Random ( getSystemDRG, DRG, withDRG )
+import Crypto.Random ( SystemDRG, getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( readFile, concat, take, drop, singleton, index )
 import Data.Either.Combinators ( isLeft )
@@ -110,9 +112,9 @@ sample_id cert =
 
 -- sample_1a :: Proposal_1a
 sample_1a cert = default_Proposal_1a {
-   proposal_1a_value = default_Value {
-                          value_value_payload = ByteString.singleton 42
-                         ,value_slot = 6}
+   proposal_1a_value = encode default_Slot_Value {
+                          slot_Value_value_payload = ByteString.singleton 42
+                         ,slot_Value_slot = 6}
   ,proposal_1a_timestamp = 1111111
   ,proposal_1a_observers = Just default_Observers {
      observers_observer_quorums = Just $ singleton (sample_id cert) (fromList [ fromList [sample_id cert]])}}
@@ -156,7 +158,7 @@ signed_message_tests = TestList [
        do { cert <- ByteString.readFile "test/cert.pem"
           ; signed <- sample_sign $ sample_1a cert
           ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right $ sample_1a cert)
-               $ mapRight ((mapRight ((non_recursive :: Recursive_1a -> Proposal_1a).original)).verify) signed
+               $ mapRight ((mapRight ((non_recursive :: (Recursive_1a Slot_Value) -> (Proposal_1a )).original)).verify) signed
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 1A message with an observers Graph" (
      TestCase (
@@ -170,7 +172,7 @@ signed_message_tests = TestList [
                           ]}})
           ; signed <- sample_sign $ sample
           ; assertEqual "failed to verify a signed proposal_1a" (Right $ Right sample)
-               $ mapRight ((mapRight ((non_recursive :: Recursive_1a -> Proposal_1a).original)).verify) signed
+               $ mapRight ((mapRight ((non_recursive :: (Recursive_1a Slot_Value) -> Proposal_1a).original)).verify) signed
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 1B message" (
      TestCase (
@@ -179,7 +181,7 @@ signed_message_tests = TestList [
           ; let payload = (mapRight (\x -> default_Phase_1b { phase_1b_proposal = x }) signed_1a) :: Either Hetcons_Exception Phase_1b
           ; signed <- fmap join $ deStupidify $ mapRight sample_sign payload
           ; assertEqual "failed to verify a signed phase_1b" (Right $ sample_1a cert)
-               $ mapRight (non_recursive.original.recursive_1b_proposal.original) $ join $ mapRight (verify) signed
+               $ mapRight ((non_recursive :: (Recursive_1a Slot_Value) -> Proposal_1a).original.recursive_1b_proposal.original) $ join $ mapRight (verify) signed
           ; return ()}))
   ,TestLabel "verify that we can sign and parse a 2A message" (
      TestCase (
@@ -203,7 +205,7 @@ signed_message_tests = TestList [
                             ; signed_1b_2 <- gen_sign_1b (l_gen!!2) phase_1b
                             ; let phase_2a = default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
                             ; signed <- gen_sign_2a (l_gen!!3) phase_2a
-                            ; verified <- verify signed
+                            ; (verified :: Verified (Recursive_2a Slot_Value)) <- verify signed
                             ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2a x) -> x).original) verified)
                             }
           ; assertEqual "failed to verify a signed phase_2a" (Right $ sample_1a cert) $ mapRight non_recursive result
@@ -232,12 +234,12 @@ signed_message_tests = TestList [
                             ; signed_2a_1 <- gen_sign_2a (l_gen!!3) default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
                             ; signed_2a_2 <- gen_sign_2a (l_gen!!4) default_Phase_2a {phase_2a_phase_1bs = fromList [signed_1b_1]}
                             ; signed_1a' <- gen_sign_1a (l_gen!!6) $ (sample_1a cert) {
-                                                                                      proposal_1a_value = default_Value {
-                                                                                                             value_value_payload = ByteString.singleton 43
-                                                                                                            ,value_slot = 6}}
+                                                                                      proposal_1a_value = encode default_Slot_Value {
+                                                                                                             slot_Value_value_payload = ByteString.singleton 43
+                                                                                                            ,slot_Value_slot = 6}}
                             ; signed <- gen_sign_1b (l_gen!!5) phase_1b {phase_1b_proposal = signed_1a'
                                                                        ,phase_1b_conflicting_phase2as = fromList [signed_2a_1, signed_2a_2]}
-                            ; verified <- verify signed
+                            ; (verified :: Verified (Recursive_1b Slot_Value)) <- verify signed
                             ; return ((original.recursive_1b_proposal.original.head.toList.(\(Recursive_2a x) -> x).
                                   original.head.toList.recursive_1b_conflicting_phase2as.original) verified)
                             }
@@ -253,11 +255,11 @@ signed_message_tests = TestList [
                                Just (default_Public_Crypto_Key {
                                  public_Crypto_Key_public_crypto_key_x509 = Just cert})}
           ; let gen_sign_1a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
+                 SystemDRG -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
           ; let gen_sign_1b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
+                 SystemDRG -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
           ; let gen_sign_2b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Phase_2b -> (Either Hetcons_Exception Signed_Message)
+                 SystemDRG -> Phase_2b -> (Either Hetcons_Exception Signed_Message)
           ; cert <- ByteString.readFile "test/cert.pem"
           ; let result = do { signed_1a <- gen_sign_1a (l_gen!!0) $ sample_1a cert
                             ; let phase_1b = default_Phase_1b { phase_1b_proposal = signed_1a }
@@ -265,8 +267,8 @@ signed_message_tests = TestList [
                             ; signed_1b_2 <- gen_sign_1b (l_gen!!2) phase_1b
                             ; let phase_2b = default_Phase_2b {phase_2b_phase_1bs = fromList [signed_1b_1, signed_1b_2]}
                             ; signed <- gen_sign_2b (l_gen!!3) phase_2b
-                            ; verified <- (verify signed) :: (Either Hetcons_Exception (Verified Recursive_2b))
-                            ; return (original $ extract_1a verified)
+                            ; verified <- (verify signed) :: (Either Hetcons_Exception (Verified (Recursive_2b Slot_Value)))
+                            ; return (original ((extract_1a verified) :: Verified (Recursive_1a Slot_Value) ))
                             }
           ; assertEqual "failed to verify a signed phase_2b" (Right $ sample_1a cert) $ mapRight non_recursive result
           ; return ()}))
@@ -280,13 +282,13 @@ signed_message_tests = TestList [
                                Just (default_Public_Crypto_Key {
                                  public_Crypto_Key_public_crypto_key_x509 = Just cert})}
           ; let gen_sign_1a = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
+                  SystemDRG -> Proposal_1a -> (Either Hetcons_Exception Signed_Message)
           ; let gen_sign_1b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
+                  SystemDRG -> Phase_1b -> (Either Hetcons_Exception Signed_Message)
           ; let gen_sign_2b = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Phase_2b -> (Either Hetcons_Exception Signed_Message)
+                  SystemDRG -> Phase_2b -> (Either Hetcons_Exception Signed_Message)
           ; let gen_sign_proof = (sign crypto_id private sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR ) ::
-                  (DRG gen) => gen -> Proof_of_Consensus -> (Either Hetcons_Exception Signed_Message)
+                  SystemDRG -> Proof_of_Consensus -> (Either Hetcons_Exception Signed_Message)
           ; cert <- ByteString.readFile "test/cert.pem"
           ; let result = do { signed_1a <- gen_sign_1a (l_gen!!0) $ sample_1a cert
                             ; let phase_1b = default_Phase_1b { phase_1b_proposal = signed_1a }
@@ -296,8 +298,8 @@ signed_message_tests = TestList [
                             ; signed_2b <- gen_sign_2b (l_gen!!3) phase_2b
                             ; let proof = default_Proof_of_Consensus {proof_of_Consensus_phase_2bs = fromList [signed_2b]}
                             ; signed_proof <- gen_sign_proof (l_gen!!4) proof
-                            ; verified <- (verify signed_proof) :: (Either Hetcons_Exception (Verified Recursive_Proof_of_Consensus))
-                            ; return (original $ extract_1a verified)
+                            ; verified <- (verify signed_proof) :: (Either Hetcons_Exception (Verified (Recursive_Proof_of_Consensus Slot_Value)))
+                            ; return (original ((extract_1a verified) :: Verified (Recursive_1a Slot_Value)))
                             }
           ; assertEqual "failed to verify a signed Proof_of_Consensus" (Right $ sample_1a cert) $ mapRight non_recursive result
           ; return ()}))

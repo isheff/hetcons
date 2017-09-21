@@ -34,10 +34,13 @@ import Hetcons.Signed_Message (Recursive_1a
                               ,Verified
                                 ,original
                                 ,signed
+                              ,Encodable
+                                 ,encode
                               )
 
 import Hetcons_Types  (Slot_Value
                          ,slot_Value_slot
+                         ,encode_Slot_Value
                       ,Participant_ID
                       ,Proposal_1a(Proposal_1a)
                          ,proposal_1a_observers
@@ -56,6 +59,8 @@ import Data.HashMap.Lazy ( HashMap )
 import Data.Int (Int64)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet, fromList)
+import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Messages which are part of a ballot of consensus contain a 1A message which kicked off that ballot.
 class (Value v) => Contains_1a a v where
@@ -111,6 +116,9 @@ instance Value Slot_Value where
             (toList x)
   garbage_collect = id
 
+-- | Encode a Proposal_1a to a bytestring using Thrift
+instance {-# OVERLAPPING #-} Encodable Slot_Value where
+  encode = encode_Slot_Value (BinaryProtocol EmptyTransport)
 
 
 
