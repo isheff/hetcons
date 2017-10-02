@@ -49,7 +49,7 @@ packages:
   extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: [SHA2-0.2.5,AES-0.2.9,crypto-pubkey-openssh-0.2.7,type-iso-0.1.0.0,numericpeano-0.2.0.0,thrift-1.0.0, hspec-core-2.3.2,quickcheck-io-0.1.4]
+extra-deps: [SHA2-0.2.5,AES-0.2.9,crypto-pubkey-openssh-0.2.7,type-iso-0.1.0.0,numericpeano-0.2.0.0,thrift-1.0.0, hspec-core-2.3.2,quickcheck-io-0.1.4,hflags-0.4.2]
 
 # Override default flag values for local packages and extra-deps
 flags: {}
