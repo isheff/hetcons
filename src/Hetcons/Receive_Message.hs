@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -16,6 +17,7 @@ module Hetcons.Receive_Message
     ,update_state
     ,get_my_crypto_id
     ,get_my_private_key
+    ,hetcons_print
   ,Add_Sent
     ,add_sent
   ,Receivable
@@ -74,6 +76,7 @@ import Data.IORef
     ( IORef, writeIORef, readIORef, newIORef, atomicModifyIORef )
 import Data.Serialize         (Serialize)
 import Data.Tuple ( swap )
+import HFlags (defineFlag, defineEQFlag)
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
 --   From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
@@ -147,6 +150,12 @@ data (Hetcons_State s, Value v) => Hetcons_Transaction_State s v = Hetcons_Trans
   -- | The server's "real" state will be set to this at the end of the transaction, if no Errors are thrown.
  ,hetcons_state :: s
 }
+
+defineFlag "v:verbosity" (0 :: Int) "how much detail do you wan the servers to print out? (0 == none), 1 == message logging, etc."
+hetcons_print :: (Hetcons_State s, Value v, Integral a) => a -> String -> Hetcons_Transaction s v ()
+hetcons_print i x = if (fromIntegral i) <= flags_verbosity
+                       then Hetcons_Transaction $ liftIO $ putStrLn x
+                       else return ()
 
 -- | MonadError instantiation, In which we basically catch and throw errors into the IO Monad.
 --   TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadError Hetcons_Exception m

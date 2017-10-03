@@ -101,6 +101,7 @@ test-suite hetcons-test
   main-is:             Spec.hs
   build-depends:       base
                      , hetcons
+                     , hflags
                      , HUnit
                      , cryptonite
                      , cereal

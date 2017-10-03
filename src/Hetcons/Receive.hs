@@ -24,7 +24,8 @@ import Hetcons.Receive_Message
      ,put_state
      ,get_state
      ,get_my_private_key
-     ,get_my_crypto_id )
+     ,get_my_crypto_id
+     ,hetcons_print)
 import Hetcons.Send ()
 import Hetcons.Signed_Message
     ( Encodable
@@ -101,7 +102,8 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
       -- If we've seen this 1a before, or we've seen one with a greater ballot and the same quorums
     ; if ((not (null ballots_with_matching_quorums)) && ((extract_ballot r1a) <= (maximum ballots_with_matching_quorums)))
          then return ()
-         else do { conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
+         else do { hetcons_print 1 ("received new 1a: " ++ (show $ fst $ extract_ballot r1a))
+                 ; conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
                  ; send (default_Phase_1b {phase_1b_proposal = signed r1a
                                           ,phase_1b_conflicting_phase2as = fromList conflicting})}}
 
@@ -121,6 +123,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
                       then return ()
                       else receive ((extract_1a r1b) :: Verified (Recursive_1a v)) -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive ((extract_1bs $ original r1b) :: (HashSet (Verified (Recursive_1b v)))) -- receive all prior 1bs contained herein
+                 ; hetcons_print 1 ("received new 1b: " ++ (show $ fst $ extract_ballot r1b))
                  ; state <- update_state (\s -> let new_state = insert r1b s in (new_state, new_state))
                  ; let potential_2a = Recursive_2a $
                          HashSet.filter ((((extract_1a r1b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 1bs with the same proposal
@@ -139,7 +142,8 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
 instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
-  receive r2a = send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}
+  receive r2a = do { hetcons_print 1 ("received new 2a: " ++ (show $ fst $ extract_ballot r2a))
+                   ; send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}}
 
 --------------------------------------------------------------------------------
 --                                 Observers                                  --
