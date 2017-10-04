@@ -4,6 +4,7 @@
 module Main where
 
 import Hetcons.Demo.Client(flags_observers)
+import Hetcons.Receive_Message (flags_verbosity)
 
 import Hetcons_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)

@@ -1,7 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
+import Hetcons.Demo.Participant
 import Hetcons.Demo.Observer
+import Hetcons.Receive_Message (flags_verbosity)
 
 import Control.Concurrent (threadDelay)
 import HFlags (initHFlags)

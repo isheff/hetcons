@@ -38,7 +38,7 @@ import Hetcons.Signed_Message
      ,Recursive_2b
      ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify) )
-import Hetcons.Value (Value)
+import Hetcons.Value (Value, extract_value)
 
 import Hetcons_Observer ( process )
 import Hetcons_Observer_Iface
@@ -95,13 +95,13 @@ new_observer cid pk doc =
 
 -- | Given an Observer Datum and a Port Number, boots up an Observer Server.
 --   Returns the ThreadId of the newly started server.
-observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => (Observer v) -> a -> IO ThreadId
+observer_server :: (Show v, Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => (Observer v) -> a -> IO ThreadId
 observer_server observer port = forkIO $ runBasicServer observer process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, and a "Do on Consensus function,"
 --    boots up an Observer Server that runs that function on consensus.
 --   Returns the ThreadId of the newly started server.
-basic_observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
+basic_observer_server :: (Show v, Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
                          Crypto_ID -> ByteString -> a -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO ThreadId
 basic_observer_server cid pk port doc = do { observer <- new_observer cid pk doc
                                            ; observer_server observer port}
@@ -113,14 +113,15 @@ basic_observer_server_print cid pk port = basic_observer_server cid pk port (on_
 
 -- | The "Do on Consensus" function used by the basic_observer_server_print.
 --   It prints out when Consensus is Profen, with a set of observers for whom it is proven.
-on_consensus :: (Value v) => (Verified (Recursive_Proof_of_Consensus v)) -> IO ()
-on_consensus proof = putStrLn $
+on_consensus :: forall v. (Show v, Value v) => (Verified (Recursive_Proof_of_Consensus v)) -> IO ()
+on_consensus proof = putStrLn ((
   foldr (\n x -> x ++ "     " ++ (domain_name n) ++ " : "++ (show $ address_port_number $ participant_ID_address n) ++"\n")
         "\nCONSENSUS PROVEN for observers:\n"
-        $ observers_proven proof
+        $ observers_proven proof) ++
+  (show ((extract_value proof) :: v)))
 
 -- | Observer Data are instances of the Thrift Hetcons_Observer_Iface class, meaning they fulfil the requirements of the Thrift interface:
-instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Hetcons_Observer_Iface (Observer v) where
+instance (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Hetcons_Observer_Iface (Observer v) where
   -- | When pinged, the server returns ()
   ping _ = return ()
 

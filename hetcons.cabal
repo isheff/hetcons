@@ -99,6 +99,15 @@ executable demo-observer
                      , hflags
   default-language:    Haskell2010
 
+executable demo-client
+  hs-source-dirs:      app
+  main-is:             Demo/Client.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , hetcons
+                     , hflags
+  default-language:    Haskell2010
+
 executable demo-create-config
   hs-source-dirs:      app
   main-is:             Demo/CreateConfig.hs

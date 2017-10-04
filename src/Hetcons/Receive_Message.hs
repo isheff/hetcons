@@ -35,6 +35,7 @@ module Hetcons.Receive_Message
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
     ,hetcons_Server_verify_quorums
+  ,flags_verbosity
   )
   where
 
@@ -73,7 +74,7 @@ import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable ( Hashable )
 import Data.HashSet ( HashSet, insert, toList, empty )
 import Data.IORef
-    ( IORef, writeIORef, readIORef, newIORef, atomicModifyIORef )
+    ( IORef, writeIORef, readIORef, newIORef, atomicModifyIORef' )
 import Data.Serialize         (Serialize)
 import Data.Tuple ( swap )
 import HFlags (defineFlag, defineEQFlag)
@@ -227,7 +228,7 @@ put_Hetcons_Transaction_State v = do { transaction_state_ref <- Hetcons_Transact
 -- | changes the current Hetcons_Transaction_State in the Monad's state, returning an extra value as well.
 update_Hetcons_Transaction_State :: (Hetcons_State s, Value v) => ((Hetcons_Transaction_State s v) -> (a, (Hetcons_Transaction_State s v))) -> Hetcons_Transaction s v a
 update_Hetcons_Transaction_State f = do { transaction_state_ref <- Hetcons_Transaction $ reader hetcons_Transaction_Environment_transaction_state
-                                        ; Hetcons_Transaction $ liftIO $ atomicModifyIORef transaction_state_ref (swap . f)}
+                                        ; Hetcons_Transaction $ liftIO $ atomicModifyIORef' transaction_state_ref (swap . f)}
 
 -- | reads the current Participant_State from the Monad's state
 get_state :: (Hetcons_State s, Value v) => Hetcons_Transaction s v s

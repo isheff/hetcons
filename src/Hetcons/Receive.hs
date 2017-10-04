@@ -71,7 +71,7 @@ import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
-import Data.HashSet ( HashSet, toList, member, insert, fromList )
+import Data.HashSet ( HashSet, toList, member, insert, fromList, size)
 import qualified Data.HashSet as HashSet ( map, filter )
 
 -- | Helper function which signs a message using the Crypto_ID and Private_Key provided by the Mondic environment.
@@ -142,7 +142,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
 instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
-  receive r2a = do { hetcons_print 0 ("received new 2a: " ++ (show $ fst $ extract_ballot r2a))
+  receive r2a = do { hetcons_print 1 ("received new 2a: " ++ (show $ fst $ extract_ballot r2a))
                    ; send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}}
 
 --------------------------------------------------------------------------------
@@ -153,17 +153,18 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_
 --   If we've received this 2b before, do nothing.
 --   Otherwise, assemble all received 2Bs with the same proposal and value, and see if those form a valid Proof_of_Consensus
 --   If they do, send that Proof_of_Consensus
-instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
+instance forall v . (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
     { old_state <- get_state
     ; if (member r2b old_state)
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
-         else do { hetcons_print 1 ("received new 2b: " ++ (show $ fst $ extract_ballot r2b))
-                 ; let state = insert r2b old_state
+         else do { let state = insert r2b old_state
                  ; put_state state
                  ; let potential_proof =
                          HashSet.filter ((((extract_1a r2b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 2bs with the same proposal
                          HashSet.filter ((((extract_value r2b) :: v) ==) . extract_value) state  -- all the 2bs with the same value
+                 ; hetcons_print 1 ("received new 2b: " ++ (show $ fst $ extract_ballot r2b) )
+                 ; hetcons_print 1 ("received new 2b: " ++ (show $ fst $ extract_ballot r2b) ++ "  "++ (show  ((map extract_value $ toList potential_proof) :: [v])))
                  ; if (length (observers_proven potential_proof)) > 0
                       then do { signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed potential_proof})
                               ; (v :: (Verified (Recursive_Proof_of_Consensus v))) <- verify signed
