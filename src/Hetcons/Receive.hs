@@ -142,7 +142,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
 instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
-  receive r2a = do { hetcons_print 1 ("received new 2a: " ++ (show $ fst $ extract_ballot r2a))
+  receive r2a = do { hetcons_print 0 ("received new 2a: " ++ (show $ fst $ extract_ballot r2a))
                    ; send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}}
 
 --------------------------------------------------------------------------------
@@ -158,7 +158,8 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (O
     { old_state <- get_state
     ; if (member r2b old_state)
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
-         else do { let state = insert r2b old_state
+         else do { hetcons_print 1 ("received new 2b: " ++ (show $ fst $ extract_ballot r2b))
+                 ; let state = insert r2b old_state
                  ; put_state state
                  ; let potential_proof =
                          HashSet.filter ((((extract_1a r2b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 2bs with the same proposal

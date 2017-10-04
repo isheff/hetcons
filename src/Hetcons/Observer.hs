@@ -9,7 +9,8 @@ module Hetcons.Observer (Observer(Observer)
                           ,new_observer
                         ,basic_observer_server
                         ,basic_observer_server_print
-                        ,observer_server)
+                        ,observer_server
+                        ,on_consensus)
 where
 
 import Hetcons.Hetcons_State ( Observer_State, start_State )
