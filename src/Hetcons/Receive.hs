@@ -24,7 +24,7 @@ import Hetcons.Receive_Message
      ,put_state
      ,get_state
      ,get_my_private_key
-     ,get_my_crypto_id )
+     ,get_my_crypto_id)
 import Hetcons.Send ()
 import Hetcons.Signed_Message
     ( Encodable
@@ -33,9 +33,9 @@ import Hetcons.Signed_Message
      ,Recursive_1b
      ,Verified
      ,Recursive_1a
-     ,Recursive_2b
+     ,Recursive_2b(Recursive_2b)
      ,Recursive(non_recursive)
-     ,Recursive_Proof_of_Consensus
+     ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
      ,Monad_Verify(verify)
      ,signed
      ,sign
@@ -70,7 +70,7 @@ import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
-import Data.HashSet ( HashSet, toList, member, insert, fromList )
+import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
 import qualified Data.HashSet as HashSet ( map, filter )
 
 -- | Helper function which signs a message using the Crypto_ID and Private_Key provided by the Mondic environment.
@@ -156,9 +156,18 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (O
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
          else do { let state = insert r2b old_state
                  ; put_state state
-                 ; let potential_proof =
+                 ; let potential_proof' =
                          HashSet.filter ((((extract_1a r2b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 2bs with the same proposal
                          HashSet.filter ((((extract_value r2b) :: v) ==) . extract_value) state  -- all the 2bs with the same value
+                 -- filter for only the longest 2bs from each sender
+                 ; let potential_proof = HashSet.filter(\v2b->let same_crypto_id = HashSet.filter (((signed_Hash_crypto_id $ signed_Message_signature $ signed v2b) ==) .
+                                                                                                     signed_Hash_crypto_id . signed_Message_signature . signed)
+                                                                                                  potential_proof'
+                                                               in all (\x -> let (Recursive_2b y) = original x
+                                                                                 (Recursive_2b r) = original v2b
+                                                                              in (size y) <= (size r))
+                                                                      same_crypto_id)
+                                                       potential_proof'
                  ; if (length (observers_proven potential_proof)) > 0
                       then do { signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed potential_proof})
                               ; (v :: (Verified (Recursive_Proof_of_Consensus v))) <- verify signed

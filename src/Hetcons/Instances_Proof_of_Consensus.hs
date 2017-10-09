@@ -113,6 +113,7 @@ instance (Value v) => Observers_Provable (Recursive_Proof_of_Consensus v) where
                                                      Just y -> (member y (HashSet.map participant_ID_crypto_id q))
                                                      Nothing -> False)
        -- Given a set of 2bs, returns the largest set of 1bs which every one of the 2b senders has received
+       -- TODO: intersection is not quite the best thing to use here. A byzantine adversary could send 2 message 2bs: one with quorum [1,2,3], and one with quorum [2,3,4], and they'd both make it to this stage, but when we go to take the intersection, we get [2,3], which is not a quorum.
         quorum_of_1bs quorum_of_2bs = let (x:xs) = toList $ HashSet.map ((\(Recursive_2b x) -> x) . original) quorum_of_2bs
                                        in foldr intersection x xs
         -- Given an observer x and a quorum of Participant_IDs q, returns whether any quorum of x's is satisfied by a set of 1bs which everyone in q has received.
