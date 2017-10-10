@@ -29,6 +29,7 @@ import Hetcons.Receive_Message
 import Hetcons.Send ()
 import Hetcons.Signed_Message
     ( Encodable
+       ,encode
      ,Parsable
      ,Recursive_2a(Recursive_2a)
      ,Recursive_1b(Recursive_1b)
@@ -73,8 +74,9 @@ import Hetcons_Types
 import Control.Monad ( mapM, mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
+import qualified Data.ByteString.Lazy as ByteString( length )
 import Data.Foldable ( maximum )
-import Data.Hashable (Hashable)
+import Data.Hashable (Hashable,hash)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
 import qualified Data.HashSet as HashSet ( map, filter, empty )
 
@@ -94,7 +96,7 @@ sign_m m = do
 -- | Participant receives 1A
 --   If we've seen anything with this Ballot number or higher before (featuring the same Quorums), then do nothing.
 --   Otherwise, send a 1B.
-instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
+instance forall v . (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
     { if valid r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
          then return () -- However, the first time we receive a value, we always must end up here.
@@ -104,11 +106,35 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
     ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; state <- get_state
     -- TODO: non-pairwise conflicts
-    ; let conflicting_ballots = HashSet.map extract_ballot $
-             HashSet.filter (conflicts . fromList . (:[Recursive_1b {
-                                                          recursive_1b_non_recursive = naive_1b
-                                                         ,recursive_1b_proposal = r1a
-                                                         ,recursive_1b_conflicting_phase2as = HashSet.empty}]) . original ) state
+    ; print_hetcons "\nabout to calculate conflicting ballots..."
+    ; print_hetcons ("there are " ++ (show $ size state) ++ " known ballots,")
+    ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
+                                   ,recursive_1b_proposal = r1a
+                                   ,recursive_1b_conflicting_phase2as = HashSet.empty}
+    ; print_hetcons ("r1a value has hash " ++ (show ( hash ((extract_value naive_r1b):: v))))
+    ; print_hetcons ("non_recursive (naive r1b) has a printout of length " ++ (show (( ByteString.length ( encode ((non_recursive naive_r1b):: (Phase_1b)))))))
+
+    ; let original_state = HashSet.map (\x -> (original x, x)) state
+    ; print_hetcons ("there are " ++ (show $ size original_state) ++ " original_state 1bs")
+
+    ; let list_state = HashSet.map (\(x,y) -> ((x:[naive_r1b]), y)) original_state
+    ; print_hetcons ("there are " ++ (show $ size list_state) ++ " list_state 1bs")
+
+
+
+
+    -- TODO: the line below seems to be causing an infinite loop, which allocates memory.
+    ; let fromlist_state = HashSet.map (\(x,y) -> (fromList x, y)) list_state
+    ; print_hetcons ("there are " ++ (show $ size fromlist_state) ++ " fromlist_state 1bs")
+
+    ; let left_conflicting_1bs = HashSet.filter (conflicts . fst) fromlist_state
+    ; print_hetcons ("there are " ++ (show $ size left_conflicting_1bs) ++ " left_conflicting 1bs")
+
+    ; let conflicting_1bs = HashSet.map snd left_conflicting_1bs
+    ; print_hetcons ("there are " ++ (show $ size conflicting_1bs) ++ " conflicting 1bs")
+
+    ; let conflicting_ballots = HashSet.map extract_ballot conflicting_1bs
+    ; print_hetcons ("there are " ++ (show $ size conflicting_ballots) ++ " conflicting ballots")
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
     ; if ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots)))
          then return ()
