@@ -33,6 +33,7 @@ module Hetcons.Receive_Message
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
     ,hetcons_Server_verify_quorums
+  ,print_hetcons
   )
   where
 
@@ -90,6 +91,8 @@ newtype Hetcons_Transaction s v a =
     IO a)
   } deriving (Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s v))
 
+print_hetcons :: (Hetcons_State s, Value v) => String -> Hetcons_Transaction s v ()
+print_hetcons = Hetcons_Transaction . liftIO . putStrLn
 
 
 -- | Defines all the data that constitute a server, which maintains some state of type `s`:

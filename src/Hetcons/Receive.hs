@@ -24,7 +24,8 @@ import Hetcons.Receive_Message
      ,put_state
      ,get_state
      ,get_my_private_key
-     ,get_my_crypto_id)
+     ,get_my_crypto_id
+     ,print_hetcons)
 import Hetcons.Send ()
 import Hetcons.Signed_Message
     ( Encodable
