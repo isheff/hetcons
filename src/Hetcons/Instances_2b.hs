@@ -110,7 +110,7 @@ instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Quorums (Recursive
 --
 --    * All 1Bs feature Observers (we don't support not doing that)
 --
---    * All 1Bs feature the same Observers
+--    * All 1Bs feature the same 1A
 --
 --    * The 1Bs satisfy at least one quorum of one Observer
 well_formed_2b :: forall m v . (Value v, Hashable v, Eq v, MonadError Hetcons_Exception m) => (Recursive_2b v) -> m ()
@@ -120,10 +120,10 @@ well_formed_2b r2b@(Recursive_2b s) =
                          invalid_Phase_2b_offending_phase_2b = non_recursive r2b
                         ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different values in this 2b, or no 1bs at all"})
           else return ()
-     ; if 1 /= (length $ HashSet.map extract_observer_quorums s)
+     ; if 1 /= (length $ HashSet.map (extract_1a :: ((Verified (Recursive_1b v)) -> (Verified (Recursive_1a v)))) s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
                          invalid_Phase_2b_offending_phase_2b = non_recursive r2b
-                        ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different observers in this 2b"})
+                        ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different 1As in this 2B."})
           else return ()
      ; let observers = extract_observer_quorums r2b
      ; if 0 == length observers
