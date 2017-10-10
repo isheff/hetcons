@@ -112,7 +112,8 @@ instance Value Slot_Value where
 -- Are there the same number of values in this set as there are distinct slot numbers, for each different observer value?
   value_conflicts x =
     any (\s -> ((length s) /= (length (HashSet.map (slot_Value_slot . recursive_1a_value . original) s)))) $
-        map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original)) (toList x))
+        map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original))
+                                     (toList x))
             (toList x)
   garbage_collect = id
 
