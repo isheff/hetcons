@@ -30,7 +30,10 @@ import Hetcons.Signed_Message
     ( Encodable
      ,Parsable
      ,Recursive_2a(Recursive_2a)
-     ,Recursive_1b
+     ,Recursive_1b(Recursive_1b)
+        ,recursive_1b_non_recursive
+        ,recursive_1b_proposal
+        ,recursive_1b_conflicting_phase2as
      ,Verified
      ,Recursive_1a
      ,Recursive_2b(Recursive_2b)
@@ -48,6 +51,7 @@ import Hetcons.Value
      ,extract_ballot
      ,Value
        ,valid
+     ,conflicts
     )
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
@@ -71,7 +75,7 @@ import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
-import qualified Data.HashSet as HashSet ( map, filter )
+import qualified Data.HashSet as HashSet ( map, filter, empty )
 
 -- | Helper function which signs a message using the Crypto_ID and Private_Key provided by the Mondic environment.
 sign_m :: (Value v, Encodable a, Hetcons_State s) => a -> Hetcons_Transaction s v Signed_Message
@@ -96,14 +100,19 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
          else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                              invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,
                              invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
+    ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; state <- get_state
-    ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1a) ==) . extract_observer_quorums) state
-      -- If we've seen this 1a before, or we've seen one with a greater ballot and the same quorums
-    ; if ((not (null ballots_with_matching_quorums)) && ((extract_ballot r1a) <= (maximum ballots_with_matching_quorums)))
+    -- TODO: non-pairwise conflicts
+    ; let conflicting_ballots = HashSet.map extract_ballot $
+             HashSet.filter (conflicts . fromList . (:[Recursive_1b {
+                                                          recursive_1b_non_recursive = naive_1b
+                                                         ,recursive_1b_proposal = r1a
+                                                         ,recursive_1b_conflicting_phase2as = HashSet.empty}]) . original ) state
+      -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
+    ; if ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots)))
          then return ()
          else do { conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
-                 ; send (default_Phase_1b {phase_1b_proposal = signed r1a
-                                          ,phase_1b_conflicting_phase2as = fromList conflicting})}}
+                 ; send (naive_1b {phase_1b_conflicting_phase2as = fromList conflicting})}}
 
 -- | Participant receives 1B
 --   If we've received this 1B before, or one with matching quorums but a higher ballot number, do nothing.
