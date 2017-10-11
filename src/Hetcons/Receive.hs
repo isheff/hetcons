@@ -47,7 +47,6 @@ import Hetcons.Value
     ( Contains_Value(extract_value)
      ,Contains_1a(extract_1a)
      ,Contains_1bs(extract_1bs)
-     ,extract_observer_quorums
      ,extract_ballot
      ,Value
        ,valid
@@ -117,7 +116,8 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
 -- | Participant receives 1B
 --   If we've received this 1B before, or one that conflicts but has a higher ballot number, do nothing.
 --   Otherwise, we try to assemble a 2A out of all the 1Bs we've received for this ballot, and if we have enough (if that 2A is valid), we send it.
-instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
+instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
+         Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
     { old_state <- get_state
     -- TODO: non-pairwise conflicts
