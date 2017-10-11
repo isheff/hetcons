@@ -100,15 +100,15 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
                              invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,
                              invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
     ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
+    ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
+                                   ,recursive_1b_proposal = r1a
+                                   ,recursive_1b_conflicting_phase2as = HashSet.empty}
     ; state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $
-            HashSet.filter ((\x -> (1 == (size x)) || (conflicts x)) . fromList . (:[Recursive_1b {
-                                                          recursive_1b_non_recursive = naive_1b
-                                                         ,recursive_1b_proposal = r1a
-                                                         ,recursive_1b_conflicting_phase2as = HashSet.empty}]) . original ) state
+             HashSet.filter (conflicts . fromList . (:[naive_r1b]) . original ) state
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
-    ; if ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots)))
+    ; if ((member naive_r1b $ HashSet.map original state) || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
          then return ()
          else do { conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
                  ; send (naive_1b {phase_1b_conflicting_phase2as = fromList conflicting})}}
@@ -121,7 +121,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
   receive r1b = do
     { old_state <- get_state
     -- TODO: non-pairwise conflicts
-    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter ((\x -> (1 == (size x)) || (conflicts x)) . fromList . (:[r1b])) old_state
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
