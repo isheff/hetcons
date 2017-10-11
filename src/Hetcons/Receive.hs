@@ -105,8 +105,7 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
                                    ,recursive_1b_conflicting_phase2as = HashSet.empty}
     ; state <- get_state
     -- TODO: non-pairwise conflicts
-    ; let conflicting_ballots = HashSet.map extract_ballot $
-             HashSet.filter (conflicts . fromList . (:[naive_r1b]) . original ) state
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[naive_r1b]) . original ) state
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
     ; if ((member naive_r1b $ HashSet.map original state) || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
          then return ()
