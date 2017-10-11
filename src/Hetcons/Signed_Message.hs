@@ -207,7 +207,8 @@ data Recursive_1b v = Recursive_1b {
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified (Recursive_2a v)))
   } deriving (Generic)
 instance (Show v) => Show (Recursive_1b v)
-instance (Eq v)   => Eq (Recursive_1b v)
+instance (Eq v)   => Eq (Recursive_1b v) where
+  (Recursive_1b {recursive_1b_non_recursive = nr1}) == (Recursive_1b {recursive_1b_non_recursive = nr2}) = nr1 == nr2
 
 
 

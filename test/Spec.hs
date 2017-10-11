@@ -24,5 +24,5 @@ main = do { forkIO(do { putStrLn "\nHETCONS EXCEPTION TESTS"
                       ; runTestTT consensus_tests
                       ; return ()
                       })
-          ; threadDelay (1000*1000*20)
+          ; threadDelay (1000*1000*90)
 }

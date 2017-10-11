@@ -7,7 +7,7 @@
 -- | Defines what each type of server does upon receiving each type of message.
 --   Thus, the consensus protocol is largely defined here.
 --   Note that each message receipt will be in an atomic transaction.
-module Hetcons.Receive () where
+module Hetcons.Receive (fs) where
 
 import Hetcons.Conflicting_2as ( conflicting_2as )
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a))
@@ -93,6 +93,33 @@ sign_m m = do
 --                                Participants                                --
 --------------------------------------------------------------------------------
 
+fs list_state = do {
+    -- TODO: the line below seems to be causing an infinite loop, which allocates memory.
+    ; let lstate = toList list_state
+    ; print_hetcons ("lstate has length " ++ (show $ length lstate))
+    ; let lfs = map (\(x,y) -> (fromList x, y)) lstate
+    ; print_hetcons ("lfs has length " ++ (show $ length lfs))
+    ; if (length lfs) > 1
+         then do {print_hetcons ("lstate[1][0] has hash " ++ (show $ hash $ (fst (lstate!!1))!!0))
+                 ;print_hetcons ("lstate[1][1] has hash " ++ (show $ hash $ (fst (lstate!!1))!!1))
+                 ;print_hetcons ("lstate[1][1] and lstate[1][0] are equal " ++ (show $ ((fst (lstate!!1))!!1) == ((fst (lstate!!1))!!1)))
+                 ;print_hetcons ("lstate[0][0] has hash " ++ (show $ hash $ (fst (lstate!!0))!!0))
+                 ;print_hetcons ("lstate[0][1] has hash " ++ (show $ hash $ (fst (lstate!!0))!!1))
+                 ;print_hetcons ("lstate[1]snd has hash " ++ (show $ hash $ (snd (lstate!!1))))
+                 ;print_hetcons ("lstate[0]snd has hash " ++ (show $ hash $ (snd (lstate!!0))))
+                 ;print_hetcons ("lfs[1] would have size " ++ (show $ size $ fromList [(fst (lstate!!1))!!0, (fst (lstate!!1))!!1]))
+                 ;print_hetcons ("lfs[1] has size " ++ (show $ size $ fst $ lfs!!1))
+                 }
+         else return ()
+    ; if (length lfs) > 0
+         then print_hetcons ("lfs[0] has size " ++ (show $ size $ fst $ head lfs))
+         else return ()
+    ; print_hetcons ("lfs elements have size " ++ (show $ map (size . fst) lfs))
+    ; let fromlist_state = fromList lfs
+    ; print_hetcons ("there are " ++ (show $ size fromlist_state) ++ " fromlist_state 1bs")
+    ; return fromlist_state
+    }
+
 -- | Participant receives 1A
 --   If we've seen anything with this Ballot number or higher before (featuring the same Quorums), then do nothing.
 --   Otherwise, send a 1B.
@@ -121,11 +148,8 @@ instance forall v . (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (P
     ; print_hetcons ("there are " ++ (show $ size list_state) ++ " list_state 1bs")
 
 
+    ; fromlist_state <- fs list_state
 
-
-    -- TODO: the line below seems to be causing an infinite loop, which allocates memory.
-    ; let fromlist_state = HashSet.map (\(x,y) -> (fromList x, y)) list_state
-    ; print_hetcons ("there are " ++ (show $ size fromlist_state) ++ " fromlist_state 1bs")
 
     ; let left_conflicting_1bs = HashSet.filter (conflicts . fst) fromlist_state
     ; print_hetcons ("there are " ++ (show $ size left_conflicting_1bs) ++ " left_conflicting 1bs")
