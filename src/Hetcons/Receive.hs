@@ -115,15 +115,16 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
                  ; send (naive_1b {phase_1b_conflicting_phase2as = fromList conflicting})}}
 
 -- | Participant receives 1B
---   If we've received this 1B before, or one with matching quorums but a higher ballot number, do nothing.
+--   If we've received this 1B before, or one that conflicts but has a higher ballot number, do nothing.
 --   Otherwise, we try to assemble a 2A out of all the 1Bs we've received for this ballot, and if we have enough (if that 2A is valid), we send it.
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
     { old_state <- get_state
-    ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1b) ==) . extract_observer_quorums) old_state
+    -- TODO: non-pairwise conflicts
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
-         ((not (null ballots_with_matching_quorums)) &&
-         ((extract_ballot r1b) < (maximum ballots_with_matching_quorums))))
+         ((not (null conflicting_ballots)) &&
+         ((extract_ballot r1b) < (maximum conflicting_ballots))))
          then return ()
          else do { my_crypto_id <- get_my_crypto_id
                  ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signed_Message_signature $ signed r1b) -- if this 1b is from me
