@@ -103,7 +103,7 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
     ; state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $
-             HashSet.filter (conflicts . fromList . (:[Recursive_1b {
+            HashSet.filter ((\x -> (1 == (size x)) || (conflicts x)) . fromList . (:[Recursive_1b {
                                                           recursive_1b_non_recursive = naive_1b
                                                          ,recursive_1b_proposal = r1a
                                                          ,recursive_1b_conflicting_phase2as = HashSet.empty}]) . original ) state
@@ -121,7 +121,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
   receive r1b = do
     { old_state <- get_state
     -- TODO: non-pairwise conflicts
-    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter ((\x -> (1 == (size x)) || (conflicts x)) . fromList . (:[r1b])) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
