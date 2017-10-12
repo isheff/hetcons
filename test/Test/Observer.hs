@@ -61,7 +61,7 @@ import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
-    ( singleton, readFile )
+    ( singleton, readFile, empty )
 import Data.ByteString.Lazy ( ByteString )
 import Data.HashSet ( fromList )
 import Test.HUnit
@@ -134,8 +134,8 @@ data Dummy_Participant = Dummy_Participant {
 }
 instance Hetcons_Participant_Iface Dummy_Participant where
   ping = on_ping
-  proposal_1a = on_proposal_1a
-  phase_1b = on_phase_1b
+  proposal_1a v x _ = on_proposal_1a v x
+  phase_1b v x _ = on_phase_1b v x
 
 dummy_participant_server :: (Integral a) => a -> Dummy_Participant -> IO ThreadId
 dummy_participant_server port dummy = forkIO $ runBasicServer dummy process (fromIntegral port)
@@ -166,7 +166,7 @@ launch_dummy_observer port = do
   ; let (Right (v2b :: (Verified (Recursive_2b Slot_Value)))) = verify signed_2b
   ; dummy_observer <- dummy_observer_server port (Dummy_Observer { dummy_observer_on_ping = return ()
                                                                  , dummy_observer_on_phase_2b = putMVar receipt_2b})
-  ; send_Message_IO address_book v2b
+  ; send_Message_IO address_book ByteString.empty v2b
   ; takeMVar receipt_2b >>= assertEqual "received 2b is not sent 2b" signed_2b
   ; return (port, now, address_book, cert)
   }
@@ -191,7 +191,7 @@ launch_observer port = do
   ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
   ; (Right signed_2b) <- sample_sign $ default_Phase_2b { phase_2b_phase_1bs = fromList [signed_1b]}
   ; let (Right (v2b :: (Verified (Recursive_2b Slot_Value)))) = verify signed_2b
-  ; send_Message_IO address_book v2b
+  ; send_Message_IO address_book ByteString.empty v2b
   ; assertBool "have launched an observer" True
   ; received_proof <- takeMVar proof_receipt
   ; assertEqual "incorrect observers proven" ("localhost:"++(show $ fromIntegral new_port)++",") $
