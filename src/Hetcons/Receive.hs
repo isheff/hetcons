@@ -66,6 +66,7 @@ import Hetcons_Types
      ,default_Phase_2b
      ,default_Phase_1b
      ,default_Invalid_Proposal_1a
+     ,invalid_Proposal_1a_offending_witness
      ,invalid_Proposal_1a_offending_proposal
      ,invalid_Proposal_1a_explanation)
 
@@ -95,13 +96,7 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
-    { witness <- get_witness
-    ; if valid witness r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
-         then return () -- However, the first time we receive a value, we always must end up here.
-         else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
-                             invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,
-                             invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
-    ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
+    { let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
                                    ,recursive_1b_proposal = r1a
                                    ,recursive_1b_conflicting_phase2as = HashSet.empty}
@@ -111,7 +106,14 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
     ; if ((member naive_r1b $ HashSet.map original state) || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
          then return ()
-         else do { conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
+         else do { witness <- get_witness
+                 ; if valid witness r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
+                      then return () -- However, the first time we receive a value, we always must end up here.
+                      else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+                                          invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a
+                                         ,invalid_Proposal_1a_offending_witness = Just witness
+                                         ,invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
+                 ; conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
                  ; send (naive_1b {phase_1b_conflicting_phase2as = fromList conflicting})}}
 
 -- | Participant receives 1B

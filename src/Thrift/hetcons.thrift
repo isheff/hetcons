@@ -292,6 +292,7 @@ struct Proposal_1a { // remember, this will be wrapped in a Signed_Message
 exception Invalid_Proposal_1a {
   1: Proposal_1a offending_proposal,
   3: optional string explanation
+  4: optional Value_Witness offending_witness
 }
 
 /////////////////////////////////  2a  ///////////////////////////////
