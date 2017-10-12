@@ -205,31 +205,23 @@ data Recursive_1b v = Recursive_1b {
   ,recursive_1b_proposal :: Verified (Recursive_1a v)
    -- | The Recursive version of the 1B's contained 2As
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified (Recursive_2a v)))
-  } deriving (Generic)
-instance (Show v) => Show (Recursive_1b v)
-instance (Eq v)   => Eq (Recursive_1b v)
+} deriving (Show, Eq, Generic)
 
 
 
 -- | Phase_2a s carry phase 1b messages with them.
 --   Recursive_2a s carry parsed and verified versions of these.
-newtype Recursive_2a v = Recursive_2a (HashSet (Verified (Recursive_1b v))) deriving (Generic)
-instance (Show v) => Show (Recursive_2a v)
-instance (Eq v)   => Eq (Recursive_2a v)
+newtype Recursive_2a v = Recursive_2a (HashSet (Verified (Recursive_1b v))) deriving (Show, Eq, Generic)
 
 
 
 -- | Phase_2b s carry signed 1b messages with them.
 --   Recursive_2bs carry parsed and verified versions of these.
-newtype Recursive_2b v = Recursive_2b (HashSet (Verified (Recursive_1b v))) deriving (Generic)
-instance (Show v) => Show (Recursive_2b v)
-instance (Eq v)   => Eq (Recursive_2b v)
+newtype Recursive_2b v = Recursive_2b (HashSet (Verified (Recursive_1b v))) deriving (Show, Eq, Generic)
 
 -- | Proof_of_Consensus messages carry signed 2b messages with them.
 --   Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
-newtype Recursive_Proof_of_Consensus v = Recursive_Proof_of_Consensus (HashSet (Verified (Recursive_2b v))) deriving (Generic)
-instance (Show v) => Show (Recursive_Proof_of_Consensus v)
-instance (Eq v)   => Eq (Recursive_Proof_of_Consensus v)
+newtype Recursive_Proof_of_Consensus v = Recursive_Proof_of_Consensus (HashSet (Verified (Recursive_2b v))) deriving (Show, Eq, Generic)
 
 -- | verify is only way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.

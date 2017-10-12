@@ -87,6 +87,7 @@ test-suite hetcons-test
                      , Test.Quorums
                      , Test.Signed_Message
                      , Test.Util
+                     , Test.Witness
   main-is:             Spec.hs
   build-depends:       base
                      , hetcons

@@ -50,6 +50,7 @@ import Hetcons_Types
 
 import Control.Concurrent ( forkIO, ThreadId )
 import qualified Control.Concurrent.Map as CMap ( empty )
+import qualified Data.ByteString.Lazy as ByteString( empty )
 import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
 import Thrift.Server ( runBasicServer )
@@ -128,5 +129,5 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_Sta
                         observer_hetcons_server = s
                        ,do_on_consensus = doc})
               message
-    = run_Hetcons_Transaction_IO s doc (do { (verified :: (Verified (Recursive_2b v))) <-  verify message -- TODO: this doesn't technically need to be in the TX
-                                           ; receive verified})
+    = run_Hetcons_Transaction_IO s doc ByteString.empty (do { (verified :: (Verified (Recursive_2b v))) <-  verify message -- TODO: this doesn't need to be in the TX
+                                                        ; receive verified})

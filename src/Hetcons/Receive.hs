@@ -24,18 +24,22 @@ import Hetcons.Receive_Message
      ,put_state
      ,get_state
      ,get_my_private_key
-     ,get_my_crypto_id )
+     ,get_my_crypto_id
+     ,get_witness)
 import Hetcons.Send ()
 import Hetcons.Signed_Message
     ( Encodable
      ,Parsable
      ,Recursive_2a(Recursive_2a)
-     ,Recursive_1b
+     ,Recursive_1b(Recursive_1b)
+        ,recursive_1b_non_recursive
+        ,recursive_1b_proposal
+        ,recursive_1b_conflicting_phase2as
      ,Verified
      ,Recursive_1a
-     ,Recursive_2b
+     ,Recursive_2b(Recursive_2b)
      ,Recursive(non_recursive)
-     ,Recursive_Proof_of_Consensus
+     ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
      ,Monad_Verify(verify)
      ,signed
      ,sign
@@ -44,10 +48,10 @@ import Hetcons.Value
     ( Contains_Value(extract_value)
      ,Contains_1a(extract_1a)
      ,Contains_1bs(extract_1bs)
-     ,extract_observer_quorums
      ,extract_ballot
      ,Value
        ,valid
+     ,conflicts
     )
 
 import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
@@ -62,6 +66,7 @@ import Hetcons_Types
      ,default_Phase_2b
      ,default_Phase_1b
      ,default_Invalid_Proposal_1a
+     ,invalid_Proposal_1a_offending_witness
      ,invalid_Proposal_1a_offending_proposal
      ,invalid_Proposal_1a_explanation)
 
@@ -70,8 +75,8 @@ import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
-import Data.HashSet ( HashSet, toList, member, insert, fromList )
-import qualified Data.HashSet as HashSet ( map, filter )
+import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
+import qualified Data.HashSet as HashSet ( map, filter, empty )
 
 -- | Helper function which signs a message using the Crypto_ID and Private_Key provided by the Mondic environment.
 sign_m :: (Value v, Encodable a, Hetcons_State s) => a -> Hetcons_Transaction s v Signed_Message
@@ -91,30 +96,38 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
-    { if valid r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
-         then return () -- However, the first time we receive a value, we always must end up here.
-         else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
-                             invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,
-                             invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
+    { let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
+    ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
+                                   ,recursive_1b_proposal = r1a
+                                   ,recursive_1b_conflicting_phase2as = HashSet.empty}
     ; state <- get_state
-    ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1a) ==) . extract_observer_quorums) state
-      -- If we've seen this 1a before, or we've seen one with a greater ballot and the same quorums
-    ; if ((not (null ballots_with_matching_quorums)) && ((extract_ballot r1a) <= (maximum ballots_with_matching_quorums)))
+    -- TODO: non-pairwise conflicts
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[naive_r1b]) . original ) state
+      -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
+    ; if ((member naive_r1b $ HashSet.map original state) || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
          then return ()
-         else do { conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
-                 ; send (default_Phase_1b {phase_1b_proposal = signed r1a
-                                          ,phase_1b_conflicting_phase2as = fromList conflicting})}}
+         else do { witness <- get_witness
+                 ; if valid witness r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
+                      then return () -- However, the first time we receive a value, we always must end up here.
+                      else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+                                          invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a
+                                         ,invalid_Proposal_1a_offending_witness = Just witness
+                                         ,invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
+                 ; conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
+                 ; send (naive_1b {phase_1b_conflicting_phase2as = fromList conflicting})}}
 
 -- | Participant receives 1B
---   If we've received this 1B before, or one with matching quorums but a higher ballot number, do nothing.
+--   If we've received this 1B before, or one that conflicts but has a higher ballot number, do nothing.
 --   Otherwise, we try to assemble a 2A out of all the 1Bs we've received for this ballot, and if we have enough (if that 2A is valid), we send it.
-instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
+instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
+         Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
     { old_state <- get_state
-    ; let ballots_with_matching_quorums = HashSet.map extract_ballot $ HashSet.filter (((extract_observer_quorums r1b) ==) . extract_observer_quorums) old_state
+    -- TODO: non-pairwise conflicts
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
-         ((not (null ballots_with_matching_quorums)) &&
-         ((extract_ballot r1b) < (maximum ballots_with_matching_quorums))))
+         ((not (null conflicting_ballots)) &&
+         ((extract_ballot r1b) < (maximum conflicting_ballots))))
          then return ()
          else do { my_crypto_id <- get_my_crypto_id
                  ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signed_Message_signature $ signed r1b) -- if this 1b is from me
@@ -156,9 +169,18 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (O
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
          else do { let state = insert r2b old_state
                  ; put_state state
-                 ; let potential_proof =
+                 ; let potential_proof' =
                          HashSet.filter ((((extract_1a r2b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 2bs with the same proposal
                          HashSet.filter ((((extract_value r2b) :: v) ==) . extract_value) state  -- all the 2bs with the same value
+                 -- filter for only the longest 2bs from each sender
+                 ; let potential_proof = HashSet.filter(\v2b->let same_crypto_id = HashSet.filter (((signed_Hash_crypto_id $ signed_Message_signature $ signed v2b) ==) .
+                                                                                                     signed_Hash_crypto_id . signed_Message_signature . signed)
+                                                                                                  potential_proof'
+                                                               in all (\x -> let (Recursive_2b y) = original x
+                                                                                 (Recursive_2b r) = original v2b
+                                                                              in (size y) <= (size r))
+                                                                      same_crypto_id)
+                                                       potential_proof'
                  ; if (length (observers_proven potential_proof)) > 0
                       then do { signed <- sign_m (default_Proof_of_Consensus { proof_of_Consensus_phase_2bs = HashSet.map signed potential_proof})
                               ; (v :: (Verified (Recursive_Proof_of_Consensus v))) <- verify signed

@@ -113,7 +113,14 @@ instance (Value v) => Observers_Provable (Recursive_Proof_of_Consensus v) where
                                                      Just y -> (member y (HashSet.map participant_ID_crypto_id q))
                                                      Nothing -> False)
        -- Given a set of 2bs, returns the largest set of 1bs which every one of the 2b senders has received
-        quorum_of_1bs quorum_of_2bs = let (x:xs) = toList $ HashSet.map ((\(Recursive_2b x) -> x) . original) quorum_of_2bs
+        quorum_of_1bs quorum_of_2bs = let (x:xs) = toList $ HashSet.map
+                                           (\v2b-> -- for each verified 2b, collect all the 1bs from all 2bs featuring the same sender
+                                               let same_crypto_id = HashSet.filter (((signed_Hash_crypto_id $ signed_Message_signature $ signed v2b) ==) .
+                                                                                                              signed_Hash_crypto_id . signed_Message_signature . signed)
+                                                                                   quorum_of_2bs
+                                                in unions $ map ((\(Recursive_2b x) -> x) . original) $ toList same_crypto_id
+                                           )
+                                           quorum_of_2bs
                                        in foldr intersection x xs
         -- Given an observer x and a quorum of Participant_IDs q, returns whether any quorum of x's is satisfied by a set of 1bs which everyone in q has received.
         is_proven_with_quorum_of_2bs x q = any (\x_quorum -> ((length x_quorum) == (length (filter_by_quorum x_quorum (quorum_of_1bs q))))) $ observers!x

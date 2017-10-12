@@ -41,6 +41,7 @@ import Hetcons.Signed_Message (Recursive_1a
 import Hetcons_Types  (Slot_Value
                          ,slot_Value_slot
                          ,encode_Slot_Value
+                      ,Value_Witness
                       ,Participant_ID
                       ,Proposal_1a(Proposal_1a)
                          ,proposal_1a_observers
@@ -79,7 +80,7 @@ class Value v where
   --   It may be useful to the programmer to note that, as the valid function may wish to look at quorums and such,
   --    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
   --   This is why `valid` is called in `receive`, rather than in `parse`.
-  value_valid :: v -> Bool
+  value_valid :: Value_Witness -> v -> Bool
 
   -- | Does this set of entities contain conflicitng values?
   --   In this case, do any two of them have the same value_slot and observers?
@@ -92,8 +93,8 @@ class Value v where
   garbage_collect :: HashSet (Verified (Recursive_1b v)) -> HashSet (Verified (Recursive_1b v))
 
 
-valid :: forall a v . (Value v, Contains_Value (Verified (a v)) v) => (Verified (a v)) -> Bool
-valid = (value_valid :: v -> Bool) . (extract_value  :: (Verified (a v)) -> v)
+valid :: forall a v . (Value v, Contains_Value (Verified (a v)) v) => Value_Witness -> (Verified (a v)) -> Bool
+valid witness = ((value_valid witness) :: v -> Bool) . (extract_value  :: (Verified (a v)) -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
 class Conflictable a where
@@ -108,11 +109,12 @@ instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v,  Hasha
 
 
 instance Value Slot_Value where
-  value_valid _ = True
+  value_valid _ _ = True
 -- Are there the same number of values in this set as there are distinct slot numbers, for each different observer value?
   value_conflicts x =
     any (\s -> ((length s) /= (length (HashSet.map (slot_Value_slot . recursive_1a_value . original) s)))) $
-        map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original)) (toList x))
+        map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original))
+                                     (toList x))
             (toList x)
   garbage_collect = id
 

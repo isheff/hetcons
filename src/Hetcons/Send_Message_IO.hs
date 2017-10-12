@@ -29,7 +29,8 @@ import Hetcons_Types
                   ,iPv6_Address_byte_5, iPv6_Address_byte_4, iPv6_Address_byte_3
                   ,iPv6_Address_byte_2, iPv6_Address_byte_1, iPv6_Address_byte_0)
      ,IPv4_Address(IPv4_Address, iPv4_Address_byte_3
-                  ,iPv4_Address_byte_2, iPv4_Address_byte_1, iPv4_Address_byte_0) )
+                  ,iPv4_Address_byte_2, iPv4_Address_byte_1, iPv4_Address_byte_0)
+     ,Value_Witness)
 
 import qualified Control.Concurrent.Map as Concurrent_Map
     ( Map, empty, lookup )
@@ -125,31 +126,31 @@ class Send_Message_IO a where
   --   As it is conceivable that sending a message could take an arbitrary amount of time
   --    (especially as we wait for the recipient to potentially return an Exception),
   --    we send all messages in parallel, so no one waits for any other.
-  send_Message_IO :: Address_Book -> (Verified a) -> IO ()
+  send_Message_IO :: Address_Book -> Value_Witness -> (Verified a) -> IO ()
 
 -- | Send a 1A to all participants listed in any quorum.
 instance (Value v) => Send_Message_IO (Recursive_1a v) where
-  send_Message_IO address_book v1a =
-    Parallel.mapM_ (\participant -> (send_to address_book participant proposal_1a $ signed v1a)) $
+  send_Message_IO address_book witness v1a =
+    Parallel.mapM_ (\participant -> (send_to address_book participant (\c (x,y) -> proposal_1a c x y) (signed v1a, witness))) $
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1a
 
 -- | Send a 1B to all participants listed in any quorum.
 instance (Value v) => Send_Message_IO (Recursive_1b v) where
-  send_Message_IO address_book v1b =
-    Parallel.mapM_ (\participant -> (send_to address_book participant phase_1b $ signed v1b)) $
+  send_Message_IO address_book witness v1b =
+    Parallel.mapM_ (\participant -> (send_to address_book participant (\c (x,y) -> phase_1b c x y) (signed v1b, witness))) $
                toList $ unions $ toList $ unions $ elems $ extract_observer_quorums v1b
 
 -- | 2As are not actually sent over the wire.
 instance (Value v) => Send_Message_IO (Recursive_2a v) where
-  send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
+  send_Message_IO address_book _ _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . extract_1bs
 
 -- | 2Bs are sent to each observer listed in the Quorums.
 instance (Value v) => Send_Message_IO (Recursive_2b v) where
-  send_Message_IO address_book v2b =
+  send_Message_IO address_book _ v2b =
     Parallel.mapM_ (\participant -> (send_to address_book participant phase_2b $ signed v2b)) $
                keys $ extract_observer_quorums v2b
 
 -- | Proofs of Consensus are not send over the wire.
 instance (Value v) => Send_Message_IO (Recursive_Proof_of_Consensus v) where
-  send_Message_IO address_book _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . (\(Recursive_Proof_of_Consensus v2bs) -> v2bs) . original
+  send_Message_IO address_book _ _ = return () -- it would be redundant, but still correct, to send: (Parallel.mapM_ $ send_Message_IO address_book) . toList . (\(Recursive_Proof_of_Consensus v2bs) -> v2bs) . original
 

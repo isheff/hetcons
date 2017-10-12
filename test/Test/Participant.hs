@@ -68,7 +68,7 @@ import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Control.Exception ( SomeException, catch )
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
-    ( readFile, concat, take, drop, singleton, index )
+    ( readFile, concat, take, drop, singleton, index, empty )
 import Data.HashSet ( fromList )
 import Test.HUnit
     ( Test(TestList, TestLabel, TestCase), assertEqual, assertBool )
@@ -144,8 +144,8 @@ data Dummy_Participant = Dummy_Participant {
 }
 instance Hetcons_Participant_Iface Dummy_Participant where
   ping = on_ping
-  proposal_1a = on_proposal_1a
-  phase_1b = on_phase_1b
+  proposal_1a v x _ = on_proposal_1a v x
+  phase_1b v x _ = on_phase_1b v x
 
 dummy_participant_server :: (Integral a) => a -> Dummy_Participant -> IO ThreadId
 dummy_participant_server port dummy = forkIO $ runBasicServer dummy process (fromIntegral port)
@@ -181,8 +181,8 @@ participant_tests = TestList [
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
        ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
        ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
-       ; send_Message_IO address_book v1a
-       ; send_Message_IO address_book v1b
+       ; send_Message_IO address_book ByteString.empty v1a
+       ; send_Message_IO address_book ByteString.empty v1b
        ; r1a <- takeMVar receipt_1a
        ; r1b <- takeMVar receipt_1b
        ; assertEqual "received 1a is not sent 1a" signed_1a r1a
@@ -216,8 +216,8 @@ participant_tests = TestList [
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
        ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
        ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
-       ; send_Message_IO address_book v1a
-       ; send_Message_IO address_book v1b
+       ; send_Message_IO address_book ByteString.empty v1a
+       ; send_Message_IO address_book ByteString.empty v1b
        ; r1a <- takeMVar receipt_1a
        ; r1b <- takeMVar receipt_1b
        ; r1a2 <- takeMVar receipt_1a2
@@ -258,7 +258,7 @@ participant_tests = TestList [
                       })})
        ; (handle :: Handle) <- hOpen (("localhost" :: HostName), PortNumber 87010)
        ; let client = (BinaryProtocol handle, BinaryProtocol handle)
-       ; (catch (Client.proposal_1a client borked_message >> assertBool "Exception should have been thrown" False)
+       ; (catch (Client.proposal_1a client borked_message ByteString.empty >> assertBool "Exception should have been thrown" False)
                 (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) True))
        }))
 
@@ -283,6 +283,7 @@ participant_tests = TestList [
        ; catch (catch (run_Hetcons_Transaction_IO (participant{ hetcons_Server_address_book = address_book
                                                               , hetcons_Server_state_var = sv})
                                                   (\_ -> return ())
+                                                  ByteString.empty
                                                   $ receive verified)
                 (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
          (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) False))
@@ -317,7 +318,7 @@ participant_tests = TestList [
        ; address_book <- default_Address_Book
        ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert2 87005,sample_id cert3 87006,sample_id cert 87007]
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1a)
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; r1a <- takeMVar receipt_1a
@@ -361,7 +362,7 @@ participant_tests = TestList [
        ; address_book <- default_Address_Book
        ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert3 87035,sample_id cert2 87036,sample_id cert 87037]
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1a)
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a)
                                              (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                       (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; r1a <- takeMVar receipt_1a
@@ -376,7 +377,7 @@ participant_tests = TestList [
        ; assertEqual "received 1b is not sent 1b" v1a $ extract_1a v1b2
        ; (Right signed_1a2) <- sample_sign $ sample_1a (now - 1) [sample_id cert3 87035,sample_id cert2 87036,sample_id cert 87037]
        ; let (Right (v1a2 :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a2
-       ; (catch (catch (send_Message_IO address_book v1a2)
+       ; (catch (catch (send_Message_IO address_book ByteString.empty v1a2)
                        (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                 (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) False)))
        ; r1a12 <- takeMVar receipt_1a
@@ -385,7 +386,7 @@ participant_tests = TestList [
        ; assertEqual "received 1a is not sent 1a" signed_1a2 r1a22
        ; (Right signed_1a3) <- sample_sign $ sample_1a (now + 1) [sample_id cert3 87035,sample_id cert2 87036,sample_id cert 87037]
        ; let (Right (v1a3 :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a3
-       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1a3)
+       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a3)
                                               (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                        (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; r1a13 <- takeMVar receipt_1a
@@ -425,7 +426,7 @@ participant_tests = TestList [
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
        ; (Right signed_1b) <- sample_sign (default_Phase_1b { phase_1b_proposal = signed_1a})
        ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b)
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1b)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; r1b <- takeMVar receipt_1b
@@ -489,10 +490,10 @@ participant_tests = TestList [
        ; let (Right signed_1b3) = sign crypto_id3 private3 sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen3 (default_Phase_1b { phase_1b_proposal = signed_1a})
        ; let (Right (v1b2 :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b2
        ; let (Right (v1b3 :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b3
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b2)
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1b2)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1b3)
+       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1b3)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; r1b <- takeMVar receipt_1b
@@ -563,10 +564,10 @@ participant_tests = TestList [
        ; let (Right signed_1b3) = sign crypto_id3 private3 sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen3 (default_Phase_1b { phase_1b_proposal = signed_1a})
        ; let (Right (v1b2 :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b2
        ; let (Right (v1b3 :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b3
-       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book v1b2)
+       ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1b2)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
-       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book v1b3)
+       ; send_thread2 <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1b3)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; let receive_1b = do { r1b <- takeMVar receipt_1b
@@ -586,7 +587,7 @@ participant_tests = TestList [
                                                                     fromList [fromList [sample_id cert1 77095,sample_id cert2 77096,sample_id cert3 77097]])]}}
        ; (Right signed_1a2) <- sample_sign $ message_1a2
        ; let (Right (v1a2 :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a2
-       ; send_thread3 <- forkIO (catch (catch (send_Message_IO address_book v1a2)
+       ; send_thread3 <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a2)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
                                (\(exception :: SomeException) -> (assertBool ("Exception Caught: " ++ (show exception)) ((show exception) == "thread killed"))))
        ; receive_1b

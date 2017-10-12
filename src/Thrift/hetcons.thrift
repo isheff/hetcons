@@ -275,6 +275,7 @@ union Observers {
 
 
 //////////////////////////////// 1a ///////////////////////////////
+typedef binary Value_Witness // Some 1As may require auxiliary info not in the 1A itself to validate. This is the type of that data.
 typedef binary Value_Payload // the type of whatever we're consenting on
 typedef binary Value // Technically, this is what the consensus agrees to. We'll need "conflict_with" functions, as well as "garbage collect" functions for any redefinition of this. Otherwise, it's opaque.
 typedef i64 Slot
@@ -291,6 +292,7 @@ struct Proposal_1a { // remember, this will be wrapped in a Signed_Message
 exception Invalid_Proposal_1a {
   1: Proposal_1a offending_proposal,
   3: optional string explanation
+  4: optional Value_Witness offending_witness
 }
 
 /////////////////////////////////  2a  ///////////////////////////////
@@ -356,7 +358,8 @@ exception Invalid_Proof_of_Consensus {
  */
 service Hetcons_Participant {
    void ping(),
-   void proposal_1a (1:Signed_Message/*Proposal_1a*/ proposal) // do we actually want this to return void? Perhaps we should return, like, whether or not consensus was reached? Should we have proposers implement their own service so that they can be informed of stuff?
+   void proposal_1a (1:Signed_Message/*Proposal_1a*/ proposal,
+                     2:Value_Witness witness) // do we actually want this to return void? Perhaps we should return, like, whether or not consensus was reached? Should we have proposers implement their own service so that they can be informed of stuff?
                     throws (1: No_Supported_Hash_Sha2_Descriptor_Provided              no_supported_hash_sha2_descriptor_provided,
                             2: Descriptor_Does_Not_Match_Hash_Sha2                     descriptor_does_not_match_hash_sha2,
                             3: No_Supported_Hash_Sha3_Descriptor_Provided              no_supported_hash_sha3_descriptor_provided,
@@ -381,7 +384,8 @@ service Hetcons_Participant {
                             22:Invalid_Phase_2b                                        invalid_Phase_2b
                             23:Invalid_Proof_of_Consensus                              invalid_Proof_of_Consensus)
 
-   void phase_1b (1:Signed_Message/*Phase_1b*/ phase_1b_message)
+   void phase_1b (1:Signed_Message/*Phase_1b*/ phase_1b_message,
+                  2:Value_Witness witness)
                     throws (1: No_Supported_Hash_Sha2_Descriptor_Provided              no_supported_hash_sha2_descriptor_provided,
                             2: Descriptor_Does_Not_Match_Hash_Sha2                     descriptor_does_not_match_hash_sha2,
                             3: No_Supported_Hash_Sha3_Descriptor_Provided              no_supported_hash_sha3_descriptor_provided,
