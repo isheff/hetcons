@@ -24,7 +24,8 @@ import Hetcons.Receive_Message
      ,put_state
      ,get_state
      ,get_my_private_key
-     ,get_my_crypto_id)
+     ,get_my_crypto_id
+     ,get_witness)
 import Hetcons.Send ()
 import Hetcons.Signed_Message
     ( Encodable
@@ -94,7 +95,8 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
-    { if valid r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
+    { witness <- get_witness
+    ; if valid witness r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
          then return () -- However, the first time we receive a value, we always must end up here.
          else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                              invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a,

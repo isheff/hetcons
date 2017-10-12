@@ -126,13 +126,13 @@ instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transa
   ping _ = return ()
 
   -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
-  proposal_1a participant message
-    = do { (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message -- TODO: this doesn't technically need a TX
+  proposal_1a participant message witness
+    = do { (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
          ; delay_message verified
-         ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}
+         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
 
   -- | When it gets a 1B, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
-  phase_1b participant message
-    = do { (verified :: (Verified (Recursive_1b v))) <- run_Hetcons_Transaction_IO participant on_consensus $ verify message -- TODO: this doesn't technically need a TX
+  phase_1b participant message witness
+    = do { (verified :: (Verified (Recursive_1b v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
          ; delay_message verified
-         ; run_Hetcons_Transaction_IO participant on_consensus $ receive verified}
+         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}

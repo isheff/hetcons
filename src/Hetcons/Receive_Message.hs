@@ -16,6 +16,7 @@ module Hetcons.Receive_Message
     ,update_state
     ,get_my_crypto_id
     ,get_my_private_key
+    ,get_witness
   ,Add_Sent
     ,add_sent
   ,Receivable
@@ -53,7 +54,7 @@ import Hetcons.Signed_Message
        ,verify' )
 import Hetcons.Value (Value)
 
-import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers )
+import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers, Value_Witness )
 
 import Crypto.Random          (drgNew)
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
@@ -126,6 +127,8 @@ data (Hetcons_State s, Value v) => Hetcons_Transaction_Environment s v = Hetcons
   hetcons_Transaction_Environment_hetcons_server :: Hetcons_Server s v
   -- | A reference to this server's state
  ,hetcons_Transaction_Environment_transaction_state :: IORef (Hetcons_Transaction_State s v)
+ -- | The "witness" from over the wire if this is a 1A or a 1B
+ ,hetcons_Transaction_Environment_witness :: Value_Witness
 }
 
 -- | This is the internal state maintained by the Hetcons_Transaction Monad.
@@ -233,6 +236,10 @@ update_state :: (Hetcons_State s, Value v) => (s -> (a, s)) -> Hetcons_Transacti
 update_state f = update_Hetcons_Transaction_State (\x -> let (y,z) = f $ hetcons_state x
                                                           in (y,x{hetcons_state = z}))
 
+-- | Reads the Witness from the Monad
+get_witness :: (Hetcons_State s, Value v) => Hetcons_Transaction s v Value_Witness
+get_witness = reader hetcons_Transaction_Environment_witness
+
 -- | Reades the Crypto_ID (public key) from the Monad
 get_my_crypto_id :: (Hetcons_State s, Value v) => Hetcons_Transaction s v Crypto_ID
 get_my_crypto_id = reader (hetcons_Server_crypto_id . hetcons_Transaction_Environment_hetcons_server)
@@ -249,8 +256,9 @@ get_my_private_key = reader (hetcons_Server_private_key . hetcons_Transaction_En
 --   return the returned value into the IO Monad.
 --   You can also throw a Hetcons_Exception.
 --   If an exception is thrown, it will be thrown in the IO monad, and NO STATE CHANGES WILL OCCUR, NO MESSAGES WILL BE SENT
-run_Hetcons_Transaction_IO :: (Hetcons_State s, Value v) => (Hetcons_Server s v) -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> (Hetcons_Transaction s v a) -> IO a
-run_Hetcons_Transaction_IO server do_on_consensus receive_message =
+run_Hetcons_Transaction_IO :: (Hetcons_State s, Value v) =>
+  (Hetcons_Server s v) -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> Value_Witness -> (Hetcons_Transaction s v a) -> IO a
+run_Hetcons_Transaction_IO server do_on_consensus witness receive_message =
   do { (answer, final_state) <- modify_and_read (hetcons_Server_state_var server)
                                   (\start_state -> do { start_transaction_state <- newIORef (
                                                           Hetcons_Transaction_State {
@@ -262,18 +270,19 @@ run_Hetcons_Transaction_IO server do_on_consensus receive_message =
                                                             ,hetcons_state = start_state})
                                                       ; let env =  Hetcons_Transaction_Environment {
                                                                       hetcons_Transaction_Environment_hetcons_server = server
-                                                                     ,hetcons_Transaction_Environment_transaction_state = start_transaction_state}
+                                                                     ,hetcons_Transaction_Environment_transaction_state = start_transaction_state
+                                                                     ,hetcons_Transaction_Environment_witness = witness}
                                                       ; runReaderT (unwrap (do { answer <- receive_message
                                                                                ; final_transaction_state <- get_Hetcons_Transaction_State
                                                                                ; final_state <- get_state
                                                                                ; return (final_state, (answer, final_transaction_state))}))
                                                                    env})
        -- as it is conceivable that sending messages could take arbitrarily long, we do so in parallel.
-     ; Parallel.sequence ((map (send_Message_IO (hetcons_Server_address_book server)) $ toList $ sent_1as final_state)++
-                          (map (send_Message_IO (hetcons_Server_address_book server)) $ toList $ sent_1bs final_state)++
-                          (map (send_Message_IO (hetcons_Server_address_book server)) $ toList $ sent_2as final_state)++
-                          (map (send_Message_IO (hetcons_Server_address_book server)) $ toList $ sent_2bs final_state)++
-                          (map (send_Message_IO (hetcons_Server_address_book server)) $ toList $ sent_Proof_of_Consensus final_state)++
+     ; Parallel.sequence ((map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_1as final_state)++
+                          (map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_1bs final_state)++
+                          (map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_2as final_state)++
+                          (map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_2bs final_state)++
+                          (map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_Proof_of_Consensus final_state)++
                           (map do_on_consensus $ toList $ sent_Proof_of_Consensus final_state))
      ; return answer}
 
