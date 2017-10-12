@@ -68,6 +68,8 @@ type Observer_Graph = Set.HashSet Observer_Trust_Constraint
 
 type Observer_Quorums = Map.HashMap Participant_ID (Set.HashSet (Set.HashSet Participant_ID))
 
+type Value_Witness = LBS.ByteString
+
 type Value_Payload = LBS.ByteString
 
 type Value = LBS.ByteString
@@ -1736,22 +1738,26 @@ default_Proposal_1a = Proposal_1a{
   proposal_1a_observers = P.Nothing}
 data Invalid_Proposal_1a = Invalid_Proposal_1a  { invalid_Proposal_1a_offending_proposal :: Proposal_1a
   , invalid_Proposal_1a_explanation :: P.Maybe LT.Text
+  , invalid_Proposal_1a_offending_witness :: P.Maybe LBS.ByteString
   } deriving (P.Show,P.Eq,G.Generic,TY.Typeable)
 instance X.Exception Invalid_Proposal_1a
 instance H.Hashable Invalid_Proposal_1a where
-  hashWithSalt salt record = salt   `H.hashWithSalt` invalid_Proposal_1a_offending_proposal record   `H.hashWithSalt` invalid_Proposal_1a_explanation record  
+  hashWithSalt salt record = salt   `H.hashWithSalt` invalid_Proposal_1a_offending_proposal record   `H.hashWithSalt` invalid_Proposal_1a_explanation record   `H.hashWithSalt` invalid_Proposal_1a_offending_witness record  
 instance QC.Arbitrary Invalid_Proposal_1a where 
   arbitrary = M.liftM Invalid_Proposal_1a (QC.arbitrary)
+          `M.ap`(M.liftM P.Just QC.arbitrary)
           `M.ap`(M.liftM P.Just QC.arbitrary)
   shrink obj | obj == default_Invalid_Proposal_1a = []
              | P.otherwise = M.catMaybes
     [ if obj == default_Invalid_Proposal_1a{invalid_Proposal_1a_offending_proposal = invalid_Proposal_1a_offending_proposal obj} then P.Nothing else P.Just $ default_Invalid_Proposal_1a{invalid_Proposal_1a_offending_proposal = invalid_Proposal_1a_offending_proposal obj}
     , if obj == default_Invalid_Proposal_1a{invalid_Proposal_1a_explanation = invalid_Proposal_1a_explanation obj} then P.Nothing else P.Just $ default_Invalid_Proposal_1a{invalid_Proposal_1a_explanation = invalid_Proposal_1a_explanation obj}
+    , if obj == default_Invalid_Proposal_1a{invalid_Proposal_1a_offending_witness = invalid_Proposal_1a_offending_witness obj} then P.Nothing else P.Just $ default_Invalid_Proposal_1a{invalid_Proposal_1a_offending_witness = invalid_Proposal_1a_offending_witness obj}
     ]
 from_Invalid_Proposal_1a :: Invalid_Proposal_1a -> T.ThriftVal
 from_Invalid_Proposal_1a record = T.TStruct $ Map.fromList $ M.catMaybes
   [ (\_v363 -> P.Just (1, ("offending_proposal",from_Proposal_1a _v363))) $ invalid_Proposal_1a_offending_proposal record
   , (\_v363 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v363))) <$> invalid_Proposal_1a_explanation record
+  , (\_v363 -> (4, ("offending_witness",T.TBinary _v363))) <$> invalid_Proposal_1a_offending_witness record
   ]
 write_Invalid_Proposal_1a :: (T.Protocol p, T.Transport t) => p t -> Invalid_Proposal_1a -> P.IO ()
 write_Invalid_Proposal_1a oprot record = T.writeVal oprot $ from_Invalid_Proposal_1a record
@@ -1760,7 +1766,8 @@ encode_Invalid_Proposal_1a oprot record = T.serializeVal oprot $ from_Invalid_Pr
 to_Invalid_Proposal_1a :: T.ThriftVal -> Invalid_Proposal_1a
 to_Invalid_Proposal_1a (T.TStruct fields) = Invalid_Proposal_1a{
   invalid_Proposal_1a_offending_proposal = P.maybe (invalid_Proposal_1a_offending_proposal default_Invalid_Proposal_1a) (\(_,_val365) -> (case _val365 of {T.TStruct _val366 -> (to_Proposal_1a (T.TStruct _val366)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  invalid_Proposal_1a_explanation = P.maybe (P.Nothing) (\(_,_val365) -> P.Just (case _val365 of {T.TString _val367 -> E.decodeUtf8 _val367; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
+  invalid_Proposal_1a_explanation = P.maybe (P.Nothing) (\(_,_val365) -> P.Just (case _val365 of {T.TString _val367 -> E.decodeUtf8 _val367; _ -> P.error "wrong type"})) (Map.lookup (3) fields),
+  invalid_Proposal_1a_offending_witness = P.maybe (P.Nothing) (\(_,_val365) -> P.Just (case _val365 of {T.TBinary _val368 -> _val368; T.TString _val368 -> _val368; _ -> P.error "wrong type"})) (Map.lookup (4) fields)
   }
 to_Invalid_Proposal_1a _ = P.error "not a struct"
 read_Invalid_Proposal_1a :: (T.Transport t, T.Protocol p) => p t -> P.IO Invalid_Proposal_1a
@@ -1768,11 +1775,12 @@ read_Invalid_Proposal_1a iprot = to_Invalid_Proposal_1a <$> T.readVal iprot (T.T
 decode_Invalid_Proposal_1a :: (T.Protocol p, T.Transport t) => p t -> LBS.ByteString -> Invalid_Proposal_1a
 decode_Invalid_Proposal_1a iprot bs = to_Invalid_Proposal_1a $ T.deserializeVal iprot (T.T_STRUCT typemap_Invalid_Proposal_1a) bs
 typemap_Invalid_Proposal_1a :: T.TypeMap
-typemap_Invalid_Proposal_1a = Map.fromList [(1,("offending_proposal",(T.T_STRUCT typemap_Proposal_1a))),(3,("explanation",T.T_STRING))]
+typemap_Invalid_Proposal_1a = Map.fromList [(1,("offending_proposal",(T.T_STRUCT typemap_Proposal_1a))),(3,("explanation",T.T_STRING)),(4,("offending_witness",T.T_BINARY))]
 default_Invalid_Proposal_1a :: Invalid_Proposal_1a
 default_Invalid_Proposal_1a = Invalid_Proposal_1a{
   invalid_Proposal_1a_offending_proposal = default_Proposal_1a,
-  invalid_Proposal_1a_explanation = P.Nothing}
+  invalid_Proposal_1a_explanation = P.Nothing,
+  invalid_Proposal_1a_offending_witness = P.Nothing}
 data Phase_2a = Phase_2a  { phase_2a_phase_1bs :: (Set.HashSet Signed_Message)
   } deriving (P.Show,P.Eq,G.Generic,TY.Typeable)
 instance H.Hashable Phase_2a where
@@ -1785,7 +1793,7 @@ instance QC.Arbitrary Phase_2a where
     ]
 from_Phase_2a :: Phase_2a -> T.ThriftVal
 from_Phase_2a record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v370 -> P.Just (1, ("phase_1bs",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v372 -> from_Signed_Message _v372) $ Set.toList _v370))) $ phase_2a_phase_1bs record
+  [ (\_v371 -> P.Just (1, ("phase_1bs",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v373 -> from_Signed_Message _v373) $ Set.toList _v371))) $ phase_2a_phase_1bs record
   ]
 write_Phase_2a :: (T.Protocol p, T.Transport t) => p t -> Phase_2a -> P.IO ()
 write_Phase_2a oprot record = T.writeVal oprot $ from_Phase_2a record
@@ -1793,7 +1801,7 @@ encode_Phase_2a :: (T.Protocol p, T.Transport t) => p t -> Phase_2a -> LBS.ByteS
 encode_Phase_2a oprot record = T.serializeVal oprot $ from_Phase_2a record
 to_Phase_2a :: T.ThriftVal -> Phase_2a
 to_Phase_2a (T.TStruct fields) = Phase_2a{
-  phase_2a_phase_1bs = P.maybe (phase_2a_phase_1bs default_Phase_2a) (\(_,_val374) -> (case _val374 of {T.TSet _ _val375 -> (Set.fromList $ P.map (\_v376 -> (case _v376 of {T.TStruct _val377 -> (to_Signed_Message (T.TStruct _val377)); _ -> P.error "wrong type"})) _val375); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
+  phase_2a_phase_1bs = P.maybe (phase_2a_phase_1bs default_Phase_2a) (\(_,_val375) -> (case _val375 of {T.TSet _ _val376 -> (Set.fromList $ P.map (\_v377 -> (case _v377 of {T.TStruct _val378 -> (to_Signed_Message (T.TStruct _val378)); _ -> P.error "wrong type"})) _val376); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
   }
 to_Phase_2a _ = P.error "not a struct"
 read_Phase_2a :: (T.Transport t, T.Protocol p) => p t -> P.IO Phase_2a
@@ -1821,8 +1829,8 @@ instance QC.Arbitrary Invalid_Phase_2a where
     ]
 from_Invalid_Phase_2a :: Invalid_Phase_2a -> T.ThriftVal
 from_Invalid_Phase_2a record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v380 -> P.Just (1, ("offending_phase_2a",from_Phase_2a _v380))) $ invalid_Phase_2a_offending_phase_2a record
-  , (\_v380 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v380))) <$> invalid_Phase_2a_explanation record
+  [ (\_v381 -> P.Just (1, ("offending_phase_2a",from_Phase_2a _v381))) $ invalid_Phase_2a_offending_phase_2a record
+  , (\_v381 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v381))) <$> invalid_Phase_2a_explanation record
   ]
 write_Invalid_Phase_2a :: (T.Protocol p, T.Transport t) => p t -> Invalid_Phase_2a -> P.IO ()
 write_Invalid_Phase_2a oprot record = T.writeVal oprot $ from_Invalid_Phase_2a record
@@ -1830,8 +1838,8 @@ encode_Invalid_Phase_2a :: (T.Protocol p, T.Transport t) => p t -> Invalid_Phase
 encode_Invalid_Phase_2a oprot record = T.serializeVal oprot $ from_Invalid_Phase_2a record
 to_Invalid_Phase_2a :: T.ThriftVal -> Invalid_Phase_2a
 to_Invalid_Phase_2a (T.TStruct fields) = Invalid_Phase_2a{
-  invalid_Phase_2a_offending_phase_2a = P.maybe (invalid_Phase_2a_offending_phase_2a default_Invalid_Phase_2a) (\(_,_val382) -> (case _val382 of {T.TStruct _val383 -> (to_Phase_2a (T.TStruct _val383)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  invalid_Phase_2a_explanation = P.maybe (P.Nothing) (\(_,_val382) -> P.Just (case _val382 of {T.TString _val384 -> E.decodeUtf8 _val384; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
+  invalid_Phase_2a_offending_phase_2a = P.maybe (invalid_Phase_2a_offending_phase_2a default_Invalid_Phase_2a) (\(_,_val383) -> (case _val383 of {T.TStruct _val384 -> (to_Phase_2a (T.TStruct _val384)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  invalid_Phase_2a_explanation = P.maybe (P.Nothing) (\(_,_val383) -> P.Just (case _val383 of {T.TString _val385 -> E.decodeUtf8 _val385; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
   }
 to_Invalid_Phase_2a _ = P.error "not a struct"
 read_Invalid_Phase_2a :: (T.Transport t, T.Protocol p) => p t -> P.IO Invalid_Phase_2a
@@ -1859,8 +1867,8 @@ instance QC.Arbitrary Phase_1b where
     ]
 from_Phase_1b :: Phase_1b -> T.ThriftVal
 from_Phase_1b record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v387 -> P.Just (1, ("proposal",from_Signed_Message _v387))) $ phase_1b_proposal record
-  , (\_v387 -> P.Just (2, ("conflicting_phase2as",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v389 -> from_Signed_Message _v389) $ Set.toList _v387))) $ phase_1b_conflicting_phase2as record
+  [ (\_v388 -> P.Just (1, ("proposal",from_Signed_Message _v388))) $ phase_1b_proposal record
+  , (\_v388 -> P.Just (2, ("conflicting_phase2as",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v390 -> from_Signed_Message _v390) $ Set.toList _v388))) $ phase_1b_conflicting_phase2as record
   ]
 write_Phase_1b :: (T.Protocol p, T.Transport t) => p t -> Phase_1b -> P.IO ()
 write_Phase_1b oprot record = T.writeVal oprot $ from_Phase_1b record
@@ -1868,8 +1876,8 @@ encode_Phase_1b :: (T.Protocol p, T.Transport t) => p t -> Phase_1b -> LBS.ByteS
 encode_Phase_1b oprot record = T.serializeVal oprot $ from_Phase_1b record
 to_Phase_1b :: T.ThriftVal -> Phase_1b
 to_Phase_1b (T.TStruct fields) = Phase_1b{
-  phase_1b_proposal = P.maybe (phase_1b_proposal default_Phase_1b) (\(_,_val391) -> (case _val391 of {T.TStruct _val392 -> (to_Signed_Message (T.TStruct _val392)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  phase_1b_conflicting_phase2as = P.maybe (phase_1b_conflicting_phase2as default_Phase_1b) (\(_,_val391) -> (case _val391 of {T.TSet _ _val393 -> (Set.fromList $ P.map (\_v394 -> (case _v394 of {T.TStruct _val395 -> (to_Signed_Message (T.TStruct _val395)); _ -> P.error "wrong type"})) _val393); _ -> P.error "wrong type"})) (Map.lookup (2) fields)
+  phase_1b_proposal = P.maybe (phase_1b_proposal default_Phase_1b) (\(_,_val392) -> (case _val392 of {T.TStruct _val393 -> (to_Signed_Message (T.TStruct _val393)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  phase_1b_conflicting_phase2as = P.maybe (phase_1b_conflicting_phase2as default_Phase_1b) (\(_,_val392) -> (case _val392 of {T.TSet _ _val394 -> (Set.fromList $ P.map (\_v395 -> (case _v395 of {T.TStruct _val396 -> (to_Signed_Message (T.TStruct _val396)); _ -> P.error "wrong type"})) _val394); _ -> P.error "wrong type"})) (Map.lookup (2) fields)
   }
 to_Phase_1b _ = P.error "not a struct"
 read_Phase_1b :: (T.Transport t, T.Protocol p) => p t -> P.IO Phase_1b
@@ -1898,8 +1906,8 @@ instance QC.Arbitrary Invalid_Phase_1b where
     ]
 from_Invalid_Phase_1b :: Invalid_Phase_1b -> T.ThriftVal
 from_Invalid_Phase_1b record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v398 -> P.Just (1, ("offending_phase_1b",from_Phase_1b _v398))) $ invalid_Phase_1b_offending_phase_1b record
-  , (\_v398 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v398))) <$> invalid_Phase_1b_explanation record
+  [ (\_v399 -> P.Just (1, ("offending_phase_1b",from_Phase_1b _v399))) $ invalid_Phase_1b_offending_phase_1b record
+  , (\_v399 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v399))) <$> invalid_Phase_1b_explanation record
   ]
 write_Invalid_Phase_1b :: (T.Protocol p, T.Transport t) => p t -> Invalid_Phase_1b -> P.IO ()
 write_Invalid_Phase_1b oprot record = T.writeVal oprot $ from_Invalid_Phase_1b record
@@ -1907,8 +1915,8 @@ encode_Invalid_Phase_1b :: (T.Protocol p, T.Transport t) => p t -> Invalid_Phase
 encode_Invalid_Phase_1b oprot record = T.serializeVal oprot $ from_Invalid_Phase_1b record
 to_Invalid_Phase_1b :: T.ThriftVal -> Invalid_Phase_1b
 to_Invalid_Phase_1b (T.TStruct fields) = Invalid_Phase_1b{
-  invalid_Phase_1b_offending_phase_1b = P.maybe (invalid_Phase_1b_offending_phase_1b default_Invalid_Phase_1b) (\(_,_val400) -> (case _val400 of {T.TStruct _val401 -> (to_Phase_1b (T.TStruct _val401)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  invalid_Phase_1b_explanation = P.maybe (P.Nothing) (\(_,_val400) -> P.Just (case _val400 of {T.TString _val402 -> E.decodeUtf8 _val402; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
+  invalid_Phase_1b_offending_phase_1b = P.maybe (invalid_Phase_1b_offending_phase_1b default_Invalid_Phase_1b) (\(_,_val401) -> (case _val401 of {T.TStruct _val402 -> (to_Phase_1b (T.TStruct _val402)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  invalid_Phase_1b_explanation = P.maybe (P.Nothing) (\(_,_val401) -> P.Just (case _val401 of {T.TString _val403 -> E.decodeUtf8 _val403; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
   }
 to_Invalid_Phase_1b _ = P.error "not a struct"
 read_Invalid_Phase_1b :: (T.Transport t, T.Protocol p) => p t -> P.IO Invalid_Phase_1b
@@ -1933,7 +1941,7 @@ instance QC.Arbitrary Phase_2b where
     ]
 from_Phase_2b :: Phase_2b -> T.ThriftVal
 from_Phase_2b record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v405 -> P.Just (1, ("phase_1bs",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v407 -> from_Signed_Message _v407) $ Set.toList _v405))) $ phase_2b_phase_1bs record
+  [ (\_v406 -> P.Just (1, ("phase_1bs",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v408 -> from_Signed_Message _v408) $ Set.toList _v406))) $ phase_2b_phase_1bs record
   ]
 write_Phase_2b :: (T.Protocol p, T.Transport t) => p t -> Phase_2b -> P.IO ()
 write_Phase_2b oprot record = T.writeVal oprot $ from_Phase_2b record
@@ -1941,7 +1949,7 @@ encode_Phase_2b :: (T.Protocol p, T.Transport t) => p t -> Phase_2b -> LBS.ByteS
 encode_Phase_2b oprot record = T.serializeVal oprot $ from_Phase_2b record
 to_Phase_2b :: T.ThriftVal -> Phase_2b
 to_Phase_2b (T.TStruct fields) = Phase_2b{
-  phase_2b_phase_1bs = P.maybe (phase_2b_phase_1bs default_Phase_2b) (\(_,_val409) -> (case _val409 of {T.TSet _ _val410 -> (Set.fromList $ P.map (\_v411 -> (case _v411 of {T.TStruct _val412 -> (to_Signed_Message (T.TStruct _val412)); _ -> P.error "wrong type"})) _val410); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
+  phase_2b_phase_1bs = P.maybe (phase_2b_phase_1bs default_Phase_2b) (\(_,_val410) -> (case _val410 of {T.TSet _ _val411 -> (Set.fromList $ P.map (\_v412 -> (case _v412 of {T.TStruct _val413 -> (to_Signed_Message (T.TStruct _val413)); _ -> P.error "wrong type"})) _val411); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
   }
 to_Phase_2b _ = P.error "not a struct"
 read_Phase_2b :: (T.Transport t, T.Protocol p) => p t -> P.IO Phase_2b
@@ -1969,8 +1977,8 @@ instance QC.Arbitrary Invalid_Phase_2b where
     ]
 from_Invalid_Phase_2b :: Invalid_Phase_2b -> T.ThriftVal
 from_Invalid_Phase_2b record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v415 -> P.Just (1, ("offending_phase_2b",from_Phase_2b _v415))) $ invalid_Phase_2b_offending_phase_2b record
-  , (\_v415 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v415))) <$> invalid_Phase_2b_explanation record
+  [ (\_v416 -> P.Just (1, ("offending_phase_2b",from_Phase_2b _v416))) $ invalid_Phase_2b_offending_phase_2b record
+  , (\_v416 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v416))) <$> invalid_Phase_2b_explanation record
   ]
 write_Invalid_Phase_2b :: (T.Protocol p, T.Transport t) => p t -> Invalid_Phase_2b -> P.IO ()
 write_Invalid_Phase_2b oprot record = T.writeVal oprot $ from_Invalid_Phase_2b record
@@ -1978,8 +1986,8 @@ encode_Invalid_Phase_2b :: (T.Protocol p, T.Transport t) => p t -> Invalid_Phase
 encode_Invalid_Phase_2b oprot record = T.serializeVal oprot $ from_Invalid_Phase_2b record
 to_Invalid_Phase_2b :: T.ThriftVal -> Invalid_Phase_2b
 to_Invalid_Phase_2b (T.TStruct fields) = Invalid_Phase_2b{
-  invalid_Phase_2b_offending_phase_2b = P.maybe (invalid_Phase_2b_offending_phase_2b default_Invalid_Phase_2b) (\(_,_val417) -> (case _val417 of {T.TStruct _val418 -> (to_Phase_2b (T.TStruct _val418)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  invalid_Phase_2b_explanation = P.maybe (P.Nothing) (\(_,_val417) -> P.Just (case _val417 of {T.TString _val419 -> E.decodeUtf8 _val419; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
+  invalid_Phase_2b_offending_phase_2b = P.maybe (invalid_Phase_2b_offending_phase_2b default_Invalid_Phase_2b) (\(_,_val418) -> (case _val418 of {T.TStruct _val419 -> (to_Phase_2b (T.TStruct _val419)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  invalid_Phase_2b_explanation = P.maybe (P.Nothing) (\(_,_val418) -> P.Just (case _val418 of {T.TString _val420 -> E.decodeUtf8 _val420; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
   }
 to_Invalid_Phase_2b _ = P.error "not a struct"
 read_Invalid_Phase_2b :: (T.Transport t, T.Protocol p) => p t -> P.IO Invalid_Phase_2b
@@ -2004,7 +2012,7 @@ instance QC.Arbitrary Proof_of_Consensus where
     ]
 from_Proof_of_Consensus :: Proof_of_Consensus -> T.ThriftVal
 from_Proof_of_Consensus record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v422 -> P.Just (1, ("phase_2bs",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v424 -> from_Signed_Message _v424) $ Set.toList _v422))) $ proof_of_Consensus_phase_2bs record
+  [ (\_v423 -> P.Just (1, ("phase_2bs",T.TSet (T.T_STRUCT typemap_Signed_Message) $ P.map (\_v425 -> from_Signed_Message _v425) $ Set.toList _v423))) $ proof_of_Consensus_phase_2bs record
   ]
 write_Proof_of_Consensus :: (T.Protocol p, T.Transport t) => p t -> Proof_of_Consensus -> P.IO ()
 write_Proof_of_Consensus oprot record = T.writeVal oprot $ from_Proof_of_Consensus record
@@ -2012,7 +2020,7 @@ encode_Proof_of_Consensus :: (T.Protocol p, T.Transport t) => p t -> Proof_of_Co
 encode_Proof_of_Consensus oprot record = T.serializeVal oprot $ from_Proof_of_Consensus record
 to_Proof_of_Consensus :: T.ThriftVal -> Proof_of_Consensus
 to_Proof_of_Consensus (T.TStruct fields) = Proof_of_Consensus{
-  proof_of_Consensus_phase_2bs = P.maybe (proof_of_Consensus_phase_2bs default_Proof_of_Consensus) (\(_,_val426) -> (case _val426 of {T.TSet _ _val427 -> (Set.fromList $ P.map (\_v428 -> (case _v428 of {T.TStruct _val429 -> (to_Signed_Message (T.TStruct _val429)); _ -> P.error "wrong type"})) _val427); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
+  proof_of_Consensus_phase_2bs = P.maybe (proof_of_Consensus_phase_2bs default_Proof_of_Consensus) (\(_,_val427) -> (case _val427 of {T.TSet _ _val428 -> (Set.fromList $ P.map (\_v429 -> (case _v429 of {T.TStruct _val430 -> (to_Signed_Message (T.TStruct _val430)); _ -> P.error "wrong type"})) _val428); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
   }
 to_Proof_of_Consensus _ = P.error "not a struct"
 read_Proof_of_Consensus :: (T.Transport t, T.Protocol p) => p t -> P.IO Proof_of_Consensus
@@ -2040,8 +2048,8 @@ instance QC.Arbitrary Invalid_Proof_of_Consensus where
     ]
 from_Invalid_Proof_of_Consensus :: Invalid_Proof_of_Consensus -> T.ThriftVal
 from_Invalid_Proof_of_Consensus record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v432 -> P.Just (1, ("offending_proof_of_consensus",from_Proof_of_Consensus _v432))) $ invalid_Proof_of_Consensus_offending_proof_of_consensus record
-  , (\_v432 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v432))) <$> invalid_Proof_of_Consensus_explanation record
+  [ (\_v433 -> P.Just (1, ("offending_proof_of_consensus",from_Proof_of_Consensus _v433))) $ invalid_Proof_of_Consensus_offending_proof_of_consensus record
+  , (\_v433 -> (3, ("explanation",T.TString $ E.encodeUtf8 _v433))) <$> invalid_Proof_of_Consensus_explanation record
   ]
 write_Invalid_Proof_of_Consensus :: (T.Protocol p, T.Transport t) => p t -> Invalid_Proof_of_Consensus -> P.IO ()
 write_Invalid_Proof_of_Consensus oprot record = T.writeVal oprot $ from_Invalid_Proof_of_Consensus record
@@ -2049,8 +2057,8 @@ encode_Invalid_Proof_of_Consensus :: (T.Protocol p, T.Transport t) => p t -> Inv
 encode_Invalid_Proof_of_Consensus oprot record = T.serializeVal oprot $ from_Invalid_Proof_of_Consensus record
 to_Invalid_Proof_of_Consensus :: T.ThriftVal -> Invalid_Proof_of_Consensus
 to_Invalid_Proof_of_Consensus (T.TStruct fields) = Invalid_Proof_of_Consensus{
-  invalid_Proof_of_Consensus_offending_proof_of_consensus = P.maybe (invalid_Proof_of_Consensus_offending_proof_of_consensus default_Invalid_Proof_of_Consensus) (\(_,_val434) -> (case _val434 of {T.TStruct _val435 -> (to_Proof_of_Consensus (T.TStruct _val435)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  invalid_Proof_of_Consensus_explanation = P.maybe (P.Nothing) (\(_,_val434) -> P.Just (case _val434 of {T.TString _val436 -> E.decodeUtf8 _val436; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
+  invalid_Proof_of_Consensus_offending_proof_of_consensus = P.maybe (invalid_Proof_of_Consensus_offending_proof_of_consensus default_Invalid_Proof_of_Consensus) (\(_,_val435) -> (case _val435 of {T.TStruct _val436 -> (to_Proof_of_Consensus (T.TStruct _val436)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  invalid_Proof_of_Consensus_explanation = P.maybe (P.Nothing) (\(_,_val435) -> P.Just (case _val435 of {T.TString _val437 -> E.decodeUtf8 _val437; _ -> P.error "wrong type"})) (Map.lookup (3) fields)
   }
 to_Invalid_Proof_of_Consensus _ = P.error "not a struct"
 read_Invalid_Proof_of_Consensus :: (T.Transport t, T.Protocol p) => p t -> P.IO Invalid_Proof_of_Consensus

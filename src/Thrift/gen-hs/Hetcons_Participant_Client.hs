@@ -58,14 +58,14 @@ recv_ping ip = do
   res <- read_Ping_result ip
   T.readMessageEnd ip
   P.return ()
-proposal_1a (ip,op) arg_proposal = do
-  send_proposal_1a op arg_proposal
+proposal_1a (ip,op) arg_proposal arg_witness = do
+  send_proposal_1a op arg_proposal arg_witness
   recv_proposal_1a ip
-send_proposal_1a op arg_proposal = do
+send_proposal_1a op arg_proposal arg_witness = do
   seq <- seqid
   seqn <- R.readIORef seq
   T.writeMessageBegin op ("proposal_1a", T.M_CALL, seqn)
-  write_Proposal_1a_args op (Proposal_1a_args{proposal_1a_args_proposal=arg_proposal})
+  write_Proposal_1a_args op (Proposal_1a_args{proposal_1a_args_proposal=arg_proposal,proposal_1a_args_witness=arg_witness})
   T.writeMessageEnd op
   T.tFlush (T.getTransport op)
 recv_proposal_1a ip = do
@@ -97,14 +97,14 @@ recv_proposal_1a ip = do
   P.maybe (P.return ()) X.throw (proposal_1a_result_invalid_Phase_2b res)
   P.maybe (P.return ()) X.throw (proposal_1a_result_invalid_Proof_of_Consensus res)
   P.return ()
-phase_1b (ip,op) arg_phase_1b_message = do
-  send_phase_1b op arg_phase_1b_message
+phase_1b (ip,op) arg_phase_1b_message arg_witness = do
+  send_phase_1b op arg_phase_1b_message arg_witness
   recv_phase_1b ip
-send_phase_1b op arg_phase_1b_message = do
+send_phase_1b op arg_phase_1b_message arg_witness = do
   seq <- seqid
   seqn <- R.readIORef seq
   T.writeMessageBegin op ("phase_1b", T.M_CALL, seqn)
-  write_Phase_1b_args op (Phase_1b_args{phase_1b_args_phase_1b_message=arg_phase_1b_message})
+  write_Phase_1b_args op (Phase_1b_args{phase_1b_args_phase_1b_message=arg_phase_1b_message,phase_1b_args_witness=arg_witness})
   T.writeMessageEnd op
   T.tFlush (T.getTransport op)
 recv_phase_1b ip = do

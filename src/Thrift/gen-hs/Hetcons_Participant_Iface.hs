@@ -42,5 +42,5 @@ import Hetcons_Types
 
 class Hetcons_Participant_Iface a where
   ping :: a -> P.IO ()
-  proposal_1a :: a -> Signed_Message -> P.IO ()
-  phase_1b :: a -> Signed_Message -> P.IO ()
+  proposal_1a :: a -> Signed_Message -> LBS.ByteString -> P.IO ()
+  phase_1b :: a -> Signed_Message -> LBS.ByteString -> P.IO ()

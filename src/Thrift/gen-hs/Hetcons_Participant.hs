@@ -95,18 +95,22 @@ default_Ping_result :: Ping_result
 default_Ping_result = Ping_result{
 }
 data Proposal_1a_args = Proposal_1a_args  { proposal_1a_args_proposal :: Signed_Message
+  , proposal_1a_args_witness :: LBS.ByteString
   } deriving (P.Show,P.Eq,G.Generic,TY.Typeable)
 instance H.Hashable Proposal_1a_args where
-  hashWithSalt salt record = salt   `H.hashWithSalt` proposal_1a_args_proposal record  
+  hashWithSalt salt record = salt   `H.hashWithSalt` proposal_1a_args_proposal record   `H.hashWithSalt` proposal_1a_args_witness record  
 instance QC.Arbitrary Proposal_1a_args where 
   arbitrary = M.liftM Proposal_1a_args (QC.arbitrary)
+          `M.ap`(QC.arbitrary)
   shrink obj | obj == default_Proposal_1a_args = []
              | P.otherwise = M.catMaybes
     [ if obj == default_Proposal_1a_args{proposal_1a_args_proposal = proposal_1a_args_proposal obj} then P.Nothing else P.Just $ default_Proposal_1a_args{proposal_1a_args_proposal = proposal_1a_args_proposal obj}
+    , if obj == default_Proposal_1a_args{proposal_1a_args_witness = proposal_1a_args_witness obj} then P.Nothing else P.Just $ default_Proposal_1a_args{proposal_1a_args_witness = proposal_1a_args_witness obj}
     ]
 from_Proposal_1a_args :: Proposal_1a_args -> T.ThriftVal
 from_Proposal_1a_args record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v449 -> P.Just (1, ("proposal",from_Signed_Message _v449))) $ proposal_1a_args_proposal record
+  [ (\_v450 -> P.Just (1, ("proposal",from_Signed_Message _v450))) $ proposal_1a_args_proposal record
+  , (\_v450 -> P.Just (2, ("witness",T.TBinary _v450))) $ proposal_1a_args_witness record
   ]
 write_Proposal_1a_args :: (T.Protocol p, T.Transport t) => p t -> Proposal_1a_args -> P.IO ()
 write_Proposal_1a_args oprot record = T.writeVal oprot $ from_Proposal_1a_args record
@@ -114,7 +118,8 @@ encode_Proposal_1a_args :: (T.Protocol p, T.Transport t) => p t -> Proposal_1a_a
 encode_Proposal_1a_args oprot record = T.serializeVal oprot $ from_Proposal_1a_args record
 to_Proposal_1a_args :: T.ThriftVal -> Proposal_1a_args
 to_Proposal_1a_args (T.TStruct fields) = Proposal_1a_args{
-  proposal_1a_args_proposal = P.maybe (proposal_1a_args_proposal default_Proposal_1a_args) (\(_,_val451) -> (case _val451 of {T.TStruct _val452 -> (to_Signed_Message (T.TStruct _val452)); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
+  proposal_1a_args_proposal = P.maybe (proposal_1a_args_proposal default_Proposal_1a_args) (\(_,_val452) -> (case _val452 of {T.TStruct _val453 -> (to_Signed_Message (T.TStruct _val453)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  proposal_1a_args_witness = P.maybe (proposal_1a_args_witness default_Proposal_1a_args) (\(_,_val452) -> (case _val452 of {T.TBinary _val454 -> _val454; T.TString _val454 -> _val454; _ -> P.error "wrong type"})) (Map.lookup (2) fields)
   }
 to_Proposal_1a_args _ = P.error "not a struct"
 read_Proposal_1a_args :: (T.Transport t, T.Protocol p) => p t -> P.IO Proposal_1a_args
@@ -122,10 +127,11 @@ read_Proposal_1a_args iprot = to_Proposal_1a_args <$> T.readVal iprot (T.T_STRUC
 decode_Proposal_1a_args :: (T.Protocol p, T.Transport t) => p t -> LBS.ByteString -> Proposal_1a_args
 decode_Proposal_1a_args iprot bs = to_Proposal_1a_args $ T.deserializeVal iprot (T.T_STRUCT typemap_Proposal_1a_args) bs
 typemap_Proposal_1a_args :: T.TypeMap
-typemap_Proposal_1a_args = Map.fromList [(1,("proposal",(T.T_STRUCT typemap_Signed_Message)))]
+typemap_Proposal_1a_args = Map.fromList [(1,("proposal",(T.T_STRUCT typemap_Signed_Message))),(2,("witness",T.T_BINARY))]
 default_Proposal_1a_args :: Proposal_1a_args
 default_Proposal_1a_args = Proposal_1a_args{
-  proposal_1a_args_proposal = default_Signed_Message}
+  proposal_1a_args_proposal = default_Signed_Message,
+  proposal_1a_args_witness = ""}
 data Proposal_1a_result = Proposal_1a_result  { proposal_1a_result_no_supported_hash_sha2_descriptor_provided :: P.Maybe No_Supported_Hash_Sha2_Descriptor_Provided
   , proposal_1a_result_descriptor_does_not_match_hash_sha2 :: P.Maybe Descriptor_Does_Not_Match_Hash_Sha2
   , proposal_1a_result_no_supported_hash_sha3_descriptor_provided :: P.Maybe No_Supported_Hash_Sha3_Descriptor_Provided
@@ -204,31 +210,31 @@ instance QC.Arbitrary Proposal_1a_result where
     ]
 from_Proposal_1a_result :: Proposal_1a_result -> T.ThriftVal
 from_Proposal_1a_result record = T.TStruct $ Map.fromList 
-  (let exns = M.catMaybes [ (\_v455 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_hash_sha2_descriptor_provided record, (\_v455 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v455))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha2 record, (\_v455 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_hash_sha3_descriptor_provided record, (\_v455 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v455))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha3 record, (\_v455 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_hash_type_descriptor_provided record, (\_v455 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v455))) <$> proposal_1a_result_descriptor_does_not_match_hash record, (\_v455 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v455))) <$> proposal_1a_result_invalid_public_crypto_key_X509 record, (\_v455 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v455))) <$> proposal_1a_result_invalid_public_crypto_key_PGP record, (\_v455 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_public_crypto_key_type_descriptor_provided record, (\_v455 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v455))) <$> proposal_1a_result_descriptor_does_not_match_public_crypto_key record, (\_v455 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v455))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID_hash record, (\_v455 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_crypto_ID_type_descriptor_provided record, (\_v455 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v455))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID record, (\_v455 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v455))) <$> proposal_1a_result_invalid_signed_hash record, (\_v455 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v455))) <$> proposal_1a_result_descriptor_does_not_match_signed_hash record, (\_v455 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v455))) <$> proposal_1a_result_unparsable_hashable_message record, (\_v455 -> (17, ("invalid_address",from_Invalid_Address _v455))) <$> proposal_1a_result_invalid_address record, (\_v455 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v455))) <$> proposal_1a_result_impossible_observer_graph record, (\_v455 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v455))) <$> proposal_1a_result_invalid_proposal_1a record, (\_v455 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v455))) <$> proposal_1a_result_invalid_Phase_1b record, (\_v455 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v455))) <$> proposal_1a_result_invalid_Phase_2a record, (\_v455 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v455))) <$> proposal_1a_result_invalid_Phase_2b record, (\_v455 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v455))) <$> proposal_1a_result_invalid_Proof_of_Consensus record]
+  (let exns = M.catMaybes [ (\_v457 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_hash_sha2_descriptor_provided record, (\_v457 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v457))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha2 record, (\_v457 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_hash_sha3_descriptor_provided record, (\_v457 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v457))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha3 record, (\_v457 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_hash_type_descriptor_provided record, (\_v457 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v457))) <$> proposal_1a_result_descriptor_does_not_match_hash record, (\_v457 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v457))) <$> proposal_1a_result_invalid_public_crypto_key_X509 record, (\_v457 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v457))) <$> proposal_1a_result_invalid_public_crypto_key_PGP record, (\_v457 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_public_crypto_key_type_descriptor_provided record, (\_v457 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v457))) <$> proposal_1a_result_descriptor_does_not_match_public_crypto_key record, (\_v457 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v457))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID_hash record, (\_v457 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_crypto_ID_type_descriptor_provided record, (\_v457 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v457))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID record, (\_v457 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v457))) <$> proposal_1a_result_invalid_signed_hash record, (\_v457 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v457))) <$> proposal_1a_result_descriptor_does_not_match_signed_hash record, (\_v457 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v457))) <$> proposal_1a_result_unparsable_hashable_message record, (\_v457 -> (17, ("invalid_address",from_Invalid_Address _v457))) <$> proposal_1a_result_invalid_address record, (\_v457 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v457))) <$> proposal_1a_result_impossible_observer_graph record, (\_v457 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v457))) <$> proposal_1a_result_invalid_proposal_1a record, (\_v457 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v457))) <$> proposal_1a_result_invalid_Phase_1b record, (\_v457 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v457))) <$> proposal_1a_result_invalid_Phase_2a record, (\_v457 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v457))) <$> proposal_1a_result_invalid_Phase_2b record, (\_v457 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v457))) <$> proposal_1a_result_invalid_Proof_of_Consensus record]
   in if P.not (P.null exns) then exns else M.catMaybes
-    [ (\_v455 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_hash_sha2_descriptor_provided record
-    , (\_v455 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v455))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha2 record
-    , (\_v455 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_hash_sha3_descriptor_provided record
-    , (\_v455 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v455))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha3 record
-    , (\_v455 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_hash_type_descriptor_provided record
-    , (\_v455 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v455))) <$> proposal_1a_result_descriptor_does_not_match_hash record
-    , (\_v455 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v455))) <$> proposal_1a_result_invalid_public_crypto_key_X509 record
-    , (\_v455 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v455))) <$> proposal_1a_result_invalid_public_crypto_key_PGP record
-    , (\_v455 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_public_crypto_key_type_descriptor_provided record
-    , (\_v455 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v455))) <$> proposal_1a_result_descriptor_does_not_match_public_crypto_key record
-    , (\_v455 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v455))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID_hash record
-    , (\_v455 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v455))) <$> proposal_1a_result_no_supported_crypto_ID_type_descriptor_provided record
-    , (\_v455 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v455))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID record
-    , (\_v455 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v455))) <$> proposal_1a_result_invalid_signed_hash record
-    , (\_v455 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v455))) <$> proposal_1a_result_descriptor_does_not_match_signed_hash record
-    , (\_v455 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v455))) <$> proposal_1a_result_unparsable_hashable_message record
-    , (\_v455 -> (17, ("invalid_address",from_Invalid_Address _v455))) <$> proposal_1a_result_invalid_address record
-    , (\_v455 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v455))) <$> proposal_1a_result_impossible_observer_graph record
-    , (\_v455 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v455))) <$> proposal_1a_result_invalid_proposal_1a record
-    , (\_v455 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v455))) <$> proposal_1a_result_invalid_Phase_1b record
-    , (\_v455 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v455))) <$> proposal_1a_result_invalid_Phase_2a record
-    , (\_v455 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v455))) <$> proposal_1a_result_invalid_Phase_2b record
-    , (\_v455 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v455))) <$> proposal_1a_result_invalid_Proof_of_Consensus record
+    [ (\_v457 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_hash_sha2_descriptor_provided record
+    , (\_v457 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v457))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha2 record
+    , (\_v457 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_hash_sha3_descriptor_provided record
+    , (\_v457 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v457))) <$> proposal_1a_result_descriptor_does_not_match_hash_sha3 record
+    , (\_v457 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_hash_type_descriptor_provided record
+    , (\_v457 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v457))) <$> proposal_1a_result_descriptor_does_not_match_hash record
+    , (\_v457 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v457))) <$> proposal_1a_result_invalid_public_crypto_key_X509 record
+    , (\_v457 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v457))) <$> proposal_1a_result_invalid_public_crypto_key_PGP record
+    , (\_v457 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_public_crypto_key_type_descriptor_provided record
+    , (\_v457 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v457))) <$> proposal_1a_result_descriptor_does_not_match_public_crypto_key record
+    , (\_v457 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v457))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID_hash record
+    , (\_v457 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v457))) <$> proposal_1a_result_no_supported_crypto_ID_type_descriptor_provided record
+    , (\_v457 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v457))) <$> proposal_1a_result_descriptor_does_not_match_crypto_ID record
+    , (\_v457 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v457))) <$> proposal_1a_result_invalid_signed_hash record
+    , (\_v457 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v457))) <$> proposal_1a_result_descriptor_does_not_match_signed_hash record
+    , (\_v457 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v457))) <$> proposal_1a_result_unparsable_hashable_message record
+    , (\_v457 -> (17, ("invalid_address",from_Invalid_Address _v457))) <$> proposal_1a_result_invalid_address record
+    , (\_v457 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v457))) <$> proposal_1a_result_impossible_observer_graph record
+    , (\_v457 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v457))) <$> proposal_1a_result_invalid_proposal_1a record
+    , (\_v457 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v457))) <$> proposal_1a_result_invalid_Phase_1b record
+    , (\_v457 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v457))) <$> proposal_1a_result_invalid_Phase_2a record
+    , (\_v457 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v457))) <$> proposal_1a_result_invalid_Phase_2b record
+    , (\_v457 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v457))) <$> proposal_1a_result_invalid_Proof_of_Consensus record
     ]
     )
 write_Proposal_1a_result :: (T.Protocol p, T.Transport t) => p t -> Proposal_1a_result -> P.IO ()
@@ -237,29 +243,29 @@ encode_Proposal_1a_result :: (T.Protocol p, T.Transport t) => p t -> Proposal_1a
 encode_Proposal_1a_result oprot record = T.serializeVal oprot $ from_Proposal_1a_result record
 to_Proposal_1a_result :: T.ThriftVal -> Proposal_1a_result
 to_Proposal_1a_result (T.TStruct fields) = Proposal_1a_result{
-  proposal_1a_result_no_supported_hash_sha2_descriptor_provided = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val458 -> (to_No_Supported_Hash_Sha2_Descriptor_Provided (T.TStruct _val458)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  proposal_1a_result_descriptor_does_not_match_hash_sha2 = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val459 -> (to_Descriptor_Does_Not_Match_Hash_Sha2 (T.TStruct _val459)); _ -> P.error "wrong type"})) (Map.lookup (2) fields),
-  proposal_1a_result_no_supported_hash_sha3_descriptor_provided = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val460 -> (to_No_Supported_Hash_Sha3_Descriptor_Provided (T.TStruct _val460)); _ -> P.error "wrong type"})) (Map.lookup (3) fields),
-  proposal_1a_result_descriptor_does_not_match_hash_sha3 = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val461 -> (to_Descriptor_Does_Not_Match_Hash_Sha3 (T.TStruct _val461)); _ -> P.error "wrong type"})) (Map.lookup (4) fields),
-  proposal_1a_result_no_supported_hash_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val462 -> (to_No_Supported_Hash_Type_Descriptor_Provided (T.TStruct _val462)); _ -> P.error "wrong type"})) (Map.lookup (5) fields),
-  proposal_1a_result_descriptor_does_not_match_hash = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val463 -> (to_Descriptor_Does_Not_Match_Hash (T.TStruct _val463)); _ -> P.error "wrong type"})) (Map.lookup (6) fields),
-  proposal_1a_result_invalid_public_crypto_key_X509 = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val464 -> (to_Invalid_Public_Crypto_Key_X509 (T.TStruct _val464)); _ -> P.error "wrong type"})) (Map.lookup (7) fields),
-  proposal_1a_result_invalid_public_crypto_key_PGP = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val465 -> (to_Invalid_Public_Crypto_Key_PGP (T.TStruct _val465)); _ -> P.error "wrong type"})) (Map.lookup (8) fields),
-  proposal_1a_result_no_supported_public_crypto_key_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val466 -> (to_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided (T.TStruct _val466)); _ -> P.error "wrong type"})) (Map.lookup (9) fields),
-  proposal_1a_result_descriptor_does_not_match_public_crypto_key = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val467 -> (to_Descriptor_Does_Not_Match_Public_Crypto_Key (T.TStruct _val467)); _ -> P.error "wrong type"})) (Map.lookup (10) fields),
-  proposal_1a_result_descriptor_does_not_match_crypto_ID_hash = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val468 -> (to_Descriptor_Does_Not_Match_Crypto_ID_Hash (T.TStruct _val468)); _ -> P.error "wrong type"})) (Map.lookup (11) fields),
-  proposal_1a_result_no_supported_crypto_ID_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val469 -> (to_No_Supported_Crypto_ID_Type_Descriptor_Provided (T.TStruct _val469)); _ -> P.error "wrong type"})) (Map.lookup (12) fields),
-  proposal_1a_result_descriptor_does_not_match_crypto_ID = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val470 -> (to_Descriptor_Does_Not_Match_Crypto_ID (T.TStruct _val470)); _ -> P.error "wrong type"})) (Map.lookup (13) fields),
-  proposal_1a_result_invalid_signed_hash = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val471 -> (to_Invalid_Signed_Hash (T.TStruct _val471)); _ -> P.error "wrong type"})) (Map.lookup (14) fields),
-  proposal_1a_result_descriptor_does_not_match_signed_hash = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val472 -> (to_Descriptor_Does_Not_Match_Signed_Hash (T.TStruct _val472)); _ -> P.error "wrong type"})) (Map.lookup (15) fields),
-  proposal_1a_result_unparsable_hashable_message = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val473 -> (to_Unparsable_Hashable_Message (T.TStruct _val473)); _ -> P.error "wrong type"})) (Map.lookup (16) fields),
-  proposal_1a_result_invalid_address = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val474 -> (to_Invalid_Address (T.TStruct _val474)); _ -> P.error "wrong type"})) (Map.lookup (17) fields),
-  proposal_1a_result_impossible_observer_graph = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val475 -> (to_Impossible_Observer_Graph (T.TStruct _val475)); _ -> P.error "wrong type"})) (Map.lookup (18) fields),
-  proposal_1a_result_invalid_proposal_1a = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val476 -> (to_Invalid_Proposal_1a (T.TStruct _val476)); _ -> P.error "wrong type"})) (Map.lookup (19) fields),
-  proposal_1a_result_invalid_Phase_1b = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val477 -> (to_Invalid_Phase_1b (T.TStruct _val477)); _ -> P.error "wrong type"})) (Map.lookup (20) fields),
-  proposal_1a_result_invalid_Phase_2a = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val478 -> (to_Invalid_Phase_2a (T.TStruct _val478)); _ -> P.error "wrong type"})) (Map.lookup (21) fields),
-  proposal_1a_result_invalid_Phase_2b = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val479 -> (to_Invalid_Phase_2b (T.TStruct _val479)); _ -> P.error "wrong type"})) (Map.lookup (22) fields),
-  proposal_1a_result_invalid_Proof_of_Consensus = P.maybe (P.Nothing) (\(_,_val457) -> P.Just (case _val457 of {T.TStruct _val480 -> (to_Invalid_Proof_of_Consensus (T.TStruct _val480)); _ -> P.error "wrong type"})) (Map.lookup (23) fields)
+  proposal_1a_result_no_supported_hash_sha2_descriptor_provided = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val460 -> (to_No_Supported_Hash_Sha2_Descriptor_Provided (T.TStruct _val460)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  proposal_1a_result_descriptor_does_not_match_hash_sha2 = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val461 -> (to_Descriptor_Does_Not_Match_Hash_Sha2 (T.TStruct _val461)); _ -> P.error "wrong type"})) (Map.lookup (2) fields),
+  proposal_1a_result_no_supported_hash_sha3_descriptor_provided = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val462 -> (to_No_Supported_Hash_Sha3_Descriptor_Provided (T.TStruct _val462)); _ -> P.error "wrong type"})) (Map.lookup (3) fields),
+  proposal_1a_result_descriptor_does_not_match_hash_sha3 = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val463 -> (to_Descriptor_Does_Not_Match_Hash_Sha3 (T.TStruct _val463)); _ -> P.error "wrong type"})) (Map.lookup (4) fields),
+  proposal_1a_result_no_supported_hash_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val464 -> (to_No_Supported_Hash_Type_Descriptor_Provided (T.TStruct _val464)); _ -> P.error "wrong type"})) (Map.lookup (5) fields),
+  proposal_1a_result_descriptor_does_not_match_hash = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val465 -> (to_Descriptor_Does_Not_Match_Hash (T.TStruct _val465)); _ -> P.error "wrong type"})) (Map.lookup (6) fields),
+  proposal_1a_result_invalid_public_crypto_key_X509 = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val466 -> (to_Invalid_Public_Crypto_Key_X509 (T.TStruct _val466)); _ -> P.error "wrong type"})) (Map.lookup (7) fields),
+  proposal_1a_result_invalid_public_crypto_key_PGP = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val467 -> (to_Invalid_Public_Crypto_Key_PGP (T.TStruct _val467)); _ -> P.error "wrong type"})) (Map.lookup (8) fields),
+  proposal_1a_result_no_supported_public_crypto_key_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val468 -> (to_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided (T.TStruct _val468)); _ -> P.error "wrong type"})) (Map.lookup (9) fields),
+  proposal_1a_result_descriptor_does_not_match_public_crypto_key = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val469 -> (to_Descriptor_Does_Not_Match_Public_Crypto_Key (T.TStruct _val469)); _ -> P.error "wrong type"})) (Map.lookup (10) fields),
+  proposal_1a_result_descriptor_does_not_match_crypto_ID_hash = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val470 -> (to_Descriptor_Does_Not_Match_Crypto_ID_Hash (T.TStruct _val470)); _ -> P.error "wrong type"})) (Map.lookup (11) fields),
+  proposal_1a_result_no_supported_crypto_ID_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val471 -> (to_No_Supported_Crypto_ID_Type_Descriptor_Provided (T.TStruct _val471)); _ -> P.error "wrong type"})) (Map.lookup (12) fields),
+  proposal_1a_result_descriptor_does_not_match_crypto_ID = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val472 -> (to_Descriptor_Does_Not_Match_Crypto_ID (T.TStruct _val472)); _ -> P.error "wrong type"})) (Map.lookup (13) fields),
+  proposal_1a_result_invalid_signed_hash = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val473 -> (to_Invalid_Signed_Hash (T.TStruct _val473)); _ -> P.error "wrong type"})) (Map.lookup (14) fields),
+  proposal_1a_result_descriptor_does_not_match_signed_hash = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val474 -> (to_Descriptor_Does_Not_Match_Signed_Hash (T.TStruct _val474)); _ -> P.error "wrong type"})) (Map.lookup (15) fields),
+  proposal_1a_result_unparsable_hashable_message = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val475 -> (to_Unparsable_Hashable_Message (T.TStruct _val475)); _ -> P.error "wrong type"})) (Map.lookup (16) fields),
+  proposal_1a_result_invalid_address = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val476 -> (to_Invalid_Address (T.TStruct _val476)); _ -> P.error "wrong type"})) (Map.lookup (17) fields),
+  proposal_1a_result_impossible_observer_graph = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val477 -> (to_Impossible_Observer_Graph (T.TStruct _val477)); _ -> P.error "wrong type"})) (Map.lookup (18) fields),
+  proposal_1a_result_invalid_proposal_1a = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val478 -> (to_Invalid_Proposal_1a (T.TStruct _val478)); _ -> P.error "wrong type"})) (Map.lookup (19) fields),
+  proposal_1a_result_invalid_Phase_1b = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val479 -> (to_Invalid_Phase_1b (T.TStruct _val479)); _ -> P.error "wrong type"})) (Map.lookup (20) fields),
+  proposal_1a_result_invalid_Phase_2a = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val480 -> (to_Invalid_Phase_2a (T.TStruct _val480)); _ -> P.error "wrong type"})) (Map.lookup (21) fields),
+  proposal_1a_result_invalid_Phase_2b = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val481 -> (to_Invalid_Phase_2b (T.TStruct _val481)); _ -> P.error "wrong type"})) (Map.lookup (22) fields),
+  proposal_1a_result_invalid_Proof_of_Consensus = P.maybe (P.Nothing) (\(_,_val459) -> P.Just (case _val459 of {T.TStruct _val482 -> (to_Invalid_Proof_of_Consensus (T.TStruct _val482)); _ -> P.error "wrong type"})) (Map.lookup (23) fields)
   }
 to_Proposal_1a_result _ = P.error "not a struct"
 read_Proposal_1a_result :: (T.Transport t, T.Protocol p) => p t -> P.IO Proposal_1a_result
@@ -294,18 +300,22 @@ default_Proposal_1a_result = Proposal_1a_result{
   proposal_1a_result_invalid_Phase_2b = P.Nothing,
   proposal_1a_result_invalid_Proof_of_Consensus = P.Nothing}
 data Phase_1b_args = Phase_1b_args  { phase_1b_args_phase_1b_message :: Signed_Message
+  , phase_1b_args_witness :: LBS.ByteString
   } deriving (P.Show,P.Eq,G.Generic,TY.Typeable)
 instance H.Hashable Phase_1b_args where
-  hashWithSalt salt record = salt   `H.hashWithSalt` phase_1b_args_phase_1b_message record  
+  hashWithSalt salt record = salt   `H.hashWithSalt` phase_1b_args_phase_1b_message record   `H.hashWithSalt` phase_1b_args_witness record  
 instance QC.Arbitrary Phase_1b_args where 
   arbitrary = M.liftM Phase_1b_args (QC.arbitrary)
+          `M.ap`(QC.arbitrary)
   shrink obj | obj == default_Phase_1b_args = []
              | P.otherwise = M.catMaybes
     [ if obj == default_Phase_1b_args{phase_1b_args_phase_1b_message = phase_1b_args_phase_1b_message obj} then P.Nothing else P.Just $ default_Phase_1b_args{phase_1b_args_phase_1b_message = phase_1b_args_phase_1b_message obj}
+    , if obj == default_Phase_1b_args{phase_1b_args_witness = phase_1b_args_witness obj} then P.Nothing else P.Just $ default_Phase_1b_args{phase_1b_args_witness = phase_1b_args_witness obj}
     ]
 from_Phase_1b_args :: Phase_1b_args -> T.ThriftVal
 from_Phase_1b_args record = T.TStruct $ Map.fromList $ M.catMaybes
-  [ (\_v483 -> P.Just (1, ("phase_1b_message",from_Signed_Message _v483))) $ phase_1b_args_phase_1b_message record
+  [ (\_v485 -> P.Just (1, ("phase_1b_message",from_Signed_Message _v485))) $ phase_1b_args_phase_1b_message record
+  , (\_v485 -> P.Just (2, ("witness",T.TBinary _v485))) $ phase_1b_args_witness record
   ]
 write_Phase_1b_args :: (T.Protocol p, T.Transport t) => p t -> Phase_1b_args -> P.IO ()
 write_Phase_1b_args oprot record = T.writeVal oprot $ from_Phase_1b_args record
@@ -313,7 +323,8 @@ encode_Phase_1b_args :: (T.Protocol p, T.Transport t) => p t -> Phase_1b_args ->
 encode_Phase_1b_args oprot record = T.serializeVal oprot $ from_Phase_1b_args record
 to_Phase_1b_args :: T.ThriftVal -> Phase_1b_args
 to_Phase_1b_args (T.TStruct fields) = Phase_1b_args{
-  phase_1b_args_phase_1b_message = P.maybe (phase_1b_args_phase_1b_message default_Phase_1b_args) (\(_,_val485) -> (case _val485 of {T.TStruct _val486 -> (to_Signed_Message (T.TStruct _val486)); _ -> P.error "wrong type"})) (Map.lookup (1) fields)
+  phase_1b_args_phase_1b_message = P.maybe (phase_1b_args_phase_1b_message default_Phase_1b_args) (\(_,_val487) -> (case _val487 of {T.TStruct _val488 -> (to_Signed_Message (T.TStruct _val488)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  phase_1b_args_witness = P.maybe (phase_1b_args_witness default_Phase_1b_args) (\(_,_val487) -> (case _val487 of {T.TBinary _val489 -> _val489; T.TString _val489 -> _val489; _ -> P.error "wrong type"})) (Map.lookup (2) fields)
   }
 to_Phase_1b_args _ = P.error "not a struct"
 read_Phase_1b_args :: (T.Transport t, T.Protocol p) => p t -> P.IO Phase_1b_args
@@ -321,10 +332,11 @@ read_Phase_1b_args iprot = to_Phase_1b_args <$> T.readVal iprot (T.T_STRUCT type
 decode_Phase_1b_args :: (T.Protocol p, T.Transport t) => p t -> LBS.ByteString -> Phase_1b_args
 decode_Phase_1b_args iprot bs = to_Phase_1b_args $ T.deserializeVal iprot (T.T_STRUCT typemap_Phase_1b_args) bs
 typemap_Phase_1b_args :: T.TypeMap
-typemap_Phase_1b_args = Map.fromList [(1,("phase_1b_message",(T.T_STRUCT typemap_Signed_Message)))]
+typemap_Phase_1b_args = Map.fromList [(1,("phase_1b_message",(T.T_STRUCT typemap_Signed_Message))),(2,("witness",T.T_BINARY))]
 default_Phase_1b_args :: Phase_1b_args
 default_Phase_1b_args = Phase_1b_args{
-  phase_1b_args_phase_1b_message = default_Signed_Message}
+  phase_1b_args_phase_1b_message = default_Signed_Message,
+  phase_1b_args_witness = ""}
 data Phase_1b_result = Phase_1b_result  { phase_1b_result_no_supported_hash_sha2_descriptor_provided :: P.Maybe No_Supported_Hash_Sha2_Descriptor_Provided
   , phase_1b_result_descriptor_does_not_match_hash_sha2 :: P.Maybe Descriptor_Does_Not_Match_Hash_Sha2
   , phase_1b_result_no_supported_hash_sha3_descriptor_provided :: P.Maybe No_Supported_Hash_Sha3_Descriptor_Provided
@@ -403,31 +415,31 @@ instance QC.Arbitrary Phase_1b_result where
     ]
 from_Phase_1b_result :: Phase_1b_result -> T.ThriftVal
 from_Phase_1b_result record = T.TStruct $ Map.fromList 
-  (let exns = M.catMaybes [ (\_v489 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_hash_sha2_descriptor_provided record, (\_v489 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v489))) <$> phase_1b_result_descriptor_does_not_match_hash_sha2 record, (\_v489 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_hash_sha3_descriptor_provided record, (\_v489 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v489))) <$> phase_1b_result_descriptor_does_not_match_hash_sha3 record, (\_v489 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_hash_type_descriptor_provided record, (\_v489 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v489))) <$> phase_1b_result_descriptor_does_not_match_hash record, (\_v489 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v489))) <$> phase_1b_result_invalid_public_crypto_key_X509 record, (\_v489 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v489))) <$> phase_1b_result_invalid_public_crypto_key_PGP record, (\_v489 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_public_crypto_key_type_descriptor_provided record, (\_v489 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v489))) <$> phase_1b_result_descriptor_does_not_match_public_crypto_key record, (\_v489 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v489))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID_hash record, (\_v489 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_crypto_ID_type_descriptor_provided record, (\_v489 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v489))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID record, (\_v489 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v489))) <$> phase_1b_result_invalid_signed_hash record, (\_v489 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v489))) <$> phase_1b_result_descriptor_does_not_match_signed_hash record, (\_v489 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v489))) <$> phase_1b_result_unparsable_hashable_message record, (\_v489 -> (17, ("invalid_address",from_Invalid_Address _v489))) <$> phase_1b_result_invalid_address record, (\_v489 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v489))) <$> phase_1b_result_impossible_observer_graph record, (\_v489 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v489))) <$> phase_1b_result_invalid_proposal_1a record, (\_v489 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v489))) <$> phase_1b_result_invalid_Phase_1b record, (\_v489 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v489))) <$> phase_1b_result_invalid_Phase_2a record, (\_v489 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v489))) <$> phase_1b_result_invalid_Phase_2b record, (\_v489 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v489))) <$> phase_1b_result_invalid_Proof_of_Consensus record]
+  (let exns = M.catMaybes [ (\_v492 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_hash_sha2_descriptor_provided record, (\_v492 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v492))) <$> phase_1b_result_descriptor_does_not_match_hash_sha2 record, (\_v492 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_hash_sha3_descriptor_provided record, (\_v492 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v492))) <$> phase_1b_result_descriptor_does_not_match_hash_sha3 record, (\_v492 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_hash_type_descriptor_provided record, (\_v492 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v492))) <$> phase_1b_result_descriptor_does_not_match_hash record, (\_v492 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v492))) <$> phase_1b_result_invalid_public_crypto_key_X509 record, (\_v492 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v492))) <$> phase_1b_result_invalid_public_crypto_key_PGP record, (\_v492 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_public_crypto_key_type_descriptor_provided record, (\_v492 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v492))) <$> phase_1b_result_descriptor_does_not_match_public_crypto_key record, (\_v492 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v492))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID_hash record, (\_v492 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_crypto_ID_type_descriptor_provided record, (\_v492 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v492))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID record, (\_v492 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v492))) <$> phase_1b_result_invalid_signed_hash record, (\_v492 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v492))) <$> phase_1b_result_descriptor_does_not_match_signed_hash record, (\_v492 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v492))) <$> phase_1b_result_unparsable_hashable_message record, (\_v492 -> (17, ("invalid_address",from_Invalid_Address _v492))) <$> phase_1b_result_invalid_address record, (\_v492 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v492))) <$> phase_1b_result_impossible_observer_graph record, (\_v492 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v492))) <$> phase_1b_result_invalid_proposal_1a record, (\_v492 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v492))) <$> phase_1b_result_invalid_Phase_1b record, (\_v492 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v492))) <$> phase_1b_result_invalid_Phase_2a record, (\_v492 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v492))) <$> phase_1b_result_invalid_Phase_2b record, (\_v492 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v492))) <$> phase_1b_result_invalid_Proof_of_Consensus record]
   in if P.not (P.null exns) then exns else M.catMaybes
-    [ (\_v489 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_hash_sha2_descriptor_provided record
-    , (\_v489 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v489))) <$> phase_1b_result_descriptor_does_not_match_hash_sha2 record
-    , (\_v489 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_hash_sha3_descriptor_provided record
-    , (\_v489 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v489))) <$> phase_1b_result_descriptor_does_not_match_hash_sha3 record
-    , (\_v489 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_hash_type_descriptor_provided record
-    , (\_v489 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v489))) <$> phase_1b_result_descriptor_does_not_match_hash record
-    , (\_v489 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v489))) <$> phase_1b_result_invalid_public_crypto_key_X509 record
-    , (\_v489 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v489))) <$> phase_1b_result_invalid_public_crypto_key_PGP record
-    , (\_v489 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_public_crypto_key_type_descriptor_provided record
-    , (\_v489 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v489))) <$> phase_1b_result_descriptor_does_not_match_public_crypto_key record
-    , (\_v489 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v489))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID_hash record
-    , (\_v489 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v489))) <$> phase_1b_result_no_supported_crypto_ID_type_descriptor_provided record
-    , (\_v489 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v489))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID record
-    , (\_v489 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v489))) <$> phase_1b_result_invalid_signed_hash record
-    , (\_v489 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v489))) <$> phase_1b_result_descriptor_does_not_match_signed_hash record
-    , (\_v489 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v489))) <$> phase_1b_result_unparsable_hashable_message record
-    , (\_v489 -> (17, ("invalid_address",from_Invalid_Address _v489))) <$> phase_1b_result_invalid_address record
-    , (\_v489 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v489))) <$> phase_1b_result_impossible_observer_graph record
-    , (\_v489 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v489))) <$> phase_1b_result_invalid_proposal_1a record
-    , (\_v489 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v489))) <$> phase_1b_result_invalid_Phase_1b record
-    , (\_v489 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v489))) <$> phase_1b_result_invalid_Phase_2a record
-    , (\_v489 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v489))) <$> phase_1b_result_invalid_Phase_2b record
-    , (\_v489 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v489))) <$> phase_1b_result_invalid_Proof_of_Consensus record
+    [ (\_v492 -> (1, ("no_supported_hash_sha2_descriptor_provided",from_No_Supported_Hash_Sha2_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_hash_sha2_descriptor_provided record
+    , (\_v492 -> (2, ("descriptor_does_not_match_hash_sha2",from_Descriptor_Does_Not_Match_Hash_Sha2 _v492))) <$> phase_1b_result_descriptor_does_not_match_hash_sha2 record
+    , (\_v492 -> (3, ("no_supported_hash_sha3_descriptor_provided",from_No_Supported_Hash_Sha3_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_hash_sha3_descriptor_provided record
+    , (\_v492 -> (4, ("descriptor_does_not_match_hash_sha3",from_Descriptor_Does_Not_Match_Hash_Sha3 _v492))) <$> phase_1b_result_descriptor_does_not_match_hash_sha3 record
+    , (\_v492 -> (5, ("no_supported_hash_type_descriptor_provided",from_No_Supported_Hash_Type_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_hash_type_descriptor_provided record
+    , (\_v492 -> (6, ("descriptor_does_not_match_hash",from_Descriptor_Does_Not_Match_Hash _v492))) <$> phase_1b_result_descriptor_does_not_match_hash record
+    , (\_v492 -> (7, ("invalid_public_crypto_key_X509",from_Invalid_Public_Crypto_Key_X509 _v492))) <$> phase_1b_result_invalid_public_crypto_key_X509 record
+    , (\_v492 -> (8, ("invalid_public_crypto_key_PGP",from_Invalid_Public_Crypto_Key_PGP _v492))) <$> phase_1b_result_invalid_public_crypto_key_PGP record
+    , (\_v492 -> (9, ("no_supported_public_crypto_key_type_descriptor_provided",from_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_public_crypto_key_type_descriptor_provided record
+    , (\_v492 -> (10, ("descriptor_does_not_match_public_crypto_key",from_Descriptor_Does_Not_Match_Public_Crypto_Key _v492))) <$> phase_1b_result_descriptor_does_not_match_public_crypto_key record
+    , (\_v492 -> (11, ("descriptor_does_not_match_crypto_ID_hash",from_Descriptor_Does_Not_Match_Crypto_ID_Hash _v492))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID_hash record
+    , (\_v492 -> (12, ("no_supported_crypto_ID_type_descriptor_provided",from_No_Supported_Crypto_ID_Type_Descriptor_Provided _v492))) <$> phase_1b_result_no_supported_crypto_ID_type_descriptor_provided record
+    , (\_v492 -> (13, ("descriptor_does_not_match_crypto_ID",from_Descriptor_Does_Not_Match_Crypto_ID _v492))) <$> phase_1b_result_descriptor_does_not_match_crypto_ID record
+    , (\_v492 -> (14, ("invalid_signed_hash",from_Invalid_Signed_Hash _v492))) <$> phase_1b_result_invalid_signed_hash record
+    , (\_v492 -> (15, ("descriptor_does_not_match_signed_hash",from_Descriptor_Does_Not_Match_Signed_Hash _v492))) <$> phase_1b_result_descriptor_does_not_match_signed_hash record
+    , (\_v492 -> (16, ("unparsable_hashable_message",from_Unparsable_Hashable_Message _v492))) <$> phase_1b_result_unparsable_hashable_message record
+    , (\_v492 -> (17, ("invalid_address",from_Invalid_Address _v492))) <$> phase_1b_result_invalid_address record
+    , (\_v492 -> (18, ("impossible_observer_graph",from_Impossible_Observer_Graph _v492))) <$> phase_1b_result_impossible_observer_graph record
+    , (\_v492 -> (19, ("invalid_proposal_1a",from_Invalid_Proposal_1a _v492))) <$> phase_1b_result_invalid_proposal_1a record
+    , (\_v492 -> (20, ("invalid_Phase_1b",from_Invalid_Phase_1b _v492))) <$> phase_1b_result_invalid_Phase_1b record
+    , (\_v492 -> (21, ("invalid_Phase_2a",from_Invalid_Phase_2a _v492))) <$> phase_1b_result_invalid_Phase_2a record
+    , (\_v492 -> (22, ("invalid_Phase_2b",from_Invalid_Phase_2b _v492))) <$> phase_1b_result_invalid_Phase_2b record
+    , (\_v492 -> (23, ("invalid_Proof_of_Consensus",from_Invalid_Proof_of_Consensus _v492))) <$> phase_1b_result_invalid_Proof_of_Consensus record
     ]
     )
 write_Phase_1b_result :: (T.Protocol p, T.Transport t) => p t -> Phase_1b_result -> P.IO ()
@@ -436,29 +448,29 @@ encode_Phase_1b_result :: (T.Protocol p, T.Transport t) => p t -> Phase_1b_resul
 encode_Phase_1b_result oprot record = T.serializeVal oprot $ from_Phase_1b_result record
 to_Phase_1b_result :: T.ThriftVal -> Phase_1b_result
 to_Phase_1b_result (T.TStruct fields) = Phase_1b_result{
-  phase_1b_result_no_supported_hash_sha2_descriptor_provided = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val492 -> (to_No_Supported_Hash_Sha2_Descriptor_Provided (T.TStruct _val492)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
-  phase_1b_result_descriptor_does_not_match_hash_sha2 = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val493 -> (to_Descriptor_Does_Not_Match_Hash_Sha2 (T.TStruct _val493)); _ -> P.error "wrong type"})) (Map.lookup (2) fields),
-  phase_1b_result_no_supported_hash_sha3_descriptor_provided = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val494 -> (to_No_Supported_Hash_Sha3_Descriptor_Provided (T.TStruct _val494)); _ -> P.error "wrong type"})) (Map.lookup (3) fields),
-  phase_1b_result_descriptor_does_not_match_hash_sha3 = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val495 -> (to_Descriptor_Does_Not_Match_Hash_Sha3 (T.TStruct _val495)); _ -> P.error "wrong type"})) (Map.lookup (4) fields),
-  phase_1b_result_no_supported_hash_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val496 -> (to_No_Supported_Hash_Type_Descriptor_Provided (T.TStruct _val496)); _ -> P.error "wrong type"})) (Map.lookup (5) fields),
-  phase_1b_result_descriptor_does_not_match_hash = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val497 -> (to_Descriptor_Does_Not_Match_Hash (T.TStruct _val497)); _ -> P.error "wrong type"})) (Map.lookup (6) fields),
-  phase_1b_result_invalid_public_crypto_key_X509 = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val498 -> (to_Invalid_Public_Crypto_Key_X509 (T.TStruct _val498)); _ -> P.error "wrong type"})) (Map.lookup (7) fields),
-  phase_1b_result_invalid_public_crypto_key_PGP = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val499 -> (to_Invalid_Public_Crypto_Key_PGP (T.TStruct _val499)); _ -> P.error "wrong type"})) (Map.lookup (8) fields),
-  phase_1b_result_no_supported_public_crypto_key_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val500 -> (to_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided (T.TStruct _val500)); _ -> P.error "wrong type"})) (Map.lookup (9) fields),
-  phase_1b_result_descriptor_does_not_match_public_crypto_key = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val501 -> (to_Descriptor_Does_Not_Match_Public_Crypto_Key (T.TStruct _val501)); _ -> P.error "wrong type"})) (Map.lookup (10) fields),
-  phase_1b_result_descriptor_does_not_match_crypto_ID_hash = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val502 -> (to_Descriptor_Does_Not_Match_Crypto_ID_Hash (T.TStruct _val502)); _ -> P.error "wrong type"})) (Map.lookup (11) fields),
-  phase_1b_result_no_supported_crypto_ID_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val503 -> (to_No_Supported_Crypto_ID_Type_Descriptor_Provided (T.TStruct _val503)); _ -> P.error "wrong type"})) (Map.lookup (12) fields),
-  phase_1b_result_descriptor_does_not_match_crypto_ID = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val504 -> (to_Descriptor_Does_Not_Match_Crypto_ID (T.TStruct _val504)); _ -> P.error "wrong type"})) (Map.lookup (13) fields),
-  phase_1b_result_invalid_signed_hash = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val505 -> (to_Invalid_Signed_Hash (T.TStruct _val505)); _ -> P.error "wrong type"})) (Map.lookup (14) fields),
-  phase_1b_result_descriptor_does_not_match_signed_hash = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val506 -> (to_Descriptor_Does_Not_Match_Signed_Hash (T.TStruct _val506)); _ -> P.error "wrong type"})) (Map.lookup (15) fields),
-  phase_1b_result_unparsable_hashable_message = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val507 -> (to_Unparsable_Hashable_Message (T.TStruct _val507)); _ -> P.error "wrong type"})) (Map.lookup (16) fields),
-  phase_1b_result_invalid_address = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val508 -> (to_Invalid_Address (T.TStruct _val508)); _ -> P.error "wrong type"})) (Map.lookup (17) fields),
-  phase_1b_result_impossible_observer_graph = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val509 -> (to_Impossible_Observer_Graph (T.TStruct _val509)); _ -> P.error "wrong type"})) (Map.lookup (18) fields),
-  phase_1b_result_invalid_proposal_1a = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val510 -> (to_Invalid_Proposal_1a (T.TStruct _val510)); _ -> P.error "wrong type"})) (Map.lookup (19) fields),
-  phase_1b_result_invalid_Phase_1b = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val511 -> (to_Invalid_Phase_1b (T.TStruct _val511)); _ -> P.error "wrong type"})) (Map.lookup (20) fields),
-  phase_1b_result_invalid_Phase_2a = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val512 -> (to_Invalid_Phase_2a (T.TStruct _val512)); _ -> P.error "wrong type"})) (Map.lookup (21) fields),
-  phase_1b_result_invalid_Phase_2b = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val513 -> (to_Invalid_Phase_2b (T.TStruct _val513)); _ -> P.error "wrong type"})) (Map.lookup (22) fields),
-  phase_1b_result_invalid_Proof_of_Consensus = P.maybe (P.Nothing) (\(_,_val491) -> P.Just (case _val491 of {T.TStruct _val514 -> (to_Invalid_Proof_of_Consensus (T.TStruct _val514)); _ -> P.error "wrong type"})) (Map.lookup (23) fields)
+  phase_1b_result_no_supported_hash_sha2_descriptor_provided = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val495 -> (to_No_Supported_Hash_Sha2_Descriptor_Provided (T.TStruct _val495)); _ -> P.error "wrong type"})) (Map.lookup (1) fields),
+  phase_1b_result_descriptor_does_not_match_hash_sha2 = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val496 -> (to_Descriptor_Does_Not_Match_Hash_Sha2 (T.TStruct _val496)); _ -> P.error "wrong type"})) (Map.lookup (2) fields),
+  phase_1b_result_no_supported_hash_sha3_descriptor_provided = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val497 -> (to_No_Supported_Hash_Sha3_Descriptor_Provided (T.TStruct _val497)); _ -> P.error "wrong type"})) (Map.lookup (3) fields),
+  phase_1b_result_descriptor_does_not_match_hash_sha3 = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val498 -> (to_Descriptor_Does_Not_Match_Hash_Sha3 (T.TStruct _val498)); _ -> P.error "wrong type"})) (Map.lookup (4) fields),
+  phase_1b_result_no_supported_hash_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val499 -> (to_No_Supported_Hash_Type_Descriptor_Provided (T.TStruct _val499)); _ -> P.error "wrong type"})) (Map.lookup (5) fields),
+  phase_1b_result_descriptor_does_not_match_hash = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val500 -> (to_Descriptor_Does_Not_Match_Hash (T.TStruct _val500)); _ -> P.error "wrong type"})) (Map.lookup (6) fields),
+  phase_1b_result_invalid_public_crypto_key_X509 = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val501 -> (to_Invalid_Public_Crypto_Key_X509 (T.TStruct _val501)); _ -> P.error "wrong type"})) (Map.lookup (7) fields),
+  phase_1b_result_invalid_public_crypto_key_PGP = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val502 -> (to_Invalid_Public_Crypto_Key_PGP (T.TStruct _val502)); _ -> P.error "wrong type"})) (Map.lookup (8) fields),
+  phase_1b_result_no_supported_public_crypto_key_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val503 -> (to_No_Supported_Public_Crypto_Key_Type_Descriptor_Provided (T.TStruct _val503)); _ -> P.error "wrong type"})) (Map.lookup (9) fields),
+  phase_1b_result_descriptor_does_not_match_public_crypto_key = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val504 -> (to_Descriptor_Does_Not_Match_Public_Crypto_Key (T.TStruct _val504)); _ -> P.error "wrong type"})) (Map.lookup (10) fields),
+  phase_1b_result_descriptor_does_not_match_crypto_ID_hash = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val505 -> (to_Descriptor_Does_Not_Match_Crypto_ID_Hash (T.TStruct _val505)); _ -> P.error "wrong type"})) (Map.lookup (11) fields),
+  phase_1b_result_no_supported_crypto_ID_type_descriptor_provided = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val506 -> (to_No_Supported_Crypto_ID_Type_Descriptor_Provided (T.TStruct _val506)); _ -> P.error "wrong type"})) (Map.lookup (12) fields),
+  phase_1b_result_descriptor_does_not_match_crypto_ID = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val507 -> (to_Descriptor_Does_Not_Match_Crypto_ID (T.TStruct _val507)); _ -> P.error "wrong type"})) (Map.lookup (13) fields),
+  phase_1b_result_invalid_signed_hash = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val508 -> (to_Invalid_Signed_Hash (T.TStruct _val508)); _ -> P.error "wrong type"})) (Map.lookup (14) fields),
+  phase_1b_result_descriptor_does_not_match_signed_hash = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val509 -> (to_Descriptor_Does_Not_Match_Signed_Hash (T.TStruct _val509)); _ -> P.error "wrong type"})) (Map.lookup (15) fields),
+  phase_1b_result_unparsable_hashable_message = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val510 -> (to_Unparsable_Hashable_Message (T.TStruct _val510)); _ -> P.error "wrong type"})) (Map.lookup (16) fields),
+  phase_1b_result_invalid_address = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val511 -> (to_Invalid_Address (T.TStruct _val511)); _ -> P.error "wrong type"})) (Map.lookup (17) fields),
+  phase_1b_result_impossible_observer_graph = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val512 -> (to_Impossible_Observer_Graph (T.TStruct _val512)); _ -> P.error "wrong type"})) (Map.lookup (18) fields),
+  phase_1b_result_invalid_proposal_1a = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val513 -> (to_Invalid_Proposal_1a (T.TStruct _val513)); _ -> P.error "wrong type"})) (Map.lookup (19) fields),
+  phase_1b_result_invalid_Phase_1b = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val514 -> (to_Invalid_Phase_1b (T.TStruct _val514)); _ -> P.error "wrong type"})) (Map.lookup (20) fields),
+  phase_1b_result_invalid_Phase_2a = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val515 -> (to_Invalid_Phase_2a (T.TStruct _val515)); _ -> P.error "wrong type"})) (Map.lookup (21) fields),
+  phase_1b_result_invalid_Phase_2b = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val516 -> (to_Invalid_Phase_2b (T.TStruct _val516)); _ -> P.error "wrong type"})) (Map.lookup (22) fields),
+  phase_1b_result_invalid_Proof_of_Consensus = P.maybe (P.Nothing) (\(_,_val494) -> P.Just (case _val494 of {T.TStruct _val517 -> (to_Invalid_Proof_of_Consensus (T.TStruct _val517)); _ -> P.error "wrong type"})) (Map.lookup (23) fields)
   }
 to_Phase_1b_result _ = P.error "not a struct"
 read_Phase_1b_result :: (T.Transport t, T.Protocol p) => p t -> P.IO Phase_1b_result
@@ -534,7 +546,7 @@ process_proposal_1a (seqid, iprot, oprot, handler) = do
                                               (X.catch
                                                 (X.catch
                                                   (do
-                                                    Iface.proposal_1a handler (proposal_1a_args_proposal args)
+                                                    Iface.proposal_1a handler (proposal_1a_args_proposal args) (proposal_1a_args_witness args)
                                                     let res = default_Proposal_1a_result
                                                     T.writeMessageBegin oprot ("proposal_1a", T.M_REPLY, seqid)
                                                     write_Proposal_1a_result oprot res
@@ -710,7 +722,7 @@ process_phase_1b (seqid, iprot, oprot, handler) = do
                                               (X.catch
                                                 (X.catch
                                                   (do
-                                                    Iface.phase_1b handler (phase_1b_args_phase_1b_message args)
+                                                    Iface.phase_1b handler (phase_1b_args_phase_1b_message args) (phase_1b_args_witness args)
                                                     let res = default_Phase_1b_result
                                                     T.writeMessageBegin oprot ("phase_1b", T.M_REPLY, seqid)
                                                     write_Phase_1b_result oprot res
