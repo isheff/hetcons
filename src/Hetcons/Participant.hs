@@ -39,7 +39,7 @@ import Hetcons.Value ( Value, Contains_1a, extract_1a )
 import Hetcons_Participant ( process )
 import Hetcons_Participant_Iface
     ( Hetcons_Participant_Iface, ping, proposal_1a, phase_1b )
-import Hetcons_Types
+import Charlotte_Types
     ( Proposal_1a(proposal_1a_timestamp), Crypto_ID, Timestamp, Slot_Value )
 
 import Control.Concurrent ( forkIO, ThreadId, threadDelay )

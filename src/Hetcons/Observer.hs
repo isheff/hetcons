@@ -42,7 +42,7 @@ import Hetcons.Value (Value)
 import Hetcons_Observer ( process )
 import Hetcons_Observer_Iface
     ( Hetcons_Observer_Iface, ping, phase_2b )
-import Hetcons_Types
+import Charlotte_Types
     ( Participant_ID(participant_ID_address)
      ,Crypto_ID
      ,Slot_Value

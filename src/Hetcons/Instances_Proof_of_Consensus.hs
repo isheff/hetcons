@@ -40,7 +40,7 @@ import Hetcons.Value
         ,extract_1bs
     )
 
-import Hetcons_Types
+import Charlotte_Types
     ( Participant_ID(participant_ID_crypto_id)
      ,Invalid_Proof_of_Consensus(invalid_Proof_of_Consensus_explanation
                                 ,invalid_Proof_of_Consensus_offending_proof_of_consensus)

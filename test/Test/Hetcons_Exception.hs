@@ -22,7 +22,7 @@ import Hetcons.Hetcons_Exception
                       ,Hetcons_Exception_Invalid_Proposal_1a))
 import Test.Util ()
 
-import Hetcons_Types (default_No_Supported_Hash_Sha2_Descriptor_Provided
+import Charlotte_Types (default_No_Supported_Hash_Sha2_Descriptor_Provided
                      ,default_Descriptor_Does_Not_Match_Hash_Sha2)
 
 import Control.Exception (throw,

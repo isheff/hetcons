@@ -38,7 +38,7 @@ import Hetcons.Signed_Message (Recursive_1a
                                  ,encode
                               )
 
-import Hetcons_Types  (Slot_Value
+import Charlotte_Types  (Slot_Value
                          ,slot_Value_slot
                          ,encode_Slot_Value
                       ,Value_Witness

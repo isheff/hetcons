@@ -13,7 +13,7 @@ import Hetcons.Hetcons_Exception
     ( Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a
                        ,Hetcons_Exception_Impossible_Observer_Graph) )
 
-import Hetcons_Types
+import Charlotte_Types
     ( Invalid_Proposal_1a(invalid_Proposal_1a_explanation
                          ,invalid_Proposal_1a_offending_proposal)
      ,Impossible_Observer_Graph(impossible_Observer_Graph_explanation

@@ -27,7 +27,7 @@ module Hetcons.Hetcons_Exception
                       ,Hetcons_Exception_Invalid_Proof_of_Consensus)
     ) where
 
-import Hetcons_Types
+import Charlotte_Types
     ( No_Supported_Hash_Sha2_Descriptor_Provided
      ,Descriptor_Does_Not_Match_Hash_Sha2
      ,No_Supported_Hash_Sha3_Descriptor_Provided

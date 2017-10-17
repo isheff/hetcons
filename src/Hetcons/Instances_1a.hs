@@ -24,7 +24,7 @@ import Hetcons.Value
      ,Value
     )
 
-import Hetcons_Types
+import Charlotte_Types
     ( Proposal_1a(proposal_1a_observers, proposal_1a_value)
       ,encode_Proposal_1a )
 

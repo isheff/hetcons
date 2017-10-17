@@ -38,6 +38,10 @@ resolver: lts-9.1
 packages:
 - '.'
 - location:
+    git: git@github.com:isheff/Charlotte.git
+    commit: 43fae1d388d13f666afbf390e0564f8b788ef5d0
+  extra-dep: true
+- location:
     git: git@github.com:isheff/EasyX509.git
     commit: 01a40cf10689552b946dd43cbfb1b961397bb957
   extra-dep: true

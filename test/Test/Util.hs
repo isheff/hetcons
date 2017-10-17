@@ -26,7 +26,7 @@ import Hetcons.Signed_Message (Encodable
                               ,Recursive_Proof_of_Consensus
                               ,Monad_Verify)
 
-import Hetcons_Types (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus
+import Charlotte_Types (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus
                      ,default_Unparsable_Hashable_Message
                      ,unparsable_Hashable_Message_explanation
                      ,unparsable_Hashable_Message_message )

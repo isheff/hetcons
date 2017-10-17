@@ -15,8 +15,8 @@ import Hetcons.Signed_Message
      ,original )
 import Test.Util ()
 
-import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
-import Hetcons_Types
+import Charlotte_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import Charlotte_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
                     ,default_Participant_ID
      ,Slot_Value(slot_Value_slot, slot_Value_value_payload)

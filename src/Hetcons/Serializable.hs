@@ -2,7 +2,7 @@
 -- | This is mostly used for testing, but also necessary for some derived types for some reason.
 module Hetcons.Serializable () where
 
-import Hetcons_Types
+import Charlotte_Types
     ( Signed_Message
        ,encode_Signed_Message
        ,decode_Signed_Message

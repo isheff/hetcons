@@ -54,7 +54,7 @@ import Hetcons.Signed_Message
        ,verify' )
 import Hetcons.Value (Value)
 
-import Hetcons_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers, Value_Witness )
+import Charlotte_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers, Value_Witness )
 
 import Crypto.Random          (drgNew)
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )

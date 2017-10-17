@@ -25,7 +25,7 @@ import Hetcons.Value
         ,conflicts
     )
 
-import Hetcons_Types ( Phase_2a
+import Charlotte_Types ( Phase_2a
                       ,default_Phase_1b
                       ,phase_1b_proposal
                       ,phase_1b_conflicting_phase2as)

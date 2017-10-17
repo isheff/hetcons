@@ -23,7 +23,7 @@ import Hetcons.Signed_Message
      ,sign )
 import Test.Util ()
 
-import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import Charlotte_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import qualified Hetcons_Observer as Observer ( process )
 import qualified Hetcons_Observer_Iface as Observer
     ( ping, phase_2b )
@@ -31,7 +31,7 @@ import Hetcons_Observer_Iface ( Hetcons_Observer_Iface )
 import Hetcons_Participant ( process )
 import Hetcons_Participant_Iface
     ( Hetcons_Participant_Iface, ping, proposal_1a, phase_1b )
-import Hetcons_Types
+import Charlotte_Types
     ( Participant_ID(participant_ID_crypto_id, participant_ID_address)
                     ,default_Participant_ID
      ,Slot_Value(slot_Value_slot, slot_Value_value_payload)

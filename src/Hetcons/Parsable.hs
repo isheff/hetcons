@@ -6,7 +6,7 @@ module Hetcons.Parsable
       ,parse
     ) where
 
-import Hetcons_Types
+import Charlotte_Types
     (Proposal_1a
        ,decode_Proposal_1a
      ,Public_Crypto_Key(Public_Crypto_Key

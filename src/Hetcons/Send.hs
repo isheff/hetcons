@@ -36,8 +36,8 @@ import Hetcons.Hetcons_State
     ( Hetcons_State, Participant_State, Observer_State )
 import Hetcons.Value (Value)
 
-import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
-import Hetcons_Types
+import Charlotte_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import Charlotte_Types
     ( Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus )
 
 import Crypto.Random ( drgNew )

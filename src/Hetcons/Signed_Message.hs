@@ -46,14 +46,14 @@ import Hetcons.Parsable (Parsable, parse)
 import Hetcons.Quorums ( Monad_Verify_Quorums )
 import Hetcons.Serializable ()
 
-import Hetcons_Consts
+import Charlotte_Consts
     ( sUPPORTED_HASH_SHA2_DESCRIPTOR
      ,sUPPORTED_CRYPTO_ID_TYPE_DESCRIPTOR
      ,sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
      ,sUPPORTED_HASH_TYPE_DESCRIPTOR
      ,sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
      ,sUPPORTED_PUBLIC_CRYPTO_KEY_TYPE_DESCRIPTOR )
-import Hetcons_Types
+import Charlotte_Types
     ( Unparsable_Hashable_Message(unparsable_Hashable_Message_explanation
                                  ,unparsable_Hashable_Message_message)
                                  ,default_Unparsable_Hashable_Message

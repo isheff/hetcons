@@ -54,8 +54,8 @@ import Hetcons.Value
      ,conflicts
     )
 
-import Hetcons_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
-import Hetcons_Types
+import Charlotte_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
+import Charlotte_Types
     ( Signed_Message(signed_Message_signature)
      ,Phase_2a(phase_2a_phase_1bs)
      ,Signed_Hash(signed_Hash_crypto_id)

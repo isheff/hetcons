@@ -17,7 +17,7 @@ import Hetcons.Value (Value, extract_observer_quorums )
 
 import Hetcons_Observer_Client ( phase_2b )
 import Hetcons_Participant_Client ( proposal_1a, phase_1b )
-import Hetcons_Types
+import Charlotte_Types
     ( Participant_ID(Participant_ID, participant_ID_address)
      ,Address(Address, address_port_number, address_host_address)
      ,Host_Address(Host_Address, host_Address_ipv6_address

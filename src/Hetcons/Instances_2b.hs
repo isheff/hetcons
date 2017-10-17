@@ -41,7 +41,7 @@ import Hetcons.Value
         ,extract_1bs
     )
 
-import Hetcons_Types
+import Charlotte_Types
     ( Participant_ID(participant_ID_crypto_id)
      ,Invalid_Phase_2b(invalid_Phase_2b_explanation
                       ,invalid_Phase_2b_offending_phase_2b)
