@@ -233,7 +233,7 @@ witness_tests = TestList [
        ; let (Right (v1a :: (Verified (Recursive_1a Int)))) = verify signed_1a
        ; (handle :: Handle) <- hOpen (("localhost" :: HostName), PortNumber 87811)
        ; let client = (BinaryProtocol handle, BinaryProtocol handle)
-       ; forkIO (catch (Client.proposal_1a client signed_1a ((encodeLazy (3 :: Int)) :: ByteString) >> assertBool "Exception should not have been thrown" True)
+       ; forkIO (catch (Client.proposal_1a client signed_1a ((encodeLazy (2 :: Int)) :: ByteString) >> assertBool "Exception should not have been thrown" True)
                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught when it should not have been: " ++ (show exception)) False))
        ; takeMVar receipt_1b
        ; assertBool "we should have made it to this point" True
