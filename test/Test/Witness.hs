@@ -88,8 +88,8 @@ import Thrift.Transport.Handle ( hOpen )
 instance Value Int where
   value_valid witness v =
     case decodeLazy witness of
-      (Left  _) -> False
-      (Right x) -> (x * x) == v
+      (Left  _) -> return False
+      (Right x) -> return ((x * x) == v)
 
   value_conflicts _ = False
 

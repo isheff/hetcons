@@ -107,7 +107,8 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
     ; if ((member naive_r1b $ HashSet.map original state) || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
          then return ()
          else do { witness <- get_witness
-                 ; if valid witness r1a -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
+                 ; validity_check <- valid witness r1a
+                 ; if validity_check -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
                       then return () -- However, the first time we receive a value, we always must end up here.
                       else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                                           invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a
