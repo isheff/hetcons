@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Hetcons.Conflicting_2as
+                     , Hetcons.Debug
                      , Hetcons.Hetcons_Exception
                      , Hetcons.Hetcons_State
                      , Hetcons.Instances_1a

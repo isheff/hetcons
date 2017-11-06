@@ -37,6 +37,7 @@ module Hetcons.Receive_Message
   )
   where
 
+import Hetcons.Debug (Monad_Debuggable, debug)
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Hetcons_State ( Hetcons_State, modify_and_read )
 import Hetcons.Parsable (Parsable)
@@ -90,6 +91,9 @@ newtype Hetcons_Transaction s v a =
     ReaderT (Hetcons_Transaction_Environment s v)
     IO a)
   } deriving (Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s v))
+
+instance Monad_Debuggable (Hetcons_Transaction s v) where
+  debug = Hetcons_Transaction . liftIO
 
 
 
