@@ -172,7 +172,8 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_
 --   If they do, send that Proof_of_Consensus
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
-    { old_state <- get_state
+    { debug_print "received a 2b"
+    ; old_state <- get_state
     ; if (member r2b old_state)
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
          else do { let state = insert r2b old_state
