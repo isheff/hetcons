@@ -112,7 +112,9 @@ send_to address_book recipient prompt message = do
                                 -- otherwise, we'll make a new one and use that
                  Nothing -> do { handle <- hOpen (domain_name recipient, PortNumber $ fromIntegral $ address_port_number $ participant_ID_address recipient )
                                ; return (BinaryProtocol handle, BinaryProtocol handle)}
+  ; putStrLn ("sending to port: " ++ (show (address_port_number $ participant_ID_address recipient)))
   ; x <- prompt client' message
+  ; putStrLn ("sent to port: " ++ (show (address_port_number $ participant_ID_address recipient)))
     -- ModifyMVar executes an atomic transaction on the MVar, so we want to do as little within this transaction as possible
   ; modifyMVar client (\r -> return (client' : r, ())) -- add our handle to the stack of known handles
   ; return x}
