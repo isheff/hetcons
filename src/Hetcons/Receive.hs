@@ -10,6 +10,7 @@
 module Hetcons.Receive () where
 
 import Hetcons.Conflicting_2as ( conflicting_2as )
+import Hetcons.Debug (debug_print)
 import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Proposal_1a))
 import Hetcons.Hetcons_State
     ( Participant_State, Observer_State, Hetcons_State )
@@ -96,7 +97,8 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
-    { let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
+    { debug_print "received a 1a"
+    ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
                                    ,recursive_1b_proposal = r1a
                                    ,recursive_1b_conflicting_phase2as = HashSet.empty}
@@ -123,7 +125,8 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
          Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
-    { old_state <- get_state
+    { debug_print "received a 1b"
+    ; old_state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
