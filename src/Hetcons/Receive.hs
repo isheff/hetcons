@@ -129,6 +129,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
     ; old_state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
+    ; debug_print ("there are " ++ (show (size conflicting_ballots)) ++ " conflicting ballots.")
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
@@ -145,14 +146,14 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
                  ; let potential_2a = Recursive_2a $
                          HashSet.filter ((((extract_1a r1b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 1bs with the same proposal
                          HashSet.filter ((((extract_value r1b) :: v) ==) . extract_value) state
-                 ; debug_print "assembled the 1a, time to check if it's well-formed"
+                 ; debug_print "assembled the 2a, time to check if it's well-formed"
                  ; case well_formed_2a potential_2a of
                      (Right _)-> do { debug_print "the 2a IS well-formed"
                                     ; signed <- sign_m $ ((non_recursive potential_2a) :: Phase_2a)
                                     ; (v :: (Verified (Recursive_2a v))) <- verify signed
                                     ; send v
                                     ; debug_print "the 2a IS well-formed, and sent, time to echo stuff."}
-                     (Left e) -> debug_print ("the 2a is not well-formed, time to echo stuff" ++ (show e))
+                     (Left _) -> debug_print "the 2a is not well-formed, time to echo stuff"
                  ; send r1b
                  ; debug_print "all done with the 1b"}} -- echo the 1b
 
