@@ -136,18 +136,21 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
          else do { debug_print "received a NEW 1b"
                  ; my_crypto_id <- get_my_crypto_id
                  ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signed_Message_signature $ signed r1b) -- if this 1b is from me
-                      then return ()
+                      then debug_print "This 1b is from me"
                       else receive ((extract_1a r1b) :: Verified (Recursive_1a v)) -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive ((extract_1bs $ original r1b) :: (HashSet (Verified (Recursive_1b v)))) -- receive all prior 1bs contained herein
+                 ; debug_print "I have finished receiving all the recursive 1bs"
                  ; state <- update_state (\s -> let new_state = insert r1b s in (new_state, new_state))
+                 ; debug_print "updated the state, time to assemble the 2a"
                  ; let potential_2a = Recursive_2a $
                          HashSet.filter ((((extract_1a r1b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 1bs with the same proposal
                          HashSet.filter ((((extract_value r1b) :: v) ==) . extract_value) state
+                 ; debug_print "assembled the 1a, time to check if it's well-formed"
                  ; case well_formed_2a potential_2a of
                      (Right _)-> do { signed <- sign_m $ ((non_recursive potential_2a) :: Phase_2a)
                                     ; (v :: (Verified (Recursive_2a v))) <- verify signed
                                     ; send v}
-                     (Left _) -> return ()
+                     (Left _) -> debug_print "the 2a is well-formed and sent, time to echo stuff"
                  ; send r1b}} -- echo the 1b
 
 -- | Participant receives 2A
