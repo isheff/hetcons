@@ -147,10 +147,12 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
                          HashSet.filter ((((extract_value r1b) :: v) ==) . extract_value) state
                  ; debug_print "assembled the 1a, time to check if it's well-formed"
                  ; case well_formed_2a potential_2a of
-                     (Right _)-> do { signed <- sign_m $ ((non_recursive potential_2a) :: Phase_2a)
+                     (Right _)-> do { debug_print "the 2a IS well-formed"
+                                    ; signed <- sign_m $ ((non_recursive potential_2a) :: Phase_2a)
                                     ; (v :: (Verified (Recursive_2a v))) <- verify signed
-                                    ; send v}
-                     (Left _) -> debug_print "the 2a is well-formed and sent, time to echo stuff"
+                                    ; send v
+                                    ; debug_print "the 2a IS well-formed, and sent, time to echo stuff."}
+                     (Left _) -> debug_print "the 2a is not well-formed, time to echo stuff"
                  ; send r1b
                  ; debug_print "all done with the 1b"}} -- echo the 1b
 
