@@ -152,7 +152,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
                                     ; (v :: (Verified (Recursive_2a v))) <- verify signed
                                     ; send v
                                     ; debug_print "the 2a IS well-formed, and sent, time to echo stuff."}
-                     (Left _) -> debug_print "the 2a is not well-formed, time to echo stuff"
+                     (Left e) -> debug_print ("the 2a is not well-formed, time to echo stuff" ++ (show e))
                  ; send r1b
                  ; debug_print "all done with the 1b"}} -- echo the 1b
 
