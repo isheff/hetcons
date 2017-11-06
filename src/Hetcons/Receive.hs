@@ -129,6 +129,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
     ; old_state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
+    ; debug_print ("there are " ++ (show (size conflicting_ballots)) ++ " conflicting ballots.")
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
