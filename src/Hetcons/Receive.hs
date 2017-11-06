@@ -133,7 +133,8 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
          then return ()
-         else do { my_crypto_id <- get_my_crypto_id
+         else do { debug_print "received a NEW 1b"
+                 ; my_crypto_id <- get_my_crypto_id
                  ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signed_Message_signature $ signed r1b) -- if this 1b is from me
                       then return ()
                       else receive ((extract_1a r1b) :: Verified (Recursive_1a v)) -- ensure we've received the 1a for this message before we store any 1bs
