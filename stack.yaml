@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-9.1
+resolver: lts-10.4
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -39,7 +39,7 @@ packages:
 - '.'
 - location:
     git: git@github.com:isheff/Charlotte.git
-    commit: bac898ec67ba3af54a916305f309059ae06e99a8
+    commit: e132d58e2359d2d1489b0605d2e5c75d266a3871
   extra-dep: true
 - location:
     git: git@github.com:isheff/EasyX509.git
@@ -47,13 +47,13 @@ packages:
   extra-dep: true
 - location:
     git: git://git.apache.org/thrift.git
-    commit: ec64f23d236d7874e3b28ae86c833f57c7aa3389 
+    commit: 33d30fcbb91558068a4012e2444b01385fdd338c 
   subdirs:
   - lib/hs
   extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: [SHA2-0.2.5,AES-0.2.9,crypto-pubkey-openssh-0.2.7,type-iso-0.1.0.0,numericpeano-0.2.0.0,thrift-1.0.0, hspec-core-2.3.2,quickcheck-io-0.1.4]
+extra-deps: [crypto-pubkey-openssh-0.2.7,type-iso-0.1.0.0,numericpeano-0.2.0.0]
 
 # Override default flag values for local packages and extra-deps
 flags: {}
