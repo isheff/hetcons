@@ -1,5 +1,5 @@
 -- | The machinery for actually sending a message over the wire
-module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name) where
+module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name, send_to) where
 
 import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Signed_Message
