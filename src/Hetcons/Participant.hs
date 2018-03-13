@@ -129,6 +129,7 @@ instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transa
   proposal_1a participant message witness
     = do { putStrLn "received a 1a"
          ; (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
+         ; putStrLn "verified a 1a"
          ; delay_message verified
          ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
 
