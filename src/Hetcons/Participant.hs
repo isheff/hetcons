@@ -44,7 +44,7 @@ import Charlotte_Types
 
 import Control.Concurrent ( forkIO, ThreadId, threadDelay )
 import qualified Control.Concurrent.Map as CMap ( empty )
-import Data.ByteString.Lazy ( ByteString )
+import Data.ByteString.Lazy ( ByteString, pack )
 import Data.Hashable (Hashable)
 import Data.HashSet (HashSet)
 import Data.Thyme.Clock
@@ -129,7 +129,7 @@ instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transa
   proposal_1a participant message witness
     = do { putStrLn "received a 1a"
          ; (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
-         ; putStrLn "verified a 1a"
+         ; putStrLn $ pack ("verified a 1a, and it has length: " ++ (show $ length $ show verified))
          ; delay_message verified
          ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
 
