@@ -37,6 +37,7 @@ import Hetcons.Signed_Message
         ,recursive_1b_conflicting_phase2as
      ,Verified
      ,Recursive_1a
+       ,recursive_1a_value
      ,Recursive_2b(Recursive_2b)
      ,Recursive(non_recursive)
      ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
