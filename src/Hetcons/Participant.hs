@@ -30,6 +30,7 @@ import Hetcons.Signed_Message
     ( Recursive_1b
      ,Verified
      ,Recursive_1a
+       ,recursive_1a_filled_in
      ,Recursive(non_recursive)
      ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify)
