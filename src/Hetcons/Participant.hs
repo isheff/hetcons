@@ -127,10 +127,11 @@ instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transa
 
   -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   proposal_1a participant message witness
-    = do { putStrLn "received a 1a"
+    = do { putStrLn "Received a 1a"
          ; (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
-         ; putStrLn $ pack ("verified a 1a, and it has length: " ++ (show $ length $ show verified))
+         ; putStrLn $ pack ("    verified a 1a, and it has length: " ++ (show $ length $ show verified))
          ; delay_message verified
+         ; putStrLn "    post delay"
          ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
 
   -- | When it gets a 1B, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
