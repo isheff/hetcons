@@ -73,8 +73,9 @@ import Charlotte_Types
 import Control.Monad ( mapM, mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
+import Data.ByteString.Lazy (pack)
 import Data.Foldable ( maximum )
-import Data.Hashable (Hashable)
+import Data.Hashable (Hashable, hash)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
 import qualified Data.HashSet as HashSet ( map, filter, empty )
 
@@ -95,7 +96,13 @@ sign_m m = do
 --   If we've seen anything with this Ballot number or higher before (featuring the same Quorums), then do nothing.
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
-  receive r1a = do
+  receive r1a = 
+                      throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
+                                          invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a
+                                         ,invalid_Proposal_1a_offending_witness = Just witness
+                                         ,invalid_Proposal_1a_explanation = Just $ pack ("This value is not itself considered valid. " ++ (show $ hash $ recursive_1a_value $ original r1a))}
+ {--
+ do
     { let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
                                    ,recursive_1b_proposal = r1a
@@ -116,6 +123,7 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
                                          ,invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
                  ; conflicting <- mapM sign_m $ toList $ conflicting_2as state r1a
                  ; send (naive_1b {phase_1b_conflicting_phase2as = fromList conflicting})}}
+                 --}
 
 -- | Participant receives 1B
 --   If we've received this 1B before, or one that conflicts but has a higher ballot number, do nothing.
