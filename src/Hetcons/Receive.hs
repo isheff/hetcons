@@ -74,7 +74,7 @@ import Charlotte_Types
 import Control.Monad ( mapM, mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( drgNew )
-import Data.ByteString.Lazy (pack)
+import Data.Text.Lazy (pack)
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable, hash)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
