@@ -99,7 +99,7 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
   receive r1a = 
                       throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
                                           invalid_Proposal_1a_offending_proposal = non_recursive $ original r1a
-                                         ,invalid_Proposal_1a_offending_witness = Just witness
+                                         ,invalid_Proposal_1a_offending_witness = Nothing
                                          ,invalid_Proposal_1a_explanation = Just $ pack ("This value is not itself considered valid. " ++ (show $ hash $ recursive_1a_value $ original r1a))}
  {--
  do
