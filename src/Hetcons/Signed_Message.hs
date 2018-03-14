@@ -123,6 +123,7 @@ import Crypto.Hash.Algorithms
     ( SHA224(SHA224), SHA256(SHA256), SHA384(SHA384), SHA512(SHA512) )
 import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( DRG )
+import qualified Data.ByteString.Lazy as ByteString (snoc)
 import Data.ByteString.Lazy ( ByteString )
 import Data.Foldable ( Foldable(maximum, null) )
 import GHC.Generics ( Generic )
@@ -401,7 +402,7 @@ sign (Crypto_ID
                                    32 -> X509.sign $ Just SHA256
                                    48 -> X509.sign $ Just SHA384
                                    _  -> X509.sign $ Just SHA512
-      ;let serialized_payload = encode payload
+      ;let serialized_payload = ByteString.snoc (encode payload) 1
       ;signature <- case sign_with_length random_generator private_key serialized_payload of
                       Left e -> throwError (Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
                                invalid_Signed_Hash_explanation = Just $ pack (
