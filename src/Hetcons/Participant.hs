@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | The Participant Server, which runs the Consensus algorithm, ultimately "accepting" and sending a 2B to Observer Servers
-module Hetcons.Participant (Participant, new_participant, participant_server, basic_participant_server, current_nanoseconds ) where
+module Hetcons.Participant (Participant, new_participant, participant_server, basic_participant_server, current_nanoseconds, participant_proposal_1a) where
 
 import Hetcons.Hetcons_State ( Participant_State, start_State )
 import Hetcons.Parsable (Parsable)
@@ -30,7 +30,6 @@ import Hetcons.Signed_Message
     ( Recursive_1b
      ,Verified
      ,Recursive_1a
-       ,recursive_1a_value
      ,Recursive(non_recursive)
      ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify)
@@ -45,7 +44,7 @@ import Charlotte_Types
 
 import Control.Concurrent ( forkIO, ThreadId, threadDelay )
 import qualified Control.Concurrent.Map as CMap ( empty )
-import Data.ByteString.Lazy ( ByteString)
+import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
 import Data.HashSet (HashSet)
 import Data.Thyme.Clock
@@ -121,19 +120,20 @@ delay_message m = do { now <- current_nanoseconds
 on_consensus :: (Show v) => (Verified (Recursive_Proof_of_Consensus v)) -> IO ()
 on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
 
+
+  -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
+participant_proposal_1a participant message witness
+    = do { (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
+         ; delay_message verified
+         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
+
 -- | Participant implements the Thrift Hetcons_Participant_Iface, meaning it acts as a Participant Server using the API defined in Thrift.
 instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Hetcons_Participant_Iface (Participant v) where
   -- | When Pinged, a Participant returns ()
   ping _ = return ()
 
   -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
-  proposal_1a participant message witness
-    = do { putStrLn "Received a 1a"
-         ; (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
-         ; putStrLn "    this code is literally after the verification code"
-         ; delay_message verified
-         ; putStrLn "    post delay"
-         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
+  proposal_1a = participant_proposal_1a
 
   -- | When it gets a 1B, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   phase_1b participant message witness
