@@ -273,10 +273,8 @@ verify' signed_message@Signed_Message
              {crypto_ID_public_crypto_key = Just
                 Public_Crypto_Key
                   {public_Crypto_Key_public_crypto_key_x509 = Just public_key}}}}
-  =throwError $ Hetcons_Exception_Unparsable_Hashable_Message default_Unparsable_Hashable_Message {
-    unparsable_Hashable_Message_message = payload
-   ,unparsable_Hashable_Message_explanation = Just "we reached verify'!"}
-{--    do{max_length <- sha2_length hash_sha2_descriptor
+  =
+    do{max_length <- sha2_length hash_sha2_descriptor
       ;let verify_with_length = case max_length of
                                      28 -> X509.verify $ Just SHA224
                                      32 -> X509.verify $ Just SHA256
@@ -290,7 +288,7 @@ verify' signed_message@Signed_Message
          Nothing ->
            do { parsed_payload <- parse payload
               ; return Verified { verified_original = parsed_payload, verified_signed = signed_message }}}
---}
+
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
 verify' Signed_Message
        {signed_Message_signature =
