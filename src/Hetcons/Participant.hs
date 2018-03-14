@@ -124,8 +124,7 @@ on_consensus = error . ("Somehow a Participant Proved Consensus: \n" ++) . show
   -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
 participant_proposal_1a :: forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => (Participant v) -> Signed_Message -> ByteString -> IO ()
 participant_proposal_1a participant message witness
-    = 
-                      error "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!!!!!!!!!!!!!!!!!!!!"
+    = putStrLn $ show message
 
      -- do { 
      --    ; (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
