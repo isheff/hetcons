@@ -138,5 +138,9 @@ instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transa
   -- | When it gets a 1B, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   phase_1b participant message witness
     = do { (verified :: (Verified (Recursive_1b v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
+         ; putStrLn "Fern received 1b. This code is literally after verification."
+         ; putStrLn $ "    unverified message has string length " ++ (show $ length $ show message)
+         ; putStrLn $ "    unverified witness has string length " ++ (show $ length $ show witness)
+         ; putStrLn $ "    verified message has string length " ++ (show $ length $ show verified)
          ; delay_message verified
          ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
