@@ -45,7 +45,7 @@ import Charlotte_Types
 import Control.Concurrent ( forkIO, ThreadId, threadDelay )
 import Control.Concurrent.Chan (newChan)
 import qualified Control.Concurrent.Map as CMap ( empty )
-import Control.Monad.Logger(unChanLoggingT, LoggingT)
+import Control.Monad.Logger(unChanLoggingT, LoggingT, runStdoutLoggingT )
 import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
 import Data.HashSet (HashSet)
@@ -96,7 +96,7 @@ participant_server participant port = forkIO $ runBasicServer participant proces
 
 -- | Given a Cryptographic ID (public key), a private key, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
 basic_participant_server :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId
-basic_participant_server cid pk port = do { (participant :: Participant Slot_Value) <- new_participant cid pk
+basic_participant_server cid pk port = do { (participant :: Participant Slot_Value) <- new_participant runStdoutLoggingT cid pk
                                           ; participant_server participant port}
 
 

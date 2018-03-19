@@ -51,7 +51,7 @@ import Charlotte_Types
 import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.Chan (newChan)
 import qualified Control.Concurrent.Map as CMap ( empty )
-import Control.Monad.Logger(unChanLoggingT, LoggingT)
+import Control.Monad.Logger(unChanLoggingT, LoggingT, runStdoutLoggingT )
 import qualified Data.ByteString.Lazy as ByteString( empty )
 import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
@@ -108,7 +108,7 @@ observer_server observer port = forkIO $ runBasicServer observer process $ fromI
 --   Returns the ThreadId of the newly started server.
 basic_observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
                          Crypto_ID -> ByteString -> a -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO ThreadId
-basic_observer_server cid pk port doc = do { observer <- new_observer cid pk doc
+basic_observer_server cid pk port doc = do { observer <- new_observer runStdoutLoggingT cid pk doc
                                            ; observer_server observer port}
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, boots up an Observer Server that prints out when it's reached consensus.
