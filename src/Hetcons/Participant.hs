@@ -43,7 +43,9 @@ import Charlotte_Types
     ( Proposal_1a(proposal_1a_timestamp), Crypto_ID, Timestamp, Slot_Value )
 
 import Control.Concurrent ( forkIO, ThreadId, threadDelay )
+import Control.Concurrent.Chan (newChan)
 import qualified Control.Concurrent.Map as CMap ( empty )
+import Control.Monad.Logger(unChanLoggingT, LoggingT)
 import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
 import Data.HashSet (HashSet)
@@ -62,8 +64,8 @@ import Thrift.Server ( runBasicServer )
 type Participant v = Hetcons_Server (Participant_State v) v
 
 -- | given a Cryptographic ID (public key), and a private key, produces a new Participant Datum
-new_participant :: (Value v) => Crypto_ID -> ByteString -> IO (Participant v)
-new_participant cid pk =
+new_participant :: (Value v) => (LoggingT IO a -> IO a) -> Crypto_ID -> ByteString -> IO (Participant v)
+new_participant run_logger cid pk =
   do { ab <- default_Address_Book
      ; sv <- start_State
      ; v1a <- CMap.empty
@@ -72,6 +74,8 @@ new_participant cid pk =
      ; v2b <- CMap.empty
      ; vproof <- CMap.empty
      ; vq <- CMap.empty
+     ; chan <- newChan
+     ; forkIO $ run_logger $ unChanLoggingT chan
      ;return (Hetcons_Server {
             hetcons_Server_crypto_id = cid
            ,hetcons_Server_private_key = pk
@@ -83,6 +87,7 @@ new_participant cid pk =
            ,hetcons_Server_verify_2b = v2b
            ,hetcons_Server_verify_proof = vproof
            ,hetcons_Server_verify_quorums = vq
+           ,hetcons_Server_log_chan = chan
            })}
 
 -- | Given a Participant Datum, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.

@@ -49,7 +49,9 @@ import Charlotte_Types
      ,Address(address_port_number) )
 
 import Control.Concurrent ( forkIO, ThreadId )
+import Control.Concurrent.Chan (newChan)
 import qualified Control.Concurrent.Map as CMap ( empty )
+import Control.Monad.Logger(unChanLoggingT, LoggingT)
 import qualified Data.ByteString.Lazy as ByteString( empty )
 import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
@@ -68,8 +70,8 @@ data (Value v) => Observer v = Observer {
 
 -- | Given a Cryptographic ID (public key), a private key, and a "Do on Consensus function", creates a new Observer datum.
 --   This establishes default values for a bunch of stuff (mostly memoization caches), which are mostly the empty set.
-new_observer :: (Value v) => Crypto_ID -> ByteString -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO (Observer v)
-new_observer cid pk doc =
+new_observer :: (Value v) => (LoggingT IO a -> IO a) -> Crypto_ID -> ByteString -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO (Observer v)
+new_observer run_logger cid pk doc =
   do { ab <- default_Address_Book
      ; sv <- start_State
      ; v1a <- CMap.empty
@@ -78,6 +80,8 @@ new_observer cid pk doc =
      ; v2b <- CMap.empty
      ; vproof <- CMap.empty
      ; vq <- CMap.empty
+     ; chan <- newChan
+     ; forkIO $ run_logger $ unChanLoggingT chan
      ; return Observer {
            observer_hetcons_server = (Hetcons_Server {
                                        hetcons_Server_crypto_id = cid
@@ -90,6 +94,7 @@ new_observer cid pk doc =
                                       ,hetcons_Server_verify_2b = v2b
                                       ,hetcons_Server_verify_proof = vproof
                                       ,hetcons_Server_verify_quorums = vq
+                                      ,hetcons_Server_log_chan = chan
                                       })
            ,do_on_consensus = doc}}
 
