@@ -21,6 +21,7 @@ import Hetcons.Receive_Message
         ,hetcons_Server_verify_2b
         ,hetcons_Server_verify_proof
         ,hetcons_Server_verify_quorums
+        ,hetcons_Server_log_chan
      ,Receivable(receive)
      ,run_Hetcons_Transaction_IO
      ,Hetcons_Transaction
@@ -75,7 +76,7 @@ new_participant run_logger cid pk =
      ; vproof <- CMap.empty
      ; vq <- CMap.empty
      ; chan <- newChan
-     ; forkIO $ run_logger $ unChanLoggingT chan
+     ; forkIO $ (run_logger $ unChanLoggingT chan) >> return ()
      ;return (Hetcons_Server {
             hetcons_Server_crypto_id = cid
            ,hetcons_Server_private_key = pk

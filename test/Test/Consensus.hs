@@ -81,6 +81,7 @@ import Charlotte_Types
 import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Control.Exception ( SomeException, catch )
+import Control.Monad.Logger (runStdoutLoggingT)
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( singleton, readFile, empty )
@@ -234,9 +235,9 @@ test_4_participants =
        ; certs' <- mapM (\i -> ByteString.readFile $ "test/cert" ++ (show i) ++ ".pem") [1..6]
        ; let (ids :: [Participant_ID]) = map (uncurry sample_id) (zip (cert:certs') [85020..85026])
        ; proof_receipt <- newEmptyMVar
-       ; participant1 <- new_participant (participant_ID_crypto_id (ids!!1)) private1
+       ; participant1 <- new_participant runStdoutLoggingT (participant_ID_crypto_id (ids!!1)) private1
        ; participant_thread1<- participant_server participant1 85021
-       ; (participant2 :: Participant Slot_Value)  <- new_participant (participant_ID_crypto_id (ids!!2)) private2
+       ; (participant2 :: Participant Slot_Value)  <- new_participant runStdoutLoggingT (participant_ID_crypto_id (ids!!2)) private2
        ; participant_thread2 <- participant_server participant2 85022
        ; participant3 <- start_State >>= (\(sv :: (Participant_State_Var Slot_Value)) -> return (participant1{hetcons_Server_state_var = sv
                                                               ,hetcons_Server_crypto_id = (participant_ID_crypto_id (ids!!3))

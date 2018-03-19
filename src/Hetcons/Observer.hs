@@ -27,6 +27,7 @@ import Hetcons.Receive_Message
        ,hetcons_Server_verify_2b
        ,hetcons_Server_verify_proof
        ,hetcons_Server_verify_quorums
+       ,hetcons_Server_log_chan
      ,Receivable(receive)
      ,Hetcons_Transaction
      ,run_Hetcons_Transaction_IO )
@@ -81,7 +82,7 @@ new_observer run_logger cid pk doc =
      ; vproof <- CMap.empty
      ; vq <- CMap.empty
      ; chan <- newChan
-     ; forkIO $ run_logger $ unChanLoggingT chan
+     ; forkIO $ (run_logger $ unChanLoggingT chan) >> return ()
      ; return Observer {
            observer_hetcons_server = (Hetcons_Server {
                                        hetcons_Server_crypto_id = cid

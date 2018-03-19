@@ -87,6 +87,7 @@ test-suite hetcons-test
                      , cryptonite
                      , cereal
                      , either
+                     , monad-logger
                      , mtl
                      , network
                      , unordered-containers

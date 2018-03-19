@@ -34,6 +34,7 @@ module Hetcons.Receive_Message
     ,hetcons_Server_verify_2b
     ,hetcons_Server_verify_proof
     ,hetcons_Server_verify_quorums
+    ,hetcons_Server_log_chan
   )
   where
 
@@ -56,13 +57,14 @@ import Hetcons.Value (Value)
 
 import Charlotte_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers, Value_Witness )
 
+import Control.Concurrent.Chan ( Chan )
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
 import Control.Concurrent.Map ( insertIfAbsent )
 import Control.Concurrent.MVar ( MVar )
 import Control.Exception.Base ( throw, catch )
 import Control.Monad.Except ( throwError, catchError, MonadError )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import Control.Monad.Logger (LoggingT, runChanLoggingT, unChanLoggingT)
+import Control.Monad.Logger (LoggingT, runChanLoggingT, unChanLoggingT, Loc, LogSource, LogLevel, LogStr)
 import qualified Control.Monad.Parallel as Parallel ( sequence )
 import Control.Monad.Reader ( MonadReader(reader, ask, local) )
 import Control.Monad.Trans.Reader ( ReaderT, runReaderT )
@@ -158,8 +160,10 @@ data (Hetcons_State s, Value v) => Hetcons_Transaction_State s v = Hetcons_Trans
 --   TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadError Hetcons_Exception m
 instance (Hetcons_State s, Value v) => MonadError Hetcons_Exception (Hetcons_Transaction s v) where
   throwError = Hetcons_Transaction . throw
-  catchError action handler = do { r <- ask
-                                 ; Hetcons_Transaction $ liftIO $ catch (runReaderT (unwrap action) r) (\e -> runReaderT (unwrap (handler e)) r)}
+  catchError action handler = do { environment@Hetcons_Transaction_Environment{hetcons_Transaction_Environment_hetcons_server =
+                                                 Hetcons_Server{hetcons_Server_log_chan = chan}} <- ask
+                                 ; Hetcons_Transaction $ liftIO $ catch (runReaderT (runChanLoggingT chan (unwrap action)) environment)
+                                                                        (\e -> runReaderT (runChanLoggingT chan $ unwrap (handler e)) environment)}
 
 -- | When we want to getRandomBytes, we just call getSystemDRG down in the IO Monad
 --   TODO: This could probably be done with "deriving," except that for some reason we don't have (MonadIO m) => instance MonadRandom m
@@ -275,13 +279,12 @@ run_Hetcons_Transaction_IO (server@Hetcons_Server{hetcons_Server_log_chan = log_
                                                                       hetcons_Transaction_Environment_hetcons_server = server
                                                                      ,hetcons_Transaction_Environment_transaction_state = start_transaction_state
                                                                      ,hetcons_Transaction_Environment_witness = witness}
-                                                      ; runChanLoggingT log_chan $
-                                                          runReaderT (unwrap (do
-                                                            { answer <- receive_message
-                                                            ; final_transaction_state <- get_Hetcons_Transaction_State
-                                                            ; final_state <- get_state
-                                                            ; return (final_state, (answer, final_transaction_state))}))
-                                                            env})
+                                                      ; runReaderT (runChanLoggingT log_chan $ unwrap (do
+                                                          { answer <- receive_message
+                                                          ; final_transaction_state <- get_Hetcons_Transaction_State
+                                                          ; final_state <- get_state
+                                                          ; return (final_state, (answer, final_transaction_state))}))
+                                                          env})
        -- as it is conceivable that sending messages could take arbitrarily long, we do so in parallel.
      ; Parallel.sequence ((map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_1as final_state)++
                           (map (send_Message_IO (hetcons_Server_address_book server) witness) $ toList $ sent_1bs final_state)++

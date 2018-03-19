@@ -66,6 +66,7 @@ import Charlotte_Types
 import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Control.Exception ( SomeException, catch )
+import Control.Monad.Logger (runStdoutLoggingT)
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( readFile, concat, take, drop, singleton, index, empty )
@@ -189,7 +190,8 @@ witness_tests = TestList [
        { now <- current_nanoseconds
        ; cert1 <- ByteString.readFile "test/cert1.pem"
        ; private1 <- ByteString.readFile "test/key1.pem"
-       ; (participant :: (Participant Int)) <- new_participant (default_Crypto_ID {
+       ; (participant :: (Participant Int)) <- new_participant runStdoutLoggingT 
+                                                               (default_Crypto_ID {
                                                                   crypto_ID_public_crypto_key =
                                                                     Just (default_Public_Crypto_Key {
                                                                             public_Crypto_Key_public_crypto_key_x509 = Just cert1})}) private1
@@ -215,7 +217,8 @@ witness_tests = TestList [
        ; cert1 <- ByteString.readFile "test/cert1.pem"
        ; cert2 <- ByteString.readFile "test/cert2.pem"
        ; private1 <- ByteString.readFile "test/key1.pem"
-       ; (participant :: (Participant Int)) <- new_participant (default_Crypto_ID {
+       ; (participant :: (Participant Int)) <- new_participant runStdoutLoggingT
+                                                               (default_Crypto_ID {
                                                                   crypto_ID_public_crypto_key =
                                                                     Just (default_Public_Crypto_Key {
                                                                             public_Crypto_Key_public_crypto_key_x509 = Just cert1})}) private1

@@ -66,6 +66,7 @@ import Charlotte_Types
 import Control.Concurrent ( forkIO, ThreadId )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Control.Exception ( SomeException, catch )
+import Control.Monad.Logger (runStdoutLoggingT)
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( readFile, concat, take, drop, singleton, index, empty )
@@ -279,7 +280,7 @@ participant_tests = TestList [
                                                                            , on_phase_1b = \_ -> return () })
        ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert1 87020, sample_id cert2 87020]
        ; let (Right (verified :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
-       ; (participant :: Participant Slot_Value) <- new_participant cid private1
+       ; (participant :: Participant Slot_Value) <- new_participant runStdoutLoggingT cid private1
        ; catch (catch (run_Hetcons_Transaction_IO (participant{ hetcons_Server_address_book = address_book
                                                               , hetcons_Server_state_var = sv})
                                                   (\_ -> return ())
