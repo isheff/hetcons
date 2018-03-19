@@ -64,7 +64,7 @@ import Control.Concurrent.MVar ( MVar )
 import Control.Exception.Base ( throw, catch )
 import Control.Monad.Except ( throwError, catchError, MonadError )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import Control.Monad.Logger (LoggingT, runChanLoggingT, unChanLoggingT, Loc, LogSource, LogLevel, LogStr)
+import Control.Monad.Logger (MonadLogger, LoggingT, runChanLoggingT, unChanLoggingT, Loc, LogSource, LogLevel, LogStr)
 import qualified Control.Monad.Parallel as Parallel ( sequence )
 import Control.Monad.Reader ( MonadReader(reader, ask, local) )
 import Control.Monad.Trans.Reader ( ReaderT, runReaderT )
@@ -92,7 +92,7 @@ newtype Hetcons_Transaction s v a =
     LoggingT (
     ReaderT (Hetcons_Transaction_Environment s v)
     IO) a)
-  } deriving (Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s v))
+  } deriving (MonadLogger, Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s v))
 
 
 
