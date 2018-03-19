@@ -42,6 +42,7 @@ library
                      , either
                      , ctrie
                      , network
+                     , monad-logger
                      , monad-parallel
                      , thyme
                      , transformers
