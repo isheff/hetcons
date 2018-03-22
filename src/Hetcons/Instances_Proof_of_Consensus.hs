@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | Defines the properties of Proof_of_Consensus messages, most notably which typeclasses they're instances of
-module Hetcons.Instances_Proof_of_Consensus (observers_proven) where
+module Hetcons.Instances_Proof_of_Consensus (observers_proven, to_recursive) where
 
 import Hetcons.Hetcons_Exception
     ( Hetcons_Exception(Hetcons_Exception_Invalid_Proof_of_Consensus) )
@@ -150,9 +150,11 @@ instance (Observers_Provable a) => Observers_Provable (Verified a) where
 --     * The 2Bs must prove consensus for at least one observer
 instance {-# OVERLAPPING #-} forall m v . (Hashable v, Eq v, Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_2b v) m) =>
                              Parsable (m (Recursive_Proof_of_Consensus v)) where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; l_set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
+  parse payload = (parse payload) >>= to_recursive
+
+to_recursive :: forall m v . (Hashable v, Eq v, Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_2b v) m) => Proof_of_Consensus -> m (Recursive_Proof_of_Consensus v)
+to_recursive non_recursive = do
+       { l_set <- mapM verify $ toList $ proof_of_Consensus_phase_2bs non_recursive
        ; let set = fromList l_set
        ; if (length (HashSet.map (extract_1a :: (Verified (Recursive_2b v)) -> (Verified (Recursive_1a v))) set)) > 1
             then throwError $ Hetcons_Exception_Invalid_Proof_of_Consensus default_Invalid_Proof_of_Consensus {
