@@ -33,6 +33,10 @@ import Hetcons.Signed_Message (Recursive_1a
                                  ,recursive_1a_value
                                  ,recursive_1a_filled_in
                               ,Recursive_1b
+                              ,Recursive_2a
+                              ,Recursive_2b
+                              ,Recursive_Proof_of_Consensus
+                              ,Monad_Verify
                               ,Verified
                                 ,original
                                 ,signed
@@ -83,7 +87,13 @@ class Value v where
   --   It may be useful to the programmer to note that, as the valid function may wish to look at quorums and such,
   --    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
   --   This is why `valid` is called in `receive`, rather than in `parse`.
-  value_valid :: (Monad_Verify_Quorums m, MonadError Hetcons_Exception m) => Value_Witness -> v -> (m Bool)
+  value_valid :: ( Monad_Verify_Quorums m
+                 , MonadError Hetcons_Exception m
+                 , Monad_Verify (Recursive_1a v) m
+                 , Monad_Verify (Recursive_1b v) m
+                 , Monad_Verify (Recursive_2a v) m
+                 , Monad_Verify (Recursive_2b v) m
+                 , Monad_Verify (Recursive_Proof_of_Consensus v) m) => Value_Witness -> v -> (m Bool)
 
   -- | Does this set of entities contain conflicitng values?
   --   In this case, do any two of them have the same value_slot and observers?
@@ -96,7 +106,15 @@ class Value v where
   garbage_collect :: HashSet (Verified (Recursive_1b v)) -> HashSet (Verified (Recursive_1b v))
 
 
-valid :: forall a v m. (Monad_Verify_Quorums m, MonadError Hetcons_Exception m, Value v, Contains_Value (Verified (a v)) v) => Value_Witness -> (Verified (a v)) -> m Bool
+valid :: forall a v m. ( Monad_Verify_Quorums m
+                       , MonadError Hetcons_Exception m
+                       , Monad_Verify (Recursive_1a v) m
+                       , Monad_Verify (Recursive_1b v) m
+                       , Monad_Verify (Recursive_2a v) m
+                       , Monad_Verify (Recursive_2b v) m
+                       , Monad_Verify (Recursive_Proof_of_Consensus v) m
+                       , Value v
+                       , Contains_Value (Verified (a v)) v) => Value_Witness -> (Verified (a v)) -> m Bool
 valid witness = ((value_valid witness) :: v -> m Bool) . (extract_value  :: (Verified (a v)) -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
