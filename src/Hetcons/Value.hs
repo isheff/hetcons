@@ -60,6 +60,7 @@ import Charlotte_Types  (Slot_Value
                       )
 
 import Control.Monad.Except ( MonadError )
+import Control.Monad.Logger (MonadLogger)
 import Data.ByteString.Lazy ( ByteString )
 import Data.Foldable (length, toList)
 import Data.Hashable (Hashable)
@@ -88,6 +89,7 @@ class Value v where
   --    it's useful to demand that inputs have Contains_1a, which means they have to be at least a Verified Recursive_1a.
   --   This is why `valid` is called in `receive`, rather than in `parse`.
   value_valid :: ( Monad_Verify_Quorums m
+                 , MonadLogger m
                  , MonadError Hetcons_Exception m
                  , Monad_Verify (Recursive_1a v) m
                  , Monad_Verify (Recursive_1b v) m
@@ -107,6 +109,7 @@ class Value v where
 
 
 valid :: forall a v m. ( Monad_Verify_Quorums m
+                       , MonadLogger m
                        , MonadError Hetcons_Exception m
                        , Monad_Verify (Recursive_1a v) m
                        , Monad_Verify (Recursive_1b v) m
