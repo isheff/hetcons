@@ -168,7 +168,7 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_
 --   If they do, send that Proof_of_Consensus
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
-    { logInfoSH "Received a 2B"
+    { --logInfoSH "Received a 2B"
     ; old_state <- get_state
     ; if (member r2b old_state)
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
@@ -198,4 +198,4 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (O
 --   It cannot come in over the wire.
 --   TODO: what do we do here? We have consensus (at least for some observers).
 instance (Value v) => Receivable (Observer_State v) v (Verified (Recursive_Proof_of_Consensus v)) where
-  receive rpoc = logInfoSH "Received a P.o.C." >> return ()
+  receive rpoc = {--(logInfoSH "Received a P.o.C.") >>--} (return ())
