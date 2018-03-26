@@ -72,6 +72,7 @@ import Charlotte_Types
 
 import Control.Monad ( mapM, mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
+import Control.Monad.Logger.CallStack ( logInfoSH )
 import Crypto.Random ( drgNew )
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
@@ -96,7 +97,8 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
-    { let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
+    { logInfoSH "Received 1A."
+    ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
                                    ,recursive_1b_proposal = r1a
                                    ,recursive_1b_conflicting_phase2as = HashSet.empty}
@@ -123,7 +125,8 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
          Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
-    { old_state <- get_state
+    { logInfoSH "Received a 1B"
+    ; old_state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
@@ -153,7 +156,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
 instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
-  receive r2a = send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a}
+  receive r2a = (logInfoSH "Received a 2A") >> (send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a})
 
 --------------------------------------------------------------------------------
 --                                 Observers                                  --
@@ -165,7 +168,8 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_
 --   If they do, send that Proof_of_Consensus
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
-    { old_state <- get_state
+    { logInfoSH "Received a 2B"
+    ; old_state <- get_state
     ; if (member r2b old_state)
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
          else do { let state = insert r2b old_state
@@ -194,4 +198,4 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (O
 --   It cannot come in over the wire.
 --   TODO: what do we do here? We have consensus (at least for some observers).
 instance (Value v) => Receivable (Observer_State v) v (Verified (Recursive_Proof_of_Consensus v)) where
-  receive rpoc = return ()
+  receive rpoc = logInfoSH "Received a P.o.C." >> return ()
