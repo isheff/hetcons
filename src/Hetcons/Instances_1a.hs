@@ -29,7 +29,7 @@ import Charlotte_Types
       ,encode_Proposal_1a )
 
 import Data.Hashable ( Hashable, hashWithSalt )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Hash a Recursive_1a by hashing its non-recursive version
@@ -42,7 +42,7 @@ instance (Value v) => Recursive Proposal_1a (Recursive_1a v) where
 
 -- | Encode a Proposal_1a to a bytestring using Thrift
 instance {-# OVERLAPPING #-} Encodable Proposal_1a where
-  encode = encode_Proposal_1a (BinaryProtocol EmptyTransport)
+  encode = encode_Proposal_1a (CompactProtocol EmptyTransport)
 
 -- | To parse a Recursive_1a object, we verify observer graph, and fill in quorums
 instance {-# OVERLAPPING #-} (Value v, Parsable (m v), Monad_Verify_Quorums m) => Parsable (m (Recursive_1a v)) where

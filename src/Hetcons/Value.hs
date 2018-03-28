@@ -68,7 +68,7 @@ import Data.HashMap.Lazy ( HashMap )
 import Data.Int (Int64)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet, fromList)
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Messages which are part of a ballot of consensus contain a 1A message which kicked off that ballot.
@@ -144,7 +144,7 @@ instance Value Slot_Value where
 
 -- | Encode a Proposal_1a to a bytestring using Thrift
 instance {-# OVERLAPPING #-} Encodable Slot_Value where
-  encode = encode_Slot_Value (BinaryProtocol EmptyTransport)
+  encode = encode_Slot_Value (CompactProtocol EmptyTransport)
 
 
 

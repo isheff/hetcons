@@ -6,6 +6,7 @@
 -- | The Participant Server, which runs the Consensus algorithm, ultimately "accepting" and sending a 2B to Observer Servers
 module Hetcons.Participant (Participant, new_participant, participant_server, basic_participant_server, current_nanoseconds ) where
 
+import Hetcons.Compact_Server (runCompactServer)
 import Hetcons.Hetcons_State ( Participant_State, start_State )
 import Hetcons.Parsable (Parsable)
 import Hetcons.Receive ()
@@ -59,7 +60,6 @@ import Data.Thyme.Time.Core
      ,toMicroseconds
      ,fromMicroseconds
      ,fromGregorian )
-import Thrift.Server ( runBasicServer )
 
 -- | The participant Datum is just a Hetcons_Server with a Participant_State (defined in Hetcons_State)
 type Participant v = Hetcons_Server (Participant_State v) v
@@ -93,7 +93,7 @@ new_participant run_logger cid pk =
 
 -- | Given a Participant Datum, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
 participant_server :: (Value v, Show v, Eq v, Hashable v, Integral a, Parsable (Hetcons_Transaction (Participant_State v) v v)) => (Participant v) -> a -> IO ThreadId
-participant_server participant port = forkIO $ runBasicServer participant process $ fromIntegral port
+participant_server participant port = forkIO $ runCompactServer participant process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a private key, and a Port Number, launches a Participant Server, and returns the ThreadId of that server.
 basic_participant_server :: (Integral a) => Crypto_ID -> ByteString -> a -> IO ThreadId

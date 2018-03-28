@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Test.Witness (witness_tests) where
 
+import Hetcons.Compact_Server (runCompactServer)
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Hetcons_State ( Participant_State_Var, start_State )
 import Hetcons.Participant
@@ -77,11 +78,10 @@ import Test.HUnit
 import qualified Data.HashMap.Strict as HashMap ( fromList )
 import Data.Serialize ( Serialize, encodeLazy, decodeLazy )
 import Data.Text.Lazy ( pack )
-import Thrift.Server ( runBasicServer )
 import GHC.IO.Handle ( Handle )
 import Network ( PortID(PortNumber) )
 import Network.Socket ( HostName )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Handle ( hOpen )
 
 
@@ -166,7 +166,7 @@ instance Hetcons_Participant_Iface Dummy_Participant where
   phase_1b v x _ = on_phase_1b v x
 
 dummy_participant_server :: (Integral a) => a -> Dummy_Participant -> IO ThreadId
-dummy_participant_server port dummy = forkIO $ runBasicServer dummy process (fromIntegral port)
+dummy_participant_server port dummy = forkIO $ runCompactServer dummy process (fromIntegral port)
 
 
 data Dummy_Observer = Dummy_Observer {
@@ -178,7 +178,7 @@ instance Hetcons_Observer_Iface Dummy_Observer where
   phase_2b = dummy_observer_on_phase_2b
 
 dummy_observer_server :: (Integral a) => a -> Dummy_Observer -> IO ThreadId
-dummy_observer_server port dummy = forkIO $ runBasicServer dummy Observer.process (fromIntegral port)
+dummy_observer_server port dummy = forkIO $ runCompactServer dummy Observer.process (fromIntegral port)
 
 
 
@@ -205,7 +205,7 @@ witness_tests = TestList [
                                            observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert1 87810, fromList [fromList [sample_id cert1 87810]])]}})
        ; let (Right (v1a :: (Verified (Recursive_1a Int)))) = verify signed_1a
        ; (handle :: Handle) <- hOpen (("localhost" :: HostName), PortNumber 87810)
-       ; let client = (BinaryProtocol handle, BinaryProtocol handle)
+       ; let client = (CompactProtocol handle, CompactProtocol handle)
        ; (catch (Client.proposal_1a client signed_1a ((encodeLazy (3 :: Int)) :: ByteString) >> assertBool "Exception should have been thrown" False)
                 (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) True))
        }))
@@ -235,7 +235,7 @@ witness_tests = TestList [
                 observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert1 87811, fromList [fromList [sample_id cert1 87811, sample_id cert2 87812]])]}})
        ; let (Right (v1a :: (Verified (Recursive_1a Int)))) = verify signed_1a
        ; (handle :: Handle) <- hOpen (("localhost" :: HostName), PortNumber 87811)
-       ; let client = (BinaryProtocol handle, BinaryProtocol handle)
+       ; let client = (CompactProtocol handle, CompactProtocol handle)
        ; forkIO (catch (Client.proposal_1a client signed_1a ((encodeLazy (2 :: Int)) :: ByteString) >> assertBool "Exception should not have been thrown" True)
                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught when it should not have been: " ++ (show exception)) False))
        ; takeMVar receipt_1b

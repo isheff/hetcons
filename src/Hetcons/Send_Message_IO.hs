@@ -44,7 +44,7 @@ import GHC.IO.Handle ( Handle )
 import Network ( PortID(PortNumber) )
 import Network.Socket ( HostName )
 import Text.Printf ( printf )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Handle ( hOpen )
 
 -- | A utility function to convert a `Participant_ID` to a HostName (String).
@@ -80,7 +80,7 @@ domain_name (Participant_ID{participant_ID_address=(Address{address_host_address
 
 -- | An address book maintains a list (used as a stack) of open communication handles for each other participant.
 --   This is a list because, if all existing handles are busy, we will spin up a new one and later add it to the list.
-type Address_Book = Concurrent_Map.Map Participant_ID (MVar [(BinaryProtocol Handle, BinaryProtocol Handle)])
+type Address_Book = Concurrent_Map.Map Participant_ID (MVar [(CompactProtocol Handle, CompactProtocol Handle)])
 
 -- | A default starter address book contains no handles.
 default_Address_Book :: IO Address_Book
@@ -92,7 +92,7 @@ default_Address_Book = Concurrent_Map.empty
 --    executes the thrift prompt (over the wire) using a tcp channel from the address book (creating a new one if necessary).
 --   This is thread safe.
 --   It will not block on the address book elements, and if all known handles are in use, it spins up a new one.
-send_to :: Address_Book -> Participant_ID -> ((BinaryProtocol Handle, BinaryProtocol Handle) -> a -> IO b) ->  a -> IO b
+send_to :: Address_Book -> Participant_ID -> ((CompactProtocol Handle, CompactProtocol Handle) -> a -> IO b) ->  a -> IO b
 send_to address_book recipient prompt message = do
   { client <- do { first_look <- Concurrent_Map.lookup recipient address_book
                  ; case first_look of
@@ -111,7 +111,7 @@ send_to address_book recipient prompt message = do
                  Just c  -> return c -- If there already exists a handle that's not in use
                                 -- otherwise, we'll make a new one and use that
                  Nothing -> do { handle <- hOpen (domain_name recipient, PortNumber $ fromIntegral $ address_port_number $ participant_ID_address recipient )
-                               ; return (BinaryProtocol handle, BinaryProtocol handle)}
+                               ; return (CompactProtocol handle, CompactProtocol handle)}
   ; x <- prompt client' message
     -- ModifyMVar executes an atomic transaction on the MVar, so we want to do as little within this transaction as possible
   ; modifyMVar client (\r -> return (client' : r, ())) -- add our handle to the stack of known handles

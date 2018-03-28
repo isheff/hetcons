@@ -24,7 +24,7 @@ import Charlotte_Types
     )
 
 import Data.ByteString.Lazy ( ByteString )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | We have messages serialized for transport within Signed_Messages.
@@ -38,26 +38,26 @@ class Parsable a where
 
 -- | Parse a Slot_Value using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Slot_Value) where
-  parse = return . (decode_Slot_Value (BinaryProtocol EmptyTransport))
+  parse = return . (decode_Slot_Value (CompactProtocol EmptyTransport))
 
 -- | Parse a Proposal_1a using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Proposal_1a) where
-  parse = return . (decode_Proposal_1a (BinaryProtocol EmptyTransport))
+  parse = return . (decode_Proposal_1a (CompactProtocol EmptyTransport))
 
 -- | Parse a Phase_1b using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Phase_1b) where
-  parse = return . (decode_Phase_1b (BinaryProtocol EmptyTransport))
+  parse = return . (decode_Phase_1b (CompactProtocol EmptyTransport))
 
 -- | Parse a Phase_2a using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Phase_2a) where
-  parse = return . (decode_Phase_2a (BinaryProtocol EmptyTransport))
+  parse = return . (decode_Phase_2a (CompactProtocol EmptyTransport))
 
 -- | Parse a Phase_2b using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Phase_2b) where
-  parse = return . (decode_Phase_2b (BinaryProtocol EmptyTransport))
+  parse = return . (decode_Phase_2b (CompactProtocol EmptyTransport))
 
 -- | Parse a Proof_of_Consensus using Thrift
 instance {-# OVERLAPPING #-} (Monad m) => Parsable (m Proof_of_Consensus) where
-  parse = return . (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
+  parse = return . (decode_Proof_of_Consensus (CompactProtocol EmptyTransport))
 
 

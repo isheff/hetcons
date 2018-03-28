@@ -61,12 +61,12 @@ import Data.HashSet
 import qualified Data.HashSet as HashSet ( map, filter )
 import Data.List ( head )
 import Data.Traversable ( mapM )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Encode a Proof_of_Consensus to a ByteString using Thrift
 instance {-# OVERLAPPING #-} Encodable Proof_of_Consensus where
-  encode = encode_Proof_of_Consensus (BinaryProtocol EmptyTransport)
+  encode = encode_Proof_of_Consensus (CompactProtocol EmptyTransport)
 
 -- | The Recursive version of a Proof_of_Consensus is a Recursive_Proof_of_Consensus
 --   Proof_of_Consensus messages carry signed 2b messages with them.

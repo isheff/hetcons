@@ -132,7 +132,7 @@ import qualified Data.HashSet as HashSet ( map )
 import Data.Serialize ( Serialize, encodeLazy, decodeLazy )
 import Data.Text.Lazy ( pack )
 import qualified EasyX509 as X509 ( sign, verify, Signer )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | For storing data we've verified to be correctly signed
@@ -368,7 +368,7 @@ verify' Signed_Message
 
 -- | a class for those types which Thrift can encode. Alas, thrift doesn't seem to provide this itself.
 class Encodable a where
-  -- | encode it to a Lazy ByteString using Thrift's encode function with BinaryProtocol, EmptyTransport.
+  -- | encode it to a Lazy ByteString using Thrift's encode function with CompactProtocol, EmptyTransport.
   --   Instantiations for all the types we care about are in their Instances_XX files.
   --   For testing purposes, Test.Util provides instance Serialize a => Encodable a
   encode :: a -> ByteString

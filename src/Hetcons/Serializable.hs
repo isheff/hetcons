@@ -27,45 +27,45 @@ import Data.ByteString.Lazy ( unpack )
 import Data.Serialize ( Serialize, get, put )
 import Data.Serialize.Get ( remaining, getLazyByteString )
 import Data.Serialize.Put ( putWord8 )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
 instance Serialize Proposal_1a where
-  put = (mapM_ putWord8) . unpack . (encode_Proposal_1a (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Proposal_1a (BinaryProtocol EmptyTransport)) (
+  put = (mapM_ putWord8) . unpack . (encode_Proposal_1a (CompactProtocol EmptyTransport))
+  get = liftM (decode_Proposal_1a (CompactProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
 instance Serialize Phase_1b where
-  put = (mapM_ putWord8) . unpack . (encode_Phase_1b (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Phase_1b (BinaryProtocol EmptyTransport)) (
+  put = (mapM_ putWord8) . unpack . (encode_Phase_1b (CompactProtocol EmptyTransport))
+  get = liftM (decode_Phase_1b (CompactProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
 instance Serialize Phase_2a where
-  put = (mapM_ putWord8) . unpack . (encode_Phase_2a (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Phase_2a (BinaryProtocol EmptyTransport)) (
+  put = (mapM_ putWord8) . unpack . (encode_Phase_2a (CompactProtocol EmptyTransport))
+  get = liftM (decode_Phase_2a (CompactProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
 instance Serialize Phase_2b where
-  put = (mapM_ putWord8) . unpack . (encode_Phase_2b (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Phase_2b (BinaryProtocol EmptyTransport)) (
+  put = (mapM_ putWord8) . unpack . (encode_Phase_2b (CompactProtocol EmptyTransport))
+  get = liftM (decode_Phase_2b (CompactProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})
 
 -- | Serialize and deserialize this Thrift type using Thrift's functions.
 -- | This should probably be done natively by Thrift.
 instance Serialize Proof_of_Consensus where
-  put = (mapM_ putWord8) . unpack . (encode_Proof_of_Consensus (BinaryProtocol EmptyTransport))
-  get = liftM (decode_Proof_of_Consensus (BinaryProtocol EmptyTransport)) (
+  put = (mapM_ putWord8) . unpack . (encode_Proof_of_Consensus (CompactProtocol EmptyTransport))
+  get = liftM (decode_Proof_of_Consensus (CompactProtocol EmptyTransport)) (
          do { length <- remaining
             ; getLazyByteString (fromIntegral length)})

@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Test.Observer (observer_tests) where
 
+import Hetcons.Compact_Server (runCompactServer)
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Instances_Proof_of_Consensus ( observers_proven )
 import Hetcons.Observer (Observer, basic_observer_server )
@@ -69,7 +70,6 @@ import Test.HUnit
 import qualified Data.HashMap.Strict as HashMap ( fromList )
 import Data.HashMap.Strict ()
 import Data.Text.Lazy ( pack )
-import Thrift.Server ( runBasicServer )
 
 doubleGen :: (DRG g) => g -> (g,g)
 doubleGen g = withDRG g (return g)
@@ -138,7 +138,7 @@ instance Hetcons_Participant_Iface Dummy_Participant where
   phase_1b v x _ = on_phase_1b v x
 
 dummy_participant_server :: (Integral a) => a -> Dummy_Participant -> IO ThreadId
-dummy_participant_server port dummy = forkIO $ runBasicServer dummy process (fromIntegral port)
+dummy_participant_server port dummy = forkIO $ runCompactServer dummy process (fromIntegral port)
 
 
 data Dummy_Observer = Dummy_Observer {
@@ -150,7 +150,7 @@ instance Hetcons_Observer_Iface Dummy_Observer where
   phase_2b = dummy_observer_on_phase_2b
 
 dummy_observer_server :: (Integral a) => a -> Dummy_Observer -> IO ThreadId
-dummy_observer_server port dummy = forkIO $ runBasicServer dummy Observer.process (fromIntegral port)
+dummy_observer_server port dummy = forkIO $ runCompactServer dummy Observer.process (fromIntegral port)
 
 launch_dummy_observer :: (Integral a) => a -> IO (a, Timestamp, Address_Book, ByteString)
 launch_dummy_observer port = do

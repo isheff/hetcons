@@ -12,6 +12,7 @@ module Hetcons.Observer (Observer(Observer)
                         ,observer_server)
 where
 
+import Hetcons.Compact_Server (runCompactServer)
 import Hetcons.Hetcons_State ( Observer_State, start_State )
 import Hetcons.Instances_Proof_of_Consensus ( observers_proven )
 import Hetcons.Receive ()
@@ -56,7 +57,6 @@ import Control.Monad.Logger(unChanLoggingT, LoggingT, runStdoutLoggingT )
 import qualified Data.ByteString.Lazy as ByteString( empty )
 import Data.ByteString.Lazy ( ByteString )
 import Data.Hashable (Hashable)
-import Thrift.Server ( runBasicServer )
 
 -- | The Observer Server itself is defined as a data structure featuring:
 --
@@ -102,7 +102,7 @@ new_observer run_logger cid pk doc =
 -- | Given an Observer Datum and a Port Number, boots up an Observer Server.
 --   Returns the ThreadId of the newly started server.
 observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => (Observer v) -> a -> IO ThreadId
-observer_server observer port = forkIO $ runBasicServer observer process $ fromIntegral port
+observer_server observer port = forkIO $ runCompactServer observer process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, and a "Do on Consensus function,"
 --    boots up an Observer Server that runs that function on consensus.

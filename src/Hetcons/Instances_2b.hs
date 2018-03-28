@@ -63,12 +63,12 @@ import Data.List ( head )
 import Data.Maybe ( catMaybes )
 import Data.Text.Lazy ( pack )
 import Data.Traversable ( mapM )
-import Thrift.Protocol.Binary ( BinaryProtocol(BinaryProtocol) )
+import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
 -- | Encode a Phase_2b to a ByteString using Thrift
 instance {-# OVERLAPPING #-} Encodable Phase_2b where
-  encode = encode_Phase_2b (BinaryProtocol EmptyTransport)
+  encode = encode_Phase_2b (CompactProtocol EmptyTransport)
 
 -- | The Recursive version of a Phase_2b is a Recursive_2b
 --   Phase_2b s carry signed 1b messages with them.
