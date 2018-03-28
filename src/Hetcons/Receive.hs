@@ -56,7 +56,8 @@ import Hetcons.Value
 
 import Charlotte_Consts ( sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR )
 import Charlotte_Types
-    ( Signed_Message(signed_Message_signature)
+    ( Signed_Message(signed_Message_signature
+                    ,signed_Message_payload)
      ,Phase_2a(phase_2a_phase_1bs)
      ,Signed_Hash(signed_Hash_crypto_id)
      ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
@@ -74,6 +75,7 @@ import Control.Monad ( mapM, mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
 import Control.Monad.Logger.CallStack ( logInfoSH )
 import Crypto.Random ( drgNew )
+import qualified Data.ByteString.Lazy as ByteString (length)
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
@@ -97,7 +99,7 @@ sign_m m = do
 --   Otherwise, send a 1B.
 instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
-    { logInfoSH "Received 1A."
+    { logInfoSH $ "Received 1A of size " ++ (show $ ByteString.length $ signed_Message_payload $ signed r1a)
     ; let naive_1b = default_Phase_1b {phase_1b_proposal = signed r1a}
     ; let naive_r1b = Recursive_1b {recursive_1b_non_recursive = naive_1b
                                    ,recursive_1b_proposal = r1a
@@ -125,7 +127,7 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
          Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
-    { logInfoSH "Received a 1B"
+    { logInfoSH $ "Received 1B of size " ++ (show $ ByteString.length $ signed_Message_payload $ signed r1b)
     ; old_state <- get_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
@@ -156,7 +158,8 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
 instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
-  receive r2a = (logInfoSH "Received a 2A") >> (send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a})
+  receive r2a = (logInfoSH $ "Received 2A of size " ++ (show $ ByteString.length $ signed_Message_payload $ signed r2a)) >>
+                (send $ default_Phase_2b {phase_2b_phase_1bs = phase_2a_phase_1bs $ non_recursive $ original r2a})
 
 --------------------------------------------------------------------------------
 --                                 Observers                                  --
@@ -168,7 +171,7 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_
 --   If they do, send that Proof_of_Consensus
 instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
-    { --logInfoSH "Received a 2B"
+    { -- logInfoSH "Received a 2B" -- TODO: figure out why the app crashes when this is enabled
     ; old_state <- get_state
     ; if (member r2b old_state)
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
