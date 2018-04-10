@@ -46,6 +46,7 @@ library
                      , monad-logger
                      , monad-parallel
                      , thyme
+                     , time
                      , transformers
                      , EasyX509
                      , Charlotte

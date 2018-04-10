@@ -35,6 +35,8 @@ module Hetcons.Receive_Message
     ,hetcons_Server_verify_proof
     ,hetcons_Server_verify_quorums
     ,hetcons_Server_log_chan
+  ,current_time_formatted
+  ,monadLoggerLog_with_time 
   )
   where
 
@@ -64,7 +66,7 @@ import Control.Concurrent.MVar ( MVar )
 import Control.Exception.Base ( throw, catch )
 import Control.Monad.Except ( throwError, catchError, MonadError )
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
-import Control.Monad.Logger (MonadLogger, LoggingT, runChanLoggingT, unChanLoggingT, Loc, LogSource, LogLevel, LogStr)
+import Control.Monad.Logger (MonadLogger, LoggingT, runChanLoggingT, unChanLoggingT, Loc, LogSource, LogLevel, LogStr, monadLoggerLog, ToLogStr, toLogStr)
 import qualified Control.Monad.Parallel as Parallel ( sequence )
 import Control.Monad.Reader ( MonadReader(reader, ask, local) )
 import Control.Monad.Trans.Reader ( ReaderT, runReaderT )
@@ -75,7 +77,10 @@ import Data.Hashable ( Hashable )
 import Data.HashSet ( HashSet, insert, toList, empty )
 import Data.IORef
     ( IORef, writeIORef, readIORef, newIORef, atomicModifyIORef )
+import Data.Monoid ((<>))
 import Data.Serialize         (Serialize)
+import Data.Time.Clock (getCurrentTime)
+import Data.Time.Format(formatTime, defaultTimeLocale)
 import Data.Tuple ( swap )
 
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
@@ -92,8 +97,21 @@ newtype Hetcons_Transaction s v a =
     LoggingT (
     ReaderT (Hetcons_Transaction_Environment s v)
     IO) a)
-  } deriving (MonadLogger, Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s v))
+  } deriving (Functor, Applicative, Monad, MonadReader (Hetcons_Transaction_Environment s v))
 
+-- | Helpful function to fetch the current time, and format it as a human readable string with maximal precision.
+current_time_formatted :: MonadIO m => m String
+current_time_formatted = liftIO getCurrentTime >>= return . formatTime defaultTimeLocale "%F_%T.%q_%Z" 
+
+-- | Meant as a drop-in replacement for the usual logging function, but it prepends a timestamp to everything using current_time_formatted
+monadLoggerLog_with_time :: (MonadIO m, MonadLogger m, ToLogStr msg) => Loc -> LogSource -> LogLevel -> msg -> m () 
+monadLoggerLog_with_time loc src loglevel msg = do
+    { n <- current_time_formatted
+    ; monadLoggerLog loc src loglevel ((toLogStr (n ++ "\t")) <> (toLogStr msg))}
+
+-- | When Hetcons_Transactions log things, they use monadLoggerLog_with_time, which prepends a timestamp to everything using current_time_formatted
+instance  MonadLogger (Hetcons_Transaction s v) where 
+  monadLoggerLog loc src loglevel msg = Hetcons_Transaction $ monadLoggerLog_with_time loc src loglevel msg 
 
 
 -- | Defines all the data that constitute a server, which maintains some state of type `s`:
