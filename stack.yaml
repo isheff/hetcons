@@ -46,8 +46,8 @@ packages:
     commit: 01a40cf10689552b946dd43cbfb1b961397bb957
   extra-dep: true
 - location:
-    git: git://git.apache.org/thrift.git
-    commit: 33d30fcbb91558068a4012e2444b01385fdd338c 
+    git: git@github.com:apache/thrift.git
+    commit: 606f1ef31447526b908244933d5b716397a6bad8 
   subdirs:
   - lib/hs
   extra-dep: true
