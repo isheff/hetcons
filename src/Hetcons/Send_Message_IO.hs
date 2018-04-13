@@ -1,6 +1,8 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | The machinery for actually sending a message over the wire
 module Hetcons.Send_Message_IO (Address_Book, default_Address_Book, send_Message_IO, domain_name, send_to) where
 
+import Hetcons.Hetcons_Exception (Hetcons_Exception)
 import Hetcons.Instances_Proof_of_Consensus ()
 import Hetcons.Signed_Message
     ( Recursive_1b
@@ -35,7 +37,8 @@ import Charlotte_Types
 import qualified Control.Concurrent.Map as Concurrent_Map
     ( Map, empty, lookup )
 import Control.Concurrent.Map ( insertIfAbsent )
-import Control.Concurrent.MVar ( modifyMVar, newMVar, MVar )
+import Control.Concurrent.MVar ( modifyMVar, modifyMVar_, newMVar, MVar )
+import Control.Exception (catch, throw, SomeException)
 import qualified Control.Monad.Parallel as Parallel ( mapM_ )
 import Data.HashMap.Lazy ( keys, elems )
 import Data.HashSet ( unions, toList )
@@ -92,7 +95,7 @@ default_Address_Book = Concurrent_Map.empty
 --    executes the thrift prompt (over the wire) using a tcp channel from the address book (creating a new one if necessary).
 --   This is thread safe.
 --   It will not block on the address book elements, and if all known handles are in use, it spins up a new one.
-send_to :: Address_Book -> Participant_ID -> ((CompactProtocol Handle, CompactProtocol Handle) -> a -> IO b) ->  a -> IO b
+send_to :: forall a b . Address_Book -> Participant_ID -> ((CompactProtocol Handle, CompactProtocol Handle) -> a -> IO b) ->  a -> IO b
 send_to address_book recipient prompt message = do
   { client <- do { first_look <- Concurrent_Map.lookup recipient address_book
                  ; case first_look of
@@ -112,10 +115,19 @@ send_to address_book recipient prompt message = do
                                 -- otherwise, we'll make a new one and use that
                  Nothing -> do { handle <- hOpen (domain_name recipient, PortNumber $ fromIntegral $ address_port_number $ participant_ID_address recipient )
                                ; return (CompactProtocol handle, CompactProtocol handle)}
-  ; x <- prompt client' message
-    -- ModifyMVar executes an atomic transaction on the MVar, so we want to do as little within this transaction as possible
-  ; modifyMVar client (\r -> return (client' : r, ())) -- add our handle to the stack of known handles
-  ; return x}
+    -- We actually call the prompt, but can get 2 types of exceptions:
+       -- The specific type, Hetcons_Exception, which we actually want to throw upward, so we return it out of the catch statement, only to throw it later.
+       -- The more general type, which means something probably went wrong in the connection, and we want to retry the whole sending thing.
+  ; exception_or_answer <- catch (catch (do {x <- prompt client' message
+                                            ;modifyMVar_ client $ return . (client' :) -- add our handle to the stack of known handles
+                                            ;return $ Right x})
+                                        (\(e :: Hetcons_Exception) -> return $ Left e))
+                                 (\(_ :: SomeException) -> (send_to address_book recipient prompt message) >>= (return . Right))
+  ; case exception_or_answer of
+         Right answer -> return answer
+         Left exception -> throw exception
+  }
+        
 
 
 
