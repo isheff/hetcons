@@ -10,9 +10,14 @@ module Hetcons.Signed_Message
     (Encodable
        ,encode
        ,sign
+    ,To_Hetcons_Message
+       ,to_Hetcons_Message
+    ,From_Hetcons_Message
+       ,from_Hetcons_Message
     ,Monad_Verify
        ,verify
        ,verify'
+       ,verify_bytestring
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
@@ -110,10 +115,22 @@ import Charlotte_Types
      ,Public_Crypto_Key_Type_Descriptor(Public_Crypto_Key_Type_Descriptor
                                        ,public_Crypto_Key_Type_Descriptor_public_crypto_key_x509)
                                        ,default_Public_Crypto_Key
-     ,Signed_Message (Signed_Message)
-                        ,signed_Message_payload
-                        ,signed_Message_signature
-                        ,default_Signed_Message
+     ,Hetcons_Message (Hetcons_Message)
+        ,hetcons_Message_proposals
+        ,hetcons_Message_phase_1as
+        ,hetcons_Message_phase_1bs
+        ,hetcons_Message_phase_2as
+        ,default_Hetcons_Message
+     ,Signed_Index (Signed_Index)
+        ,signed_Index_index 
+        ,signed_Index_signature 
+     ,Phase_1b_Indices (Phase_1b_Indices)
+        ,phase_1b_Indices_index_1a
+        ,phase_1b_Indices_indices_2b
+        ,phase_1b_Indices_signature
+     ,Signed_Indices(Signed_Indices)
+        ,signed_Indices_indices
+        ,signed_Indices_signature
      ,Signed_Hash(Signed_Hash, signed_Hash_crypto_id
                  ,signed_Hash_hash_type_descriptor, signed_Hash_signature)
                  ,default_Signed_Hash
@@ -125,6 +142,8 @@ import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( DRG )
 import Data.ByteString.Lazy ( ByteString )
 import Data.Foldable ( Foldable(maximum, null) )
+import Data.Vector ((!))
+import qualified Data.Vector as Vector (map)
 import GHC.Generics ( Generic )
 import Data.Hashable ( Hashable, hashWithSalt )
 import Data.HashSet ( HashSet, singleton, intersection )
@@ -169,23 +188,24 @@ signed :: Verified a -> Signed_Message
 signed = verified_signed
 
 
--- | We want to parse incoming messages into their `recursive' version, which is
+-- | TODO: With the advent of Hetcons_Message reformatting, this is no longer a sane thing to do. I'm removing this so we can fix stuff.
+--   We want to parse incoming messages into their `recursive' version, which is
 --    to say we will verify that message, and also any messages its carrying in
 --    any of their fields, and store the original signed messages as well as the
 --    parsed data structures.
 --   This class defines what the Recursive version of a basic Thrift datatype is.
-class Recursive a b where
+-- class Recursive a b where
   -- | Sometimes it's useful to have access to the basic thrift data structure.
-  --   This function should grand that access.
-  non_recursive :: b -> a
+  --   This function should grant that access.
+--   non_recursive :: b -> a
 
 
 
 -- | Proposal_1a s carry no signed messages within them, but their recursive version can fill in some stuff, like calculating quorums from an observer graph
 --   Therefore we store both the original, non_recursive version, and the "filled-in" version.
 data Recursive_1a v = Recursive_1a {
-   -- | The original non-recursive version from which this is parsed
-   recursive_1a_non_recursive ::Proposal_1a
+   -- | Hetons_Message formatting removes the need for The original non-recursive version from which this is parsed
+   -- recursive_1a_non_recursive ::Proposal_1a
    -- | The "filled-in" version, in which we have, for example, calculated Quorums from the observer graph.
   ,recursive_1a_filled_in :: Proposal_1a
    -- | The parsed value
@@ -199,8 +219,8 @@ instance (Serialize v) => Serialize (Recursive_1a v) -- I'm not clear on why thi
 -- | Phase_1b s carry 1a and 2a messages with them.
 --   Recursive_1b s carry parsed and verified versions of these.
 data Recursive_1b v = Recursive_1b {
-   -- | The original, non-recursive version from which this is parsed
-   recursive_1b_non_recursive :: Phase_1b
+   -- | Hetcons_Message formatting removes the need for The original, non-recursive version from which this is parsed
+   -- recursive_1b_non_recursive :: Phase_1b
    -- | The Recursive version of the 1B's contained 1A
   ,recursive_1b_proposal :: Verified (Recursive_1a v)
    -- | The Recursive version of the 1B's contained 2As
@@ -223,17 +243,33 @@ newtype Recursive_2b v = Recursive_2b (HashSet (Verified (Recursive_1b v))) deri
 --   Recursive_Proof_of_Consensus objects carry parsed and verified versions of these.
 newtype Recursive_Proof_of_Consensus v = Recursive_Proof_of_Consensus (HashSet (Verified (Recursive_2b v))) deriving (Show, Eq, Generic)
 
+
+class From_Hetcons_Message a where
+  from_Hetcons_Message :: (Verified Hetcons_Message) -> a
+
+instance (Monad m) => From_Hetcons_Message (m Hetcons_Message) where
+  from_Hetcons_Message = return . original
+
+class (Monad m) => To_Hetcons_Message m a where
+  to_Hetcons_Message :: a -> (m Hetcons_Message)
+
+instance To_Hetcons_Message m Hetcons_Message where
+  to_Hetcons_Message = return
+
+instance (To_Hetcons_Message m a) => To_Hetcons_Message m (Verified a) where
+  to_Hetcons_Message = to_Hetcons_Message . original
+
 -- | verify is only way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
 --   Verify is Memoized, and thus should be called in a Monad which maintains its memoization cache.
 --   Such a monad is Hetcons_Transaction, defined in Receive_Message.
 --   verify should be a memoized version of verify'
-class (MonadError Hetcons_Exception m, Parsable (m a)) => Monad_Verify a m where
+class (MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Monad_Verify a m where
   -- | verify is only way to construct a Verified object.
-  --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+  --   If all goes well, you get a verified version of the Verifiable type (e.g. Recursive_1b) specified.
   --   Otherwise, you get an exception.
-  verify :: Signed_Message -> m (Verified a)
+  verify :: Hetcons_Message -> m (Verified a)
 
 
 
@@ -257,13 +293,42 @@ sha2_length length_set =
 -- | This is the only pure way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
-verify' :: (Monad_Verify_Quorums m
-           ,Monad_Verify a m, MonadError Hetcons_Exception m, Parsable (m a)) => Signed_Message -> m (Verified a)
--- In the case where everything's done correctly:
-verify' signed_message@Signed_Message
-       {signed_Message_payload = payload
-       ,signed_Message_signature =
-          signed_hash@Signed_Hash
+verify' :: (Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
+-- We first verify that the Hetcons_Message itself is good (all signatures correct and such)
+verify' message@(Hetcons_Message{
+                   hetcons_Message_proposals = proposals
+                  ,hetcons_Message_phase_1as = phase_1as
+                  ,hetcons_Message_phase_1bs = phase_1bs
+                  ,hetcons_Message_phase_2as = phase_2as}) = do
+  {let binary_proposals = Vector.map encode proposals
+  ;forM_ phase_1as (\(Signed_Index{signed_Index_index = index
+                                  ,signed_Index_signature signed_hash}) -> (
+                      verify_bytestring (binary_proposals!(fromIntegral index)) signed_hash))
+  ;forM_ phase_1bs (\(Phase_1b_Indices  { phase_1b_Indices_index_1a = index_1a
+                                        , phase_1b_Indices_indices_2b = indices_2b
+                                        , phase_1b_Indices_signature = signed_hash}) -> (
+                      verify_bytestring (ByteString.concat
+                                          ((binary_proposals!(fromIntegral index_1a)):
+                                           (sort $ map (signed_Hash_signature . signed_Indices_signature . (phase_2as!) . fromIntegral)
+                                                       $ toList indices_2b)))
+                                        signed_hash))
+  ;forM_ phase_2as (\(Signed_Indices{signed_Indices_indices = indices
+                                    ,signed_Indices_signature = signature}) -> (
+                      verify_bytestring (ByteString.concat $ sort $ map (signed_Hash_signature . phase_1b_Indices_signature . (phase_1bs!) . fromIntegral)
+                                                                        $ toList indices)
+                                        signed_hash))
+  -- now that we've checked all the signatures, we can construct whatever data type is desired:
+  ;x <- from_Hetcons_Message (Verified {verified_original = message})
+  -- and if that construction doesn't throw any errors, we call it verified.
+  ;return (Verified {verified_original = x})
+  }
+
+-- verify that a bytestring is signed correctly.
+verify_bytestring :: ( MonadError Hetcons_Exception m) => ByteString -> Signed_Hash -> m ()
+-- in the case where all is done correctly:
+verify_bytestring
+        payload
+        signed_hash@Signed_Hash
           {signed_Hash_signature = signature
           ,signed_Hash_hash_type_descriptor = Just
              Hash_Type_Descriptor
@@ -272,7 +337,7 @@ verify' signed_message@Signed_Message
              Crypto_ID
              {crypto_ID_public_crypto_key = Just
                 Public_Crypto_Key
-                  {public_Crypto_Key_public_crypto_key_x509 = Just public_key}}}}
+                  {public_Crypto_Key_public_crypto_key_x509 = Just public_key}}}
   =
     do{max_length <- sha2_length hash_sha2_descriptor
       ;let verify_with_length = case max_length of
@@ -285,19 +350,16 @@ verify' signed_message@Signed_Message
            throwError $ Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
               invalid_Signed_Hash_signed_hash = signed_hash
              ,invalid_Signed_Hash_explanation = Just $ pack e}
-         Nothing ->
-           do { parsed_payload <- parse payload
-              ; return Verified { verified_original = parsed_payload, verified_signed = signed_message }}}
+         Nothing -> return ()}
 
 -- | If it's a public crypto key, but not an x509, we return an appropriate Exception
-verify' Signed_Message
-       {signed_Message_signature =
-          Signed_Hash
+verify_bytestring _
+        (Signed_Hash
           {signed_Hash_crypto_id = Just
              Crypto_ID
              {crypto_ID_public_crypto_key = Just
                 public_key@(Public_Crypto_Key
-                  {public_Crypto_Key_public_crypto_key_x509 = Nothing})}}} -- it's a public crypto key, but not an x509
+                  {public_Crypto_Key_public_crypto_key_x509 = Nothing})}}) -- it's a public crypto key, but not an x509
   = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Public_Crypto_Key
              default_Descriptor_Does_Not_Match_Public_Crypto_Key {
                 descriptor_Does_Not_Match_Public_Crypto_Key_public_crypto_key_type_descriptor =
@@ -308,12 +370,11 @@ verify' Signed_Message
                   Just "Alas, I only support X509 Public Crypto Keys at this time."}
 
 -- | If it's a Crypto ID, but not a public crypto key, we return an appropriate Exception
-verify' Signed_Message
-       {signed_Message_signature =
-          Signed_Hash
+verify_bytestring _
+        (Signed_Hash
           {signed_Hash_crypto_id = Just
              crypto_id@(Crypto_ID
-             {crypto_ID_public_crypto_key = Nothing})}}
+             {crypto_ID_public_crypto_key = Nothing})})
   = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Crypto_ID
              default_Descriptor_Does_Not_Match_Crypto_ID {
                 descriptor_Does_Not_Match_Crypto_ID_crypto_id_type_descriptor =
@@ -324,10 +385,7 @@ verify' Signed_Message
                   Just "Alas, I require crypto IDs to be full X509 Public Crypto Keys at this time."}
 
 -- | If the signed Hash doesn't include a Crypto_ID, we return an appropriate exception
-verify' Signed_Message
-       {signed_Message_signature =
-          signed_hash@Signed_Hash
-          {signed_Hash_crypto_id = Nothing}}
+verify_bytestring _ signed_hash@Signed_Hash {signed_Hash_crypto_id = Nothing}
   = throwError $ Hetcons_Exception_Descriptor_Does_Not_Match_Signed_Hash
              default_Descriptor_Does_Not_Match_Signed_Hash {
                 descriptor_Does_Not_Match_Signed_Hash_signed_hash_type_descriptor =
@@ -338,12 +396,11 @@ verify' Signed_Message
                   Just "I require this signed hash to carry a crypto ID"}
 
 -- | If the signed Hash specifies a type, but it isn't sha2, we return an appropriate exception
-verify' Signed_Message
-       {signed_Message_signature =
-          Signed_Hash
+verify_bytestring _
+        (Signed_Hash
           {signed_Hash_hash_type_descriptor = hash_type_descriptor@(Just
              Hash_Type_Descriptor
-             {hash_Type_Descriptor_sha2 = Nothing})}}
+             {hash_Type_Descriptor_sha2 = Nothing})})
   = throwError $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
              default_No_Supported_Hash_Type_Descriptor_Provided {
                 no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor =
@@ -354,10 +411,7 @@ verify' Signed_Message
                   Just "Alas, I only support SHA2 hashes at this time."}
 
 -- | If the signed Hash does not specify a type, we return an appropriate exception
-verify' Signed_Message
-       {signed_Message_signature =
-          signed_hash@Signed_Hash
-          {signed_Hash_hash_type_descriptor = Nothing}}
+verify_bytestring _ signed_hash@Signed_Hash {signed_Hash_hash_type_descriptor = Nothing}
   = throwError $ Hetcons_Exception_No_Supported_Hash_Type_Descriptor_Provided
              default_No_Supported_Hash_Type_Descriptor_Provided  {
                no_Supported_Hash_Type_Descriptor_Provided_offending_hash_type_descriptor = Nothing
@@ -375,8 +429,8 @@ class Encodable a where
 
 
 -- | builds a Signed_Message given a signing key, a matching certificate, something serializable, etc.
-sign ::(MonadError Hetcons_Exception m, Encodable p, X509.Signer signer, DRG gen) =>
-       Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> p -> m Signed_Message
+sign ::(MonadError Hetcons_Exception m, X509.Signer signer, DRG gen) =>
+       Crypto_ID -> signer -> Signed_Hash_Type_Descriptor -> gen -> ByteString -> m Signed_Hash
 -- | If everything is correct, and we've got just an x509 public key
 sign (Crypto_ID
        {crypto_ID_public_crypto_key = Just
@@ -401,21 +455,18 @@ sign (Crypto_ID
                                    32 -> X509.sign $ Just SHA256
                                    48 -> X509.sign $ Just SHA384
                                    _  -> X509.sign $ Just SHA512
-      ;let serialized_payload = encode payload
       ;signature <- case sign_with_length random_generator private_key serialized_payload of
                       Left e -> throwError (Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
                                invalid_Signed_Hash_explanation = Just $ pack (
                                  "Something went wrong while trying to sign with this key:\n" ++ e)})
                       Right s -> return s
-      ;return default_Signed_Message { -- and now we describe the entire signed message structure
-            signed_Message_payload = serialized_payload
-           ,signed_Message_signature = default_Signed_Hash {
-               signed_Hash_signature = signature
-              ,signed_Hash_crypto_id = Just default_Crypto_ID
-                 {crypto_ID_public_crypto_key = Just default_Public_Crypto_Key
-                    {public_Crypto_Key_public_crypto_key_x509 = Just public_key}}
-              ,signed_Hash_hash_type_descriptor = Just default_Hash_Type_Descriptor
-                   {hash_Type_Descriptor_sha2 = Just $ singleton max_length}}}}
+      ;return default_Signed_Hash {
+                 signed_Hash_signature = signature
+                ,signed_Hash_crypto_id = Just default_Crypto_ID
+                   {crypto_ID_public_crypto_key = Just default_Public_Crypto_Key
+                      {public_Crypto_Key_public_crypto_key_x509 = Just public_key}}
+                ,signed_Hash_hash_type_descriptor = Just default_Hash_Type_Descriptor
+                     {hash_Type_Descriptor_sha2 = Just $ singleton max_length}}}
 
 
 -- | If the Crypto_ID is a key, but not an X509
