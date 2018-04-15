@@ -15,16 +15,15 @@ import Hetcons.Instances_1a ()
 import Hetcons.Signed_Message
     ( Encodable
        ,encode
+     ,From_Hetcons_Message
+       ,from_Hetcons_Message
      ,Recursive_1a
      ,Recursive_1b(Recursive_1b)
-       ,recursive_1b_non_recursive
        ,recursive_1b_proposal
        ,recursive_1b_conflicting_phase2as
      ,Verified
      ,Parsable
        ,parse
-     ,Recursive
-       ,non_recursive
      ,Recursive_2a (Recursive_2a )
      ,Monad_Verify(verify)
      ,signed
@@ -53,25 +52,35 @@ import Charlotte_Types
                       ,invalid_Phase_1b_offending_phase_1b)
      ,Phase_2a(phase_2a_phase_1bs)
               ,encode_Phase_2a
-     ,Signed_Message(signed_Message_signature)
+     ,Hetcons_Message(Hetcons_Message)
+       ,hetcons_Message_proposals
+       ,hetcons_Message_phase_1as
+       ,hetcons_Message_phase_1bs
+       ,hetcons_Message_phase_2as
+     ,Phase_1b_Indices(Phase_1b_Indices)
+       ,phase_1b_Indices_index_1a
+       ,phase_1b_Indices_indices_2b
      ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
               ,encode_Phase_1b
+              ,default_Phase_1b
      ,Signed_Hash(signed_Hash_crypto_id)
      ,default_Phase_2a
      ,default_Invalid_Phase_2a
      ,default_Invalid_Phase_1b )
 import Control.Monad ( mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
-import Data.Foldable ( null, length, maximumBy )
+import Data.Foldable ( null, length, maximumBy, toList )
 import Data.Hashable ( Hashable, hashWithSalt )
 import Data.HashMap.Strict ( elems )
 import Data.HashSet
-    ( HashSet, unions, toList, intersection, insert, fromList )
+    ( HashSet, unions, intersection, insert, fromList )
 import qualified Data.HashSet as HashSet ( map )
 import Data.List ( head )
 import Data.Maybe ( catMaybes )
 import Data.Text.Lazy ( pack )
-import Data.Traversable ( mapM )
+import Data.Traversable ( mapM, forM )
+import Data.Vector (imap, (!), singleton)
+import qualified Data.Vector as Vector (map, empty)
 import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
@@ -83,15 +92,10 @@ import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 instance {-# OVERLAPPING #-} Encodable Phase_1b where
   encode = encode_Phase_1b (CompactProtocol EmptyTransport)
 
--- | The Recursive version of a Phase_1b is a Recursive_1b
---   Phase_1b s carry 1a and 2a messages with them.
---   Recursive_1b s carry parsed and verified versions of these.
-instance (Value v) => Recursive Phase_1b (Recursive_1b v) where
-  non_recursive = recursive_1b_non_recursive
 
 -- | Recursive_1b s can be hashed by hashing their non-recursive version
 instance (Value v) => Hashable (Recursive_1b v) where
-  hashWithSalt s x = hashWithSalt s ((non_recursive x) :: Phase_1b)
+  hashWithSalt s x = hashWithSalt s (recursive_1b_proposal x, recursive_1b_conflicting_phase2as x)
 
 -- | All the 1Bs contained within the (2As within the) Recursive_1b
 instance {-# OVERLAPPING #-} (Value v) => Contains_1bs (Recursive_1b v) v where
@@ -127,31 +131,58 @@ instance {-# OVERLAPPING #-} (Value v) => Contains_Value (Recursive_1b v) v wher
 --   A 1b is "well formed" if all the 2A s it contains conflict with this 1B.
 well_formed_1b :: (MonadError Hetcons_Exception m, Value v) => (Recursive_1b v) -> m ()
 well_formed_1b (Recursive_1b {
-                  recursive_1b_non_recursive = non_recursive
-                 ,recursive_1b_proposal = proposal
+                  recursive_1b_proposal = proposal
                  ,recursive_1b_conflicting_phase2as = conflicting_phase2as})
   = mapM_ (\x -> if not $ conflicts $ fromList [proposal, extract_1a x]
                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
-                       invalid_Phase_1b_offending_phase_1b = non_recursive
-                       ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal"
+                       invalid_Phase_1b_offending_phase_1b = default_Phase_1b -- non_recursive
+                       -- TODO: Hetcons_Message does not provide an offending Phase_1b to return. Fix that.
+                       ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal. Hetcons_Message format does not provide an offending Phase_1b to return"
                        })
                 else return ())
       $ toList conflicting_phase2as
 
--- | We can parse Recursive_1b s. (Part of verifying them)
---   For a 1b object, we verify the proposal and 2a messages it carries, and parse the original message
---   We're also going to verify the 1b's well-formedness, because that has to happen somewhere.
-instance {-# OVERLAPPING #-} (Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_2a v) m) => Parsable (m (Recursive_1b v)) where
-  parse payload =
-    do { non_recursive <- parse payload -- (Either Hetcons_Exception) Monad
-       ; proposal <- verify $ phase_1b_proposal non_recursive
-       ; conflicting_phase2as <- mapM verify $ toList $ phase_1b_conflicting_phase2as non_recursive
-       ; let r1b = Recursive_1b {
-                      recursive_1b_non_recursive = non_recursive
-                     ,recursive_1b_proposal = proposal
-                     ,recursive_1b_conflicting_phase2as = fromList conflicting_phase2as}
-       ; well_formed_1b r1b
-       ; return r1b}
+
+-- | Construct a 1B from a Hetcons Message
+--   Specifically, this will represent the first 1B in the list of 1Bs in the Hetcons_Message
+instance {-# OVERLAPPING #-} (Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_2a v) m) => From_Hetcons_Message (m (Recursive_1b v)) where
+  from_Hetcons_Message verified_hetcons_message = do
+    {let hetcons_message@Hetcons_Message
+           {hetcons_Message_proposals = proposals
+           ,hetcons_Message_phase_1as = phase_1as
+           ,hetcons_Message_phase_1bs = phase_1bs
+           ,hetcons_Message_phase_2as = phase_2as
+           } = original verified_hetcons_message
+    ;let phase_1b_indices@Phase_1b_Indices
+           {phase_1b_Indices_index_1a   = index_1a
+           ,phase_1b_Indices_indices_2b = indices_2b
+           } = phase_1bs!0
+    ;proposal <- verify Hetcons_Message{hetcons_Message_proposals = proposals
+                                       ,hetcons_Message_phase_1as = singleton (phase_1as!(fromIntegral index_1a))
+                                       ,hetcons_Message_phase_1bs = Vector.empty
+                                       ,hetcons_Message_phase_2as = Vector.empty}
+    ;conflicting_2as <- forM (toList indices_2b) (\k -> (do
+      -- For each conflicing 2A, we must verify that 2a, however, we identify which 2A to decode by whichever is first in the list.
+      -- Therefore, we swap the first element of the 2A list with the desired 2A vefore calling from_Hetcons_Message
+      {let i = fromIntegral k
+      ;let new_2as = imap (\j v -> if (j == 0) then phase_2as!i else (if (j == i) then phase_2as!0 else v)) phase_2as -- swap element 0 and i in phase_2as
+      -- Since we've swapped about the 2As, we must also swap about all references to the 2As (which can be found in the 1Bs)
+      ;let new_1bs = Vector.map (\phase_1b -> phase_1b{phase_1b_Indices_indices_2b = HashSet.map (\j -> if (j == 0) then k else (if (j == k) then 0 else j))
+                                                                                                 $ phase_1b_Indices_indices_2b phase_1b})
+                                phase_1bs
+      ;verify hetcons_message{ -- TODO: this needlessly re-verifies the signatures, which are the same (we've just re-ordered the lists) let's not do that.
+         hetcons_Message_phase_1bs = new_1bs
+        ,hetcons_Message_phase_2as = new_2as
+        }
+      }))
+    ;let answer = Recursive_1b {
+        recursive_1b_proposal = proposal
+       ,recursive_1b_conflicting_phase2as = fromList conflicting_2as
+       }
+    ;well_formed_1b answer
+    ;return answer
+    }
+
 
 -------------------------------------------------------------------------------
 --                                Phase 2A                                   --
@@ -161,11 +192,6 @@ instance {-# OVERLAPPING #-} (Value v, Monad_Verify (Recursive_1a v) m, Monad_Ve
 instance {-# OVERLAPPING #-} Encodable Phase_2a where
   encode = encode_Phase_2a (CompactProtocol EmptyTransport)
 
--- | The recursive version of a Phase_2a is a Recursive_2a
---   Phase_2a s carry phase 1b messages with them.
---   Recursive_2a s carry parsed and verified versions of these.
-instance (Value v) => Recursive Phase_2a (Recursive_2a v) where
-  non_recursive (Recursive_2a x) = default_Phase_2a {phase_2a_phase_1bs = HashSet.map signed x}
 
 -- | Hash a Recursive_2a by hashing its non-recursive version
 instance (Value v) => Hashable (Recursive_2a v) where

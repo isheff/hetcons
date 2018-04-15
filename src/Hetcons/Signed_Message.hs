@@ -309,7 +309,7 @@ verify' message@(Hetcons_Message{
                                         , phase_1b_Indices_indices_2b = indices_2b
                                         , phase_1b_Indices_signature = signed_hash}) -> (
                       verify_bytestring (ByteString.concat
-                                          ((binary_proposals!(fromIntegral index_1a)):
+                                          ((signed_Hash_signature $ signed_Index_signature $ phase_1as!(fromIntegral index_1a):
                                            (sort $ map (signed_Hash_signature . signed_Indices_signature . (phase_2as!) . fromIntegral)
                                                        $ toList indices_2b)))
                                         signed_hash))
