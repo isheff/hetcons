@@ -22,6 +22,7 @@ library
                      , Hetcons.Instances_1a
                      , Hetcons.Instances_1b_2a
                      , Hetcons.Instances_2b
+                     , Hetcons.Instances_of_To_Hetcons_Message
                      , Hetcons.Instances_Proof_of_Consensus
                      , Hetcons.Observer
                      , Hetcons.Parsable

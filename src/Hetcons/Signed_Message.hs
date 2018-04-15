@@ -257,8 +257,8 @@ class (Monad m) => To_Hetcons_Message m a where
 instance (Monad m) => To_Hetcons_Message m Hetcons_Message where
   to_Hetcons_Message = return
 
-instance (To_Hetcons_Message m a) => To_Hetcons_Message m (Verified a) where
-  to_Hetcons_Message = to_Hetcons_Message . original
+instance (Monad m) => To_Hetcons_Message m (Verified a) where
+  to_Hetcons_Message = return . signed
 
 -- | verify is only way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
