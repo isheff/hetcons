@@ -32,6 +32,7 @@ import Hetcons.Quorums (Monad_Verify_Quorums)
 import Hetcons.Signed_Message (Recursive_1a
                                  ,recursive_1a_value
                                  ,recursive_1a_filled_in
+                                 ,recursive_1a_non_recursive
                               ,Recursive_1b
                               ,Recursive_2a
                               ,Recursive_2b
@@ -57,6 +58,9 @@ import Charlotte_Types  (Slot_Value
                          ,observers_observer_quorums
                       ,signed_Hash_signature
                       ,signed_Message_signature
+                      ,hetcons_Message_proposals
+                      ,hetcons_Message_phase_1as
+                      ,signed_Index_signature
                       )
 
 import Control.Monad.Except ( MonadError )
@@ -68,6 +72,7 @@ import Data.HashMap.Lazy ( HashMap )
 import Data.Int (Int64)
 import qualified Data.HashSet as HashSet (map, filter)
 import Data.HashSet (HashSet, fromList)
+import Data.Vector (elemIndex, (!))
 import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
@@ -167,7 +172,11 @@ instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v) => Con
 
 instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Ballot (Verified (Recursive_1a v)) where
   extract_ballot proposal =(proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
-                            signed_Hash_signature $ signed_Message_signature $ signed proposal)
+                            -- in a Hetcons_Message, the signed proposal should be one of the proposals in a list, so we find that one
+                            case elemIndex (recursive_1a_non_recursive $ original proposal) (hetcons_Message_proposals $ signed proposal) of 
+                                 Nothing -> error ("this 1A appears not to contain its own proposal in its signed version")
+                                 -- and then use the signature listed for that proposal as the less significant ballot entry
+                                 Just i -> signed_Hash_signature $ signed_Index_signature $ (hetcons_Message_phase_1as $ signed proposal)!(fromIntegral i))
 
 class Contains_Quorums a where
   extract_observer_quorums :: a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))

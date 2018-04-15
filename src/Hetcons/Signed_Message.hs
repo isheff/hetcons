@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- | Details the types, classes, and functions for signing and verifying stuff, including Recursive types.
 --   For each type of Thrift message, we have a Recursive type, which contains the verified versions of any messages contained in the original.
@@ -21,14 +22,11 @@ module Hetcons.Signed_Message
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
-    , Recursive
-       ,non_recursive
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
        ,recursive_1a_value
     , Recursive_1b(Recursive_1b)
-       ,recursive_1b_non_recursive
        ,recursive_1b_proposal
        ,recursive_1b_conflicting_phase2as
     , Recursive_2a (Recursive_2a )
@@ -141,7 +139,9 @@ import Crypto.Hash.Algorithms
 import Control.Monad.Except ( MonadError(throwError) )
 import Crypto.Random ( DRG )
 import Data.ByteString.Lazy ( ByteString )
-import Data.Foldable ( Foldable(maximum, null) )
+import qualified Data.ByteString.Lazy as ByteString (concat)
+import Data.Foldable ( Foldable(maximum, null), toList, forM_ )
+import Data.List (sort)
 import Data.Vector ((!))
 import qualified Data.Vector as Vector (map)
 import GHC.Generics ( Generic )
@@ -162,7 +162,8 @@ data Verified a = Verified {
    -- | The original (parsed, but not "verified") datum
    verified_original :: a
    -- | The signed message from which this was parsed and verified
-  ,verified_signed   :: Signed_Message
+  ,verified_signed :: Hetcons_Message
+
   }
 -- | Verified things are equal precisely when their original signed messages are equal
 instance Eq (Verified a) where
@@ -184,7 +185,7 @@ original = verified_original
 -- | The signed message from which this darum was parsed and verified.
 --   An accessor function for the `verified_signed field of Verified s.
 --   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
-signed :: Verified a -> Signed_Message
+signed :: Verified a -> Hetcons_Message
 signed = verified_signed
 
 
@@ -204,8 +205,8 @@ signed = verified_signed
 -- | Proposal_1a s carry no signed messages within them, but their recursive version can fill in some stuff, like calculating quorums from an observer graph
 --   Therefore we store both the original, non_recursive version, and the "filled-in" version.
 data Recursive_1a v = Recursive_1a {
-   -- | Hetons_Message formatting removes the need for The original non-recursive version from which this is parsed
-   -- recursive_1a_non_recursive ::Proposal_1a
+   -- | The original non-recursive version from which this is parsed
+   recursive_1a_non_recursive ::Proposal_1a
    -- | The "filled-in" version, in which we have, for example, calculated Quorums from the observer graph.
   ,recursive_1a_filled_in :: Proposal_1a
    -- | The parsed value
@@ -222,7 +223,7 @@ data Recursive_1b v = Recursive_1b {
    -- | Hetcons_Message formatting removes the need for The original, non-recursive version from which this is parsed
    -- recursive_1b_non_recursive :: Phase_1b
    -- | The Recursive version of the 1B's contained 1A
-  ,recursive_1b_proposal :: Verified (Recursive_1a v)
+   recursive_1b_proposal :: Verified (Recursive_1a v)
    -- | The Recursive version of the 1B's contained 2As
   ,recursive_1b_conflicting_phase2as :: (HashSet (Verified (Recursive_2a v)))
 } deriving (Show, Eq, Generic)
@@ -253,7 +254,7 @@ instance (Monad m) => From_Hetcons_Message (m Hetcons_Message) where
 class (Monad m) => To_Hetcons_Message m a where
   to_Hetcons_Message :: a -> (m Hetcons_Message)
 
-instance To_Hetcons_Message m Hetcons_Message where
+instance (Monad m) => To_Hetcons_Message m Hetcons_Message where
   to_Hetcons_Message = return
 
 instance (To_Hetcons_Message m a) => To_Hetcons_Message m (Verified a) where
@@ -293,7 +294,7 @@ sha2_length length_set =
 -- | This is the only pure way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
-verify' :: (Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
+verify' :: (Encodable Proposal_1a, Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
 -- We first verify that the Hetcons_Message itself is good (all signatures correct and such)
 verify' message@(Hetcons_Message{
                    hetcons_Message_proposals = proposals
@@ -302,7 +303,7 @@ verify' message@(Hetcons_Message{
                   ,hetcons_Message_phase_2as = phase_2as}) = do
   {let binary_proposals = Vector.map encode proposals
   ;forM_ phase_1as (\(Signed_Index{signed_Index_index = index
-                                  ,signed_Index_signature signed_hash}) -> (
+                                  ,signed_Index_signature = signed_hash}) -> (
                       verify_bytestring (binary_proposals!(fromIntegral index)) signed_hash))
   ;forM_ phase_1bs (\(Phase_1b_Indices  { phase_1b_Indices_index_1a = index_1a
                                         , phase_1b_Indices_indices_2b = indices_2b
@@ -313,7 +314,7 @@ verify' message@(Hetcons_Message{
                                                        $ toList indices_2b)))
                                         signed_hash))
   ;forM_ phase_2as (\(Signed_Indices{signed_Indices_indices = indices
-                                    ,signed_Indices_signature = signature}) -> (
+                                    ,signed_Indices_signature = signed_hash}) -> (
                       verify_bytestring (ByteString.concat $ sort $ map (signed_Hash_signature . phase_1b_Indices_signature . (phase_1bs!) . fromIntegral)
                                                                         $ toList indices)
                                         signed_hash))
@@ -455,7 +456,7 @@ sign (Crypto_ID
                                    32 -> X509.sign $ Just SHA256
                                    48 -> X509.sign $ Just SHA384
                                    _  -> X509.sign $ Just SHA512
-      ;signature <- case sign_with_length random_generator private_key serialized_payload of
+      ;signature <- case sign_with_length random_generator private_key payload of
                       Left e -> throwError (Hetcons_Exception_Invalid_Signed_Hash default_Invalid_Signed_Hash {
                                invalid_Signed_Hash_explanation = Just $ pack (
                                  "Something went wrong while trying to sign with this key:\n" ++ e)})
