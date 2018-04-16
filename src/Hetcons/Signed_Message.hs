@@ -162,7 +162,7 @@ data Verified a = Verified {
    -- | The original (parsed, but not "verified") datum
    verified_original :: a
    -- | The signed message from which this was parsed and verified
-  ,verified_signed :: Hetcons_Message
+  ,verified_signed :: Verified Hetcons_Message
 
   }
 -- | Verified things are equal precisely when their original signed messages are equal
@@ -185,7 +185,7 @@ original = verified_original
 -- | The signed message from which this darum was parsed and verified.
 --   An accessor function for the `verified_signed field of Verified s.
 --   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
-signed :: Verified a -> Hetcons_Message
+signed :: Verified a -> Verified Hetcons_Message
 signed = verified_signed
 
 
@@ -254,7 +254,7 @@ instance (Monad m) => From_Hetcons_Message (m Hetcons_Message) where
 class (Monad m) => To_Hetcons_Message m a where
   to_Hetcons_Message :: a -> (m Hetcons_Message)
 
-instance (Monad m) => To_Hetcons_Message m Hetcons_Message where
+instance (Monad m) => To_Hetcons_Message m (Verified Hetcons_Message) where
   to_Hetcons_Message = return
 
 instance (Monad m) => To_Hetcons_Message m (Verified a) where
@@ -294,13 +294,14 @@ sha2_length length_set =
 -- | This is the only pure way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
 --   Otherwise, you get an exception.
-verify' :: (Encodable Proposal_1a, Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
+verify' :: (Monad_Verify a m, Encodable Proposal_1a, Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
 -- We first verify that the Hetcons_Message itself is good (all signatures correct and such)
 verify' message@(Hetcons_Message{
                    hetcons_Message_proposals = proposals
                   ,hetcons_Message_phase_1as = phase_1as
                   ,hetcons_Message_phase_1bs = phase_1bs
-                  ,hetcons_Message_phase_2as = phase_2as}) = do
+                  ,hetcons_Message_phase_2as = phase_2as
+                  ,hetcons_Message_index = i}) = do
   {let binary_proposals = Vector.map encode proposals
   ;forM_ phase_1as (\(Signed_Index{signed_Index_index = index
                                   ,signed_Index_signature = signed_hash}) -> (
@@ -319,9 +320,10 @@ verify' message@(Hetcons_Message{
                                                                         $ toList indices)
                                         signed_hash))
   -- now that we've checked all the signatures, we can construct whatever data type is desired:
-  ;x <- from_Hetcons_Message (Verified {verified_original = message})
+  ;let verified = (Verified {verified_original = message, verified_signed = verified})
+  ;x <- from_Hetcons_Message verified
   -- and if that construction doesn't throw any errors, we call it verified.
-  ;return (Verified {verified_original = x})
+  ;return (Verified {verified_original = x, verified_signed = verified})
   }
 
 -- verify that a bytestring is signed correctly.

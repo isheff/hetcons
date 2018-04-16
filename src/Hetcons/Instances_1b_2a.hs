@@ -152,29 +152,14 @@ instance {-# OVERLAPPING #-} (Value v, Monad_Verify (Recursive_1a v) m, Monad_Ve
            ,hetcons_Message_phase_1as = phase_1as
            ,hetcons_Message_phase_1bs = phase_1bs
            ,hetcons_Message_phase_2as = phase_2as
+           ,hetcons_Message_index = index
            } = original verified_hetcons_message
     ;let phase_1b_indices@Phase_1b_Indices
            {phase_1b_Indices_index_1a   = index_1a
            ,phase_1b_Indices_indices_2b = indices_2b
-           } = phase_1bs!0
-    ;proposal <- verify Hetcons_Message{hetcons_Message_proposals = proposals
-                                       ,hetcons_Message_phase_1as = singleton (phase_1as!(fromIntegral index_1a))
-                                       ,hetcons_Message_phase_1bs = Vector.empty
-                                       ,hetcons_Message_phase_2as = Vector.empty}
-    ;conflicting_2as <- forM (toList indices_2b) (\k -> (do
-      -- For each conflicing 2A, we must verify that 2a, however, we identify which 2A to decode by whichever is first in the list.
-      -- Therefore, we swap the first element of the 2A list with the desired 2A vefore calling from_Hetcons_Message
-      {let i = fromIntegral k
-      ;let new_2as = imap (\j v -> if (j == 0) then phase_2as!i else (if (j == i) then phase_2as!0 else v)) phase_2as -- swap element 0 and i in phase_2as
-      -- Since we've swapped about the 2As, we must also swap about all references to the 2As (which can be found in the 1Bs)
-      ;let new_1bs = Vector.map (\phase_1b -> phase_1b{phase_1b_Indices_indices_2b = HashSet.map (\j -> if (j == 0) then k else (if (j == k) then 0 else j))
-                                                                                                 $ phase_1b_Indices_indices_2b phase_1b})
-                                phase_1bs
-      ;verify hetcons_message{ -- TODO: this needlessly re-verifies the signatures, which are the same (we've just re-ordered the lists) let's not do that.
-         hetcons_Message_phase_1bs = new_1bs
-        ,hetcons_Message_phase_2as = new_2as
-        }
-      }))
+           } = phase_1bs!index
+    ;proposal <- verify hetcons_message{hetcons_Message_index = index_1a}
+    ;conflicting_2as <- forM (toList indices_2b) (\i -> (verify hetcons_message{hetcons_Message_index = i}))
     ;let answer = Recursive_1b {
         recursive_1b_proposal = proposal
        ,recursive_1b_conflicting_phase2as = fromList conflicting_2as

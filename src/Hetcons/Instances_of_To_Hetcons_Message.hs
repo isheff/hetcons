@@ -56,7 +56,8 @@ instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction
     ;let type_descriptor = sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
     ;signature <- sign crypto_id private_key type_descriptor generator $ encode non_recursive
     ;return default_Hetcons_Message {
-        hetcons_Message_proposals = singleton non_recursive
+        hetcons_Message_index = 0
+       ,hetcons_Message_proposals = singleton non_recursive
        ,hetcons_Message_phase_1as = singleton default_Signed_Index {
           signed_Index_index = 0
          ,signed_Index_signature = signature
@@ -69,32 +70,34 @@ instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction
   to_Hetcons_Message r1b = do
     {hetcons_message_1a <- to_Hetcons_Message $ recursive_1b_proposal r1b -- this is a verified thing, so it will just pull the known signed version
     ;hetcons_message_2as' <- mapM to_Hetcons_Message $ recursive_1b_conflicting_phase2as r1b
-    ;let hetcons_message_2as = sortOn (signed_Indices_signature . (!0) . hetcons_Message_phase_2as) hetcons_message_2as'
+    ;let signature_of_2a h = signed_Hash_singnature $ signed_Indices_signature $ (!(hetcons_Message_index h)) $ hetcons_Message_phase_2as h
+    ;let hetcons_message_2as = sortOn signature_of_2a hetcons_message_2as'
     ;let hetcons_message = foldl fuse_Hetcons_Messages hetcons_message_1a hetcons_messages_2as
     ;crypto_id <- get_my_crypto_id
     ;private_key <- get_my_private_key
     ;generator <- drgNew
     ;let type_descriptor = sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
-    ;signature <- sign crypto_id private_key type_descriptor generator $ ByteString.concat $ map signed_Hash_signature
-      ((signed_Index_signature ((hetcons_Message_phase_1as hetcons_message_1a)!0)):
-       (map (signed_Indices_signature . (!0) . hetcons_Message_phase_2as) hetcons_message_2as))
-    ;return $ fuse_Hetcons_Messages hetcons_message (
+    ;signature <- sign crypto_id private_key type_descriptor generator $ ByteString.concat $
+      ((signed_Hash_signature $ signed_Index_signature ((hetcons_Message_phase_1as hetcons_message_1a)!(hetcons_Message_index hetcons_message_1a))):
+       (map signature_of_2a hetcons_message_2as))
+    ;let hetcons_message_with_1b_on_end =  fuse_Hetcons_Messages hetcons_message (
       -- In this message, we're not going to ensure anything but the 1b actually references the right stuff,
       -- since all that will be replaced by its equivalents from hetcons_message anyway.
       default_Hetcons_Message {
         hetcons_Message_proposals = Vector.empty
-       ,hetcons_Message_phase_1as = Vector.singleton $ Vector.head $ hetcons_Message_phase_1as hetcons_message_1a
+       ,hetcons_Message_phase_1as = Vector.singleton ((hetcons_Message_phase_1as hetcons_message_1a)!(hetcons_Message_index hetcons_message_1a))
        ,hetcons_Message_phase_1bs = Vector.singleton $ default_Phase_1b_Indices{
            phase_1b_Indices_index_1a = 0
           ,phase_1b_Indices_indices_2a = Vector.fromList [0..((length hetcons_message_2as) - 1)]
           ,phase_1b_Indices_signature = signature
          }
-       ,hetcons_Message_phase_2as = Vector.fromList $ map ((!0) . hetcons_Message_phase_2as) hetcons_message_2as
+       ,hetcons_Message_phase_2as = Vector.fromList $ map (\h -> (hetcons_Message_phase_2as h)!(hetcons_Message_index h)) hetcons_message_2as
       })
+    ; return hetcons_message_with_1b_on_end{hetcons_Message_index = Vector.length $ hetcons_Message_1bs hetcons_message}
     }
 
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message
-fuse_Hetcons_Messages Hetcons_Message
+fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       { hetcons_Message_proposals = proposals_1
                       , hetcons_Message_phase_1as = phase_1as_1
                       , hetcons_Message_phase_1bs = phase_1bs_1
@@ -118,7 +121,7 @@ fuse_Hetcons_Messages Hetcons_Message
                                                      (\x -> x{signed_Indices_indices = HashSet.map (phase_1bs_2_lookup!) $ signed_Indices_indices x})
                                                      phase_2as_1
                                                      phase_2as_2
-   in Hetcons_Message
+   in hetcons_message
       { hetcons_Message_proposals = proposals
       , hetcons_Message_phase_1as = phase_1as
       , hetcons_Message_phase_1bs = phase_1bs
