@@ -17,6 +17,8 @@ import Hetcons.Signed_Message
        ,encode
      ,From_Hetcons_Message
        ,from_Hetcons_Message
+     ,To_Hetcons_Message
+       ,to_Hetcons_Message
      ,Recursive_1a
      ,Recursive_1b(Recursive_1b)
        ,recursive_1b_proposal
@@ -57,9 +59,13 @@ import Charlotte_Types
        ,hetcons_Message_phase_1as
        ,hetcons_Message_phase_1bs
        ,hetcons_Message_phase_2as
+       ,hetcons_Message_index
+     ,Signed_Indices(Signed_Indices)
+       ,signed_Indices_indices
      ,Phase_1b_Indices(Phase_1b_Indices)
        ,phase_1b_Indices_index_1a
-       ,phase_1b_Indices_indices_2b
+       ,phase_1b_Indices_indices_2a
+       ,phase_1b_Indices_signature
      ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
               ,encode_Phase_1b
               ,default_Phase_1b
@@ -129,15 +135,14 @@ instance {-# OVERLAPPING #-} (Value v) => Contains_Value (Recursive_1b v) v wher
 
 -- | Throws a Hetcons_Exception of the 1B is not well formed.
 --   A 1b is "well formed" if all the 2A s it contains conflict with this 1B.
-well_formed_1b :: (MonadError Hetcons_Exception m, Value v) => (Recursive_1b v) -> m ()
-well_formed_1b (Recursive_1b {
+well_formed_1b :: (MonadError Hetcons_Exception m, Value v) => Hetcons_Message -> (Recursive_1b v) -> m ()
+well_formed_1b hetcons_message (Recursive_1b {
                   recursive_1b_proposal = proposal
                  ,recursive_1b_conflicting_phase2as = conflicting_phase2as})
   = mapM_ (\x -> if not $ conflicts $ fromList [proposal, extract_1a x]
                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
-                       invalid_Phase_1b_offending_phase_1b = default_Phase_1b -- non_recursive
-                       -- TODO: Hetcons_Message does not provide an offending Phase_1b to return. Fix that.
-                       ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal. Hetcons_Message format does not provide an offending Phase_1b to return"
+                       invalid_Phase_1b_offending_phase_1b = hetcons_message
+                       ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal."
                        })
                 else return ())
       $ toList conflicting_phase2as
@@ -156,15 +161,15 @@ instance {-# OVERLAPPING #-} (Value v, Monad_Verify (Recursive_1a v) m, Monad_Ve
            } = original verified_hetcons_message
     ;let phase_1b_indices@Phase_1b_Indices
            {phase_1b_Indices_index_1a   = index_1a
-           ,phase_1b_Indices_indices_2b = indices_2b
-           } = phase_1bs!index
-    ;proposal <- verify hetcons_message{hetcons_Message_index = index_1a}
-    ;conflicting_2as <- forM (toList indices_2b) (\i -> (verify hetcons_message{hetcons_Message_index = i}))
+           ,phase_1b_Indices_indices_2a = indices_2a
+           } = phase_1bs!(fromIntegral index)
+    ;proposal <- verify hetcons_message{hetcons_Message_index = fromIntegral index_1a}
+    ;conflicting_2as <- forM (toList indices_2a) (\i -> (verify hetcons_message{hetcons_Message_index = i}))
     ;let answer = Recursive_1b {
         recursive_1b_proposal = proposal
        ,recursive_1b_conflicting_phase2as = fromList conflicting_2as
        }
-    ;well_formed_1b answer
+    ;well_formed_1b hetcons_message answer
     ;return answer
     }
 
@@ -213,45 +218,43 @@ instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Quorums (Recursive
 --    * All contained 1Bs have the same Observers
 --
 --    * The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
-well_formed_2a :: forall m v . (MonadError Hetcons_Exception m, Value v, Hashable v, Eq v) => (Recursive_2a v) -> m ()
+well_formed_2a :: forall m v . (MonadError Hetcons_Exception m, Value v, Hashable v, Eq v, To_Hetcons_Message m (Recursive_2a v)) => (Recursive_2a v) -> m ()
 well_formed_2a r2a@(Recursive_2a s) =
-  do { if 1 /= (length $ HashSet.map (extract_value :: (Verified (Recursive_1b v)) -> v) s)
+  do { hetcons_message <- to_Hetcons_Message r2a
+     ; if 1 /= (length $ HashSet.map (extract_value :: (Verified (Recursive_1b v)) -> v) s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                         invalid_Phase_2a_offending_phase_2a = hetcons_message
                         ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different values in this 2a, or no 1bs at all"})
           else return ()
           ; if 1 /= (length $ HashSet.map (extract_1a :: (Verified (Recursive_1b v)) -> (Verified (Recursive_1a v))) s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                         invalid_Phase_2a_offending_phase_2a = hetcons_message
                         ,invalid_Phase_2a_explanation = Just $ pack "there were 1bs with different 1as in this 2a"})
           else return ()
      ; let observers = extract_observer_quorums r2a
      ; if 0 == length observers
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                         invalid_Phase_2a_offending_phase_2a = hetcons_message
                         ,invalid_Phase_2a_explanation = Just $ pack "at this time, we require that observer quorums be listed by participant ID"})
           else return ()
      ; let quorums_crypto_ids = HashSet.map (HashSet.map participant_ID_crypto_id) $ unions $ elems observers
-     ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
+     ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map
+             (signed_Hash_crypto_id . phase_1b_Indices_signature . (\h -> (hetcons_Message_phase_1bs h)!(fromIntegral $ hetcons_Message_index h) ) .
+              original . signed)
+             s
      ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
-                         invalid_Phase_2a_offending_phase_2a = non_recursive r2a
+                         invalid_Phase_2a_offending_phase_2a = hetcons_message
                         ,invalid_Phase_2a_explanation = Just $ pack "this set of 1bs does not satisfy any known quorum"})
           else return ()
      }
 
--- | Parse a Recursive_2a (part of verifying it)
---   for a 2a message, we parse the original mesage, and verify the 1b messages it carries.
---   Also, we check its well-formed-ness
-instance {-# OVERLAPPING #-} (Hashable v, Eq v, Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_1b v) m) => Parsable (m (Recursive_2a v)) where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; l_set <- mapM verify $ toList $ phase_2a_phase_1bs non_recursive
-       ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
-            then throwError $ Hetcons_Exception_Invalid_Phase_2a default_Invalid_Phase_2a {
-                                 invalid_Phase_2a_offending_phase_2a = non_recursive
-                                ,invalid_Phase_2a_explanation = Just $ pack "More than 1 proposal value present."}
-            else return ()
-       ; well_formed_2a $ Recursive_2a set
-       ; return $ Recursive_2a set}
+instance {-# OVERLAPPING #-} (Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_1b v) m) => From_Hetcons_Message (m (Recursive_2a v)) where
+  from_Hetcons_Message verified_hetcons_message = do
+    {let hetcons_message@Hetcons_Message{hetcons_Message_phase_2as = phase_2as
+                                        ,hetcons_Message_index = index} = original verified_hetcons_message
+    ;let signed_indices@Signed_Indices{signed_Indices_indices = indices_1b} = phase_2as!(fromIntegral index)
+    ;list_1bs <- forM (toList indices_1b) (\i -> verify $ hetcons_message{hetcons_Message_index = i}) 
+    ;return $ Recursive_2a $ fromList list_1bs
+    }
+  

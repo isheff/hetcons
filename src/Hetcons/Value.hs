@@ -173,10 +173,10 @@ instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v) => Con
 instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Ballot (Verified (Recursive_1a v)) where
   extract_ballot proposal =(proposal_1a_timestamp $ recursive_1a_filled_in $ original proposal,
                             -- in a Hetcons_Message, the signed proposal should be one of the proposals in a list, so we find that one
-                            case elemIndex (recursive_1a_non_recursive $ original proposal) (hetcons_Message_proposals $ signed proposal) of 
+                            case elemIndex (recursive_1a_non_recursive $ original proposal) (hetcons_Message_proposals $ original $ signed proposal) of 
                                  Nothing -> error ("this 1A appears not to contain its own proposal in its signed version")
                                  -- and then use the signature listed for that proposal as the less significant ballot entry
-                                 Just i -> signed_Hash_signature $ signed_Index_signature $ (hetcons_Message_phase_1as $ signed proposal)!(fromIntegral i))
+                                 Just i -> signed_Hash_signature $ signed_Index_signature $ (hetcons_Message_phase_1as $ original $ signed proposal)!(fromIntegral i))
 
 class Contains_Quorums a where
   extract_observer_quorums :: a -> (HashMap Participant_ID (HashSet (HashSet Participant_ID)))

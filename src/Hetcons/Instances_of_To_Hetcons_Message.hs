@@ -70,7 +70,7 @@ instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction
   to_Hetcons_Message r1b = do
     {hetcons_message_1a <- to_Hetcons_Message $ recursive_1b_proposal r1b -- this is a verified thing, so it will just pull the known signed version
     ;hetcons_message_2as' <- mapM to_Hetcons_Message $ recursive_1b_conflicting_phase2as r1b
-    ;let signature_of_2a h = signed_Hash_singnature $ signed_Indices_signature $ (!(hetcons_Message_index h)) $ hetcons_Message_phase_2as h
+    ;let signature_of_2a h = signed_Hash_signature $ signed_Indices_signature ((hetcons_Message_phase_2as h)!(hetcons_Message_index h))
     ;let hetcons_message_2as = sortOn signature_of_2a hetcons_message_2as'
     ;let hetcons_message = foldl fuse_Hetcons_Messages hetcons_message_1a hetcons_messages_2as
     ;crypto_id <- get_my_crypto_id
@@ -93,7 +93,29 @@ instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction
          }
        ,hetcons_Message_phase_2as = Vector.fromList $ map (\h -> (hetcons_Message_phase_2as h)!(hetcons_Message_index h)) hetcons_message_2as
       })
-    ; return hetcons_message_with_1b_on_end{hetcons_Message_index = Vector.length $ hetcons_Message_1bs hetcons_message}
+    ; return hetcons_message_with_1b_on_end{hetcons_Message_index = fromIntegral $ Vector.length $ hetcons_Message_1bs hetcons_message}
+    }
+
+instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction (Recursive_2a v) where
+  to_Hetcons_Message (Recursive_2a r1bs) = do
+    {hetcons_message_1bs' <- mapM to_Hetcons_Message $ toList r1bs
+    ;let indices_1b h = (hetcons_Message_phase_1bs h)!(hetcons_Message_Index h)
+    ;let signature_of_1b h = signed_Hash_signature $ phase_1b_Indices_signature $ indices_1b h
+    ;let hetcons_message_1bs = sortOn signature_of_1b hetcons_message_1bs'
+    ;crypto_id <- get_my_crypto_id
+    ;private_key <- get_my_private_key
+    ;generator <- drgNew
+    ;let type_descriptor = sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
+    ;signature <- sign crypto_id private_key type_descriptor generator $ ByteString.concat $ map signature_of_1b hetcons_message_1bs
+    -- using foldr ensures that the "old value" (which in this case is the newly constructed Signed_Indices) will always be on the right
+    -- this ensures that the newly constructed Signed_Indices will be the last in the list of 2as
+    ;let hetcons_message = foldr fuse_Hetcons_Messages (default_Hetcons_Message{
+        hetcons_Message_1bs = Vector.fromList $ map indices_1b hetcons_message_1bs
+       ,hetcons_Message_2as = Vector.singleton (default_Signed_Indices{signed_Indices_indices = HashSet.fromList [0..((length hetcons_message_1bs) -1 )]
+                                                                    ,signed_Indices_signature = signature})
+      })
+      hetcons_message_1bs
+    ;return hetcons_message{hetcons_Message_index = fromIntegral $ (Vector.length (hetcons_Message_2as hetcons_message)) - 1}
     }
 
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message

@@ -118,13 +118,14 @@ import Charlotte_Types
         ,hetcons_Message_phase_1as
         ,hetcons_Message_phase_1bs
         ,hetcons_Message_phase_2as
+        ,hetcons_Message_index
         ,default_Hetcons_Message
      ,Signed_Index (Signed_Index)
         ,signed_Index_index 
         ,signed_Index_signature 
      ,Phase_1b_Indices (Phase_1b_Indices)
         ,phase_1b_Indices_index_1a
-        ,phase_1b_Indices_indices_2b
+        ,phase_1b_Indices_indices_2a
         ,phase_1b_Indices_signature
      ,Signed_Indices(Signed_Indices)
         ,signed_Indices_indices
@@ -255,10 +256,10 @@ class (Monad m) => To_Hetcons_Message m a where
   to_Hetcons_Message :: a -> (m Hetcons_Message)
 
 instance (Monad m) => To_Hetcons_Message m (Verified Hetcons_Message) where
-  to_Hetcons_Message = return
+  to_Hetcons_Message = return . original
 
 instance (Monad m) => To_Hetcons_Message m (Verified a) where
-  to_Hetcons_Message = return . signed
+  to_Hetcons_Message = return . original . signed
 
 -- | verify is only way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
@@ -307,12 +308,12 @@ verify' message@(Hetcons_Message{
                                   ,signed_Index_signature = signed_hash}) -> (
                       verify_bytestring (binary_proposals!(fromIntegral index)) signed_hash))
   ;forM_ phase_1bs (\(Phase_1b_Indices  { phase_1b_Indices_index_1a = index_1a
-                                        , phase_1b_Indices_indices_2b = indices_2b
+                                        , phase_1b_Indices_indices_2a = indices_2a
                                         , phase_1b_Indices_signature = signed_hash}) -> (
                       verify_bytestring (ByteString.concat
-                                          ((signed_Hash_signature $ signed_Index_signature $ phase_1as!(fromIntegral index_1a):
+                                          ((signed_Hash_signature $ signed_Index_signature $ phase_1as!(fromIntegral index_1a)):
                                            (sort $ map (signed_Hash_signature . signed_Indices_signature . (phase_2as!) . fromIntegral)
-                                                       $ toList indices_2b)))
+                                                       $ toList indices_2a)))
                                         signed_hash))
   ;forM_ phase_2as (\(Signed_Indices{signed_Indices_indices = indices
                                     ,signed_Indices_signature = signed_hash}) -> (
