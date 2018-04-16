@@ -118,6 +118,9 @@ instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction
     ;return hetcons_message{hetcons_Message_index = fromIntegral $ (Vector.length (hetcons_Message_2as hetcons_message)) - 1}
     }
 
+instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction (Recursive_2b v) where
+  to_Hetcons_Message (Recursive_2b r1bs) = to_Hetcons_Message (Recursive_2a r1bs)
+
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message
 fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       { hetcons_Message_proposals = proposals_1

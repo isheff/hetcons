@@ -14,12 +14,12 @@ import Hetcons.Instances_1b_2a ()
 import Hetcons.Signed_Message
     ( Encodable
        ,encode
+     ,From_Hetcons_Message
+       ,from_Hetcons_Message
      ,Recursive_1a
      ,Recursive_1b(recursive_1b_proposal)
      ,Parsable
        ,parse
-     ,Recursive
-       ,non_recursive
      ,Recursive_2b (Recursive_2b)
      ,Recursive_2a(Recursive_2a)
      ,Monad_Verify(verify)
@@ -70,11 +70,6 @@ import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 instance {-# OVERLAPPING #-} Encodable Phase_2b where
   encode = encode_Phase_2b (CompactProtocol EmptyTransport)
 
--- | The Recursive version of a Phase_2b is a Recursive_2b
---   Phase_2b s carry signed 1b messages with them.
---   Recursive_2bs carry parsed and verified versions of these.
-instance (Value v) => Recursive Phase_2b (Recursive_2b v) where
-  non_recursive (Recursive_2b x) = default_Phase_2b {phase_2b_phase_1bs = HashSet.map signed x}
 
 -- | We hasha Recursive_2b by hashing its non-recursive version
 instance Hashable (Recursive_2b v) where
@@ -101,57 +96,7 @@ instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Ballot (Recursive_
 instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Quorums (Recursive_2b v) where
   extract_observer_quorums x = extract_observer_quorums ((extract_1a x) :: (Verified (Recursive_1a v)))
 
--- | Throws a Hetcons_Exception if this 2B is not well-formed.
---   A 2B is well-formed if it has all of:
---
---    * It has some 1Bs
---
---    * All 1Bs feature the same value
---
---    * All 1Bs feature Observers (we don't support not doing that)
---
---    * All 1Bs feature the same 1A
---
---    * The 1Bs satisfy at least one quorum of one Observer
-well_formed_2b :: forall m v . (Value v, Hashable v, Eq v, MonadError Hetcons_Exception m) => (Recursive_2b v) -> m ()
-well_formed_2b r2b@(Recursive_2b s) =
-  do { if 1 /= (length ((HashSet.map extract_value s) :: HashSet v))
-          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
-                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
-                        ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different values in this 2b, or no 1bs at all"})
-          else return ()
-     ; if 1 /= (length $ HashSet.map (extract_1a :: ((Verified (Recursive_1b v)) -> (Verified (Recursive_1a v)))) s)
-          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
-                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
-                        ,invalid_Phase_2b_explanation = Just $ pack "there were 1bs with different 1As in this 2B."})
-          else return ()
-     ; let observers = extract_observer_quorums r2b
-     ; if 0 == length observers
-          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
-                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
-                        ,invalid_Phase_2b_explanation = Just $ pack "at this time, we require that observer quorums be listed by participant ID"})
-          else return ()
-     ; let quorums_crypto_ids = HashSet.map (HashSet.map participant_ID_crypto_id) $ unions $ elems observers
-     ; let crypto_ids_of_1bs = fromList $ catMaybes $ toList $ HashSet.map (signed_Hash_crypto_id . signed_Message_signature . signed) s
-     ; if all (\q -> (q /= (intersection q crypto_ids_of_1bs))) quorums_crypto_ids
-          then throwError $ Hetcons_Exception_Invalid_Phase_2b (default_Invalid_Phase_2b{
-                         invalid_Phase_2b_offending_phase_2b = non_recursive r2b
-                        ,invalid_Phase_2b_explanation = Just $ pack "this set of 1bs does not satisfy any known quorum"})
-          else return ()
-     }
-
--- | Parse a Recursive_2b (part of verifying it)
---   for a 2b message, we parse the original message, and verify the 1b messages it carries.
---   Also, we check its well-formed-ness
-instance {-# OVERLAPPING #-} (Hashable v, Eq v, Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_1b v) m) => Parsable (m (Recursive_2b v)) where
-  parse payload =
-    do { non_recursive <- parse payload
-       ; l_set <- mapM verify $ toList $ phase_2b_phase_1bs non_recursive
-       ; let set = fromList l_set
-       ; if (length (HashSet.map (recursive_1b_proposal . original) set)) > 1
-            then throwError $ Hetcons_Exception_Invalid_Phase_2b default_Invalid_Phase_2b {
-                                 invalid_Phase_2b_offending_phase_2b = non_recursive
-                                ,invalid_Phase_2b_explanation = Just "More than 1 proposal value present."}
-            else return ()
-       ; well_formed_2b $ Recursive_2b set
-       ; return $ Recursive_2b set}
+instance {-# OVERLAPPING #-} (Hashable v, Eq v, Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_1b v) m) => From_Hetcons_Message (m (Recursive_2b v)) where
+  from_Hetcons_Message x = do
+    {(Recursive_2a r1bs) <- from_Hetcons_Message x
+    ;return $ Recursive_2b r1bs}
