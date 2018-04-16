@@ -99,4 +99,5 @@ instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Quorums (Recursive
 instance {-# OVERLAPPING #-} (Hashable v, Eq v, Value v, Monad_Verify (Recursive_1a v) m, Monad_Verify (Recursive_1b v) m) => From_Hetcons_Message (m (Recursive_2b v)) where
   from_Hetcons_Message x = do
     {(Recursive_2a r1bs) <- from_Hetcons_Message x
-    ;return $ Recursive_2b r1bs}
+    ;return $ Recursive_2b r1bs
+    }

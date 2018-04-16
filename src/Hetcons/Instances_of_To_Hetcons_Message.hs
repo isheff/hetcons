@@ -121,6 +121,10 @@ instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction
 instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction (Recursive_2b v) where
   to_Hetcons_Message (Recursive_2b r1bs) = to_Hetcons_Message (Recursive_2a r1bs)
 
+instance {-# OVERLAPPING #-} (Value v) => To_Hetcons_Message Hetcons_Transaction (Recursive_Proof_of_Consensus v) where
+  -- must use foldr to ensure the "old element", which starts off as default_Hetcons_message, is on the right.
+  to_Hetcons_Message (Recursive_Proof_of_Consen whisus r2bs) = foldr fuse_Hetcons_Messages default_Hetcons_Message $ toList r2bs
+
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message
 fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       { hetcons_Message_proposals = proposals_1
