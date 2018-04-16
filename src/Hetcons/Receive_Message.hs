@@ -57,7 +57,7 @@ import Hetcons.Signed_Message
        ,verify' )
 import Hetcons.Value (Value)
 
-import Charlotte_Types ( Crypto_ID, Signed_Message, Proposal_1a, Observers, Value_Witness )
+import Charlotte_Types ( Crypto_ID, Hetcons_Message, Proposal_1a, Observers, Value_Witness )
 
 import Control.Concurrent.Chan ( Chan )
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
@@ -126,15 +126,15 @@ data (Hetcons_State s, Value v) => Hetcons_Server s v = Hetcons_Server {
   -- | References the Server's mutable state
  ,hetcons_Server_state_var :: MVar s
   -- | The Memoization Cache for verifying 1As
- ,hetcons_Server_verify_1a :: CMap.Map Signed_Message (Verified (Recursive_1a v))
+ ,hetcons_Server_verify_1a :: CMap.Map Hetcons_Message (Verified (Recursive_1a v))
   -- | The Memoization Cache for verifying 1Bs
- ,hetcons_Server_verify_1b :: CMap.Map Signed_Message (Verified (Recursive_1b v))
+ ,hetcons_Server_verify_1b :: CMap.Map Hetcons_Message (Verified (Recursive_1b v))
   -- | The Memoization Cache for verifying 2As
- ,hetcons_Server_verify_2a :: CMap.Map Signed_Message (Verified (Recursive_2a v))
+ ,hetcons_Server_verify_2a :: CMap.Map Hetcons_Message (Verified (Recursive_2a v))
   -- | The Memoization Cache for verifying 2Bs
- ,hetcons_Server_verify_2b :: CMap.Map Signed_Message (Verified (Recursive_2b v))
+ ,hetcons_Server_verify_2b :: CMap.Map Hetcons_Message (Verified (Recursive_2b v))
   -- | The Memoization Cache for verifying Proof_of_Consensus
- ,hetcons_Server_verify_proof :: CMap.Map Signed_Message (Verified (Recursive_Proof_of_Consensus v))
+ ,hetcons_Server_verify_proof :: CMap.Map Hetcons_Message (Verified (Recursive_Proof_of_Consensus v))
   -- | The Memoization Cache for computing Quorums
  ,hetcons_Server_verify_quorums :: CMap.Map Proposal_1a Observers
   -- | The Channel input to the logger
