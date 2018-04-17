@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | Defines the properties of Proof_of_Consensus messages, most notably which typeclasses they're instances of
-module Hetcons.Instances_Proof_of_Consensus (observers_proven, to_recursive) where
+module Hetcons.Instances_Proof_of_Consensus (observers_proven, to_recursive, signature) where
 
 import Hetcons.Hetcons_Exception
     ( Hetcons_Exception(Hetcons_Exception_Invalid_Proof_of_Consensus) )
