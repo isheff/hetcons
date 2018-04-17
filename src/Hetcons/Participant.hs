@@ -30,9 +30,9 @@ import Hetcons.Receive_Message
 import Hetcons.Send_Message_IO ( default_Address_Book )
 import Hetcons.Signed_Message
     ( Recursive_1b
+     ,recursive_1a_non_recursive
      ,Verified
      ,Recursive_1a
-     ,Recursive(non_recursive)
      ,Recursive_Proof_of_Consensus
      ,Monad_Verify(verify)
      ,original )
@@ -109,7 +109,7 @@ current_nanoseconds = do { now <- getCurrentTime
 
 -- | the timestamp contained in (the proposal of) this message
 message_timestamp :: forall a v . (Value v, Contains_1a (Verified (a v)) v) => (Verified (a v)) -> Timestamp
-message_timestamp = proposal_1a_timestamp . non_recursive . original . (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v)))
+message_timestamp = proposal_1a_timestamp . recursive_1a_non_recursive . original . (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v)))
 
 -- | delay this thread by some number of nanoseconds
 --   note that the library we're using actually works in microseconds, so we're dividing by 1000, rounding down
