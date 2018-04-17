@@ -10,6 +10,7 @@
 --   In particular, when we `receive` a 1A, we `send` a corresponding 1B, and expect it to be added to the state all within one transaction.
 module Hetcons.Send () where
 
+import Hetcons.Instances_of_To_Hetcons_Message ()
 import Hetcons.Receive_Message
     ( Hetcons_Transaction,
       get_my_crypto_id,
@@ -29,8 +30,9 @@ import Hetcons.Signed_Message
       Recursive_2a,
       Recursive_2b,
       Recursive_Proof_of_Consensus,
+      To_Hetcons_Message,
+        to_Hetcons_Message,
       Verified,
-      Recursive,
       sign )
 import Hetcons.Hetcons_State
     ( Hetcons_State, Participant_State, Observer_State )
@@ -44,13 +46,9 @@ import Crypto.Random ( drgNew )
 import Data.Hashable (Hashable)
 
 -- | A utility function to sign a message using the `Crypto_ID` and private key from the monad, and produce a `Verified` version.
-sign_and_verify :: (Value v, Monad_Verify b (Hetcons_Transaction s v), Encodable a, Parsable (Hetcons_Transaction s v b), Hetcons_State s, Recursive a b) =>
+sign_and_verify :: (Value v, Monad_Verify b (Hetcons_Transaction s v), To_Hetcons_Message (Hetcons_Transaction s v) a,  Hetcons_State s) =>
                    a -> Hetcons_Transaction s v (Verified b)
-sign_and_verify m = do { crypto_id <- get_my_crypto_id
-                       ; private_key <- get_my_private_key
-                       ; gen <- drgNew
-                       ; signed <-  sign crypto_id private_key sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR gen m
-                       ; verify signed}
+sign_and_verify message = (to_Hetcons_Message message) >>= verify
 
 -- | In general, when possible, send a `Verified` message by first receiving it yourself, and then adding it to the messages to be sent at the end of the transaction.
 --   Note that sending a message will inherently involve receiving it BEFORE the transaction is finished.
