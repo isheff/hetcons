@@ -218,13 +218,9 @@ instance {-# OVERLAPPING #-} forall v . (Value v) => Contains_Quorums (Recursive
 --    * All contained 1Bs have the same Observers
 --
 --    * The contained 1Bs satisfy a quorum of Participants, as defined by at least one of the Observers
-well_formed_2a :: forall m v . (MonadError Hetcons_Exception m, Value v, Hashable v, Eq v, To_Hetcons_Message m (Recursive_2a v)) => (Recursive_2a v) -> m ()
-well_formed_2a r2a = do
-  {hetcons_message <- to_Hetcons_Message r2a
-  ;well_formed_2a' hetcons_message r2a}
-
-well_formed_2a' :: forall m v . (MonadError Hetcons_Exception m, Value v, Hashable v, Eq v) => Hetcons_Message -> (Recursive_2a v) -> m ()
-well_formed_2a' hetcons_message r2a@(Recursive_2a s) =
+-- the hetcons_message input is used only in error messages
+well_formed_2a :: forall m v . (MonadError Hetcons_Exception m, Value v, Hashable v, Eq v) => Hetcons_Message -> (Recursive_2a v) -> m ()
+well_formed_2a hetcons_message r2a@(Recursive_2a s) =
   do { if 1 /= (length $ HashSet.map (extract_value :: (Verified (Recursive_1b v)) -> v) s)
           then throwError $ Hetcons_Exception_Invalid_Phase_2a (default_Invalid_Phase_2a{
                          invalid_Phase_2a_offending_phase_2a = hetcons_message
@@ -260,7 +256,7 @@ instance {-# OVERLAPPING #-} (Eq v, Hashable v, Value v, Monad_Verify (Recursive
     ;let signed_indices@Signed_Indices{signed_Indices_indices = indices_1b} = phase_2as!(fromIntegral index)
     ;list_1bs <- forM (toList indices_1b) (\i -> verify $ hetcons_message{hetcons_Message_index = i}) 
     ;let answer = Recursive_2a $ fromList list_1bs
-    ;well_formed_2a' hetcons_message answer
+    ;well_formed_2a hetcons_message answer
     ;return answer
     }
   

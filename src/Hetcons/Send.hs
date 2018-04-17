@@ -81,6 +81,9 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Parsable (Hetcons_Transaction 
          Send_1a (Participant_State v) v where
   send_1a m = do { (verified :: Verified (Recursive_1a v)) <- sign_and_verify m
                  ; send verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Parsable (Hetcons_Transaction (Participant_State v) v v), Receivable (Participant_State v) v (Verified (Recursive_1a v))) =>
+         Sendable (Participant_State v) v (Recursive_1a v) where
+  send x = (to_Hetcons_Message x) >>= send_1a
 
 -- | Participants can receive 1bs, so this send will run a receive within the same transaction.
 class Send_1b s v where
@@ -90,6 +93,10 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (He
                              Send_1b (Participant_State v) v where
   send_1b m = do { (verified :: Verified (Recursive_1b v)) <- sign_and_verify m
                  ; send verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v),
+                                    Receivable (Participant_State v) v (Verified (Recursive_1b v))) =>
+         Sendable (Participant_State v) v (Recursive_1b v) where
+  send x = (to_Hetcons_Message x) >>= send_1b
 
 -- | Participants can receive 2as, so this send will run a receive within the same transaction.
 class Send_2a s v where
@@ -99,6 +106,10 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (He
                              Send_2a (Participant_State v) v where
   send_2a m = do { (verified :: Verified (Recursive_2a v)) <- sign_and_verify m
                  ; send verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v),
+                                    Receivable (Participant_State v) v (Verified (Recursive_2a v))) =>
+         Sendable (Participant_State v) v (Recursive_2a v) where
+  send x = (to_Hetcons_Message x) >>= send_2a
 
 -- | Participants can't receive 2bs, so this send will not run a receive
 class Send_2b s v where
@@ -106,6 +117,9 @@ class Send_2b s v where
 instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Send_2b (Participant_State v) v where
   send_2b m = do { (verified :: Verified (Recursive_2b v)) <- sign_and_verify m
                  ; add_sent verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
+         Sendable (Participant_State v) v (Recursive_2b v) where
+  send x = (to_Hetcons_Message x) >>= send_2b
 
 -- | Participants can't receive Proof_of_Consensus, so this send will not run a receive
 --   Also, Participants really should never send a proof of consensus...
@@ -115,6 +129,9 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (He
                              Send_Proof_of_Consensus (Participant_State v) v where
   send_proof_of_consensus m = do { (verified :: Verified (Recursive_Proof_of_Consensus v)) <- sign_and_verify m
                                  ; add_sent verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
+         Sendable (Participant_State v) v (Recursive_Proof_of_Consensus v) where
+  send x = (to_Hetcons_Message x) >>= send_proof_of_consensus
 
 --------------------------------------------------------------------------------
 --                                 Observers                                  --
@@ -125,18 +142,27 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (He
 instance {-# OVERLAPPING #-} forall v . (Value v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Send_1a (Observer_State v) v where
   send_1a m = do { (verified :: Verified (Recursive_1a v)) <- sign_and_verify m
                  ; add_sent verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
+                             Sendable (Observer_State v) v (Recursive_1a v) where
+  send x = (to_Hetcons_Message x) >>= send_1a
 
 -- | Observers can't receive 1bs, so this send won't run a receive
 --   Also, they shouldn't be sending 1bs, but whatever...
 instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Send_1b (Observer_State v) v where
   send_1b m = do { (verified :: Verified (Recursive_1b v)) <- sign_and_verify m
                  ; add_sent verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
+                             Sendable (Observer_State v) v (Recursive_1b v) where
+  send x = (to_Hetcons_Message x) >>= send_1b
 
 -- | Observers can't receive 2as, so this send won't run a receive
 --   Also, they shouldn't be sending 2as, but whatever...
 instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Send_2a (Observer_State v) v where
   send_2a m = do { (verified :: Verified (Recursive_2a v)) <- sign_and_verify m
                  ; add_sent verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
+                             Sendable (Observer_State v) v (Recursive_2a v) where
+  send x = (to_Hetcons_Message x) >>= send_2a
 
 -- | Observers can receive 2bs, so this send will run a receive
 instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v),
@@ -144,6 +170,10 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (He
                              Send_2b (Observer_State v) v where
   send_2b m = do { (verified :: Verified (Recursive_2b v)) <- sign_and_verify m
                  ; send verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v),
+                                    Receivable (Observer_State v) v (Verified (Recursive_2b v))) =>
+                             Sendable (Observer_State v) v (Recursive_2b v) where
+  send x = (to_Hetcons_Message x) >>= send_2b
 
 -- | Observers can receive Proof_of_Consensus, so this send will run a receive
 instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v),
@@ -151,3 +181,7 @@ instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (He
                              Send_Proof_of_Consensus (Observer_State v) v where
   send_proof_of_consensus m = do { (verified :: Verified (Recursive_Proof_of_Consensus v)) <- sign_and_verify m
                                  ; send verified}
+instance {-# OVERLAPPING #-} forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v),
+                                    Receivable (Observer_State v) v (Verified (Recursive_Proof_of_Consensus v))) =>
+                             Sendable (Observer_State v) v (Recursive_Proof_of_Consensus v) where
+  send x = (to_Hetcons_Message x) >>= send_proof_of_consensus
