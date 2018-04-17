@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | Defines the properties of Proof_of_Consensus messages, most notably which typeclasses they're instances of
-module Hetcons.Instances_Proof_of_Consensus (observers_proven, to_recursive, signature) where
+module Hetcons.Instances_Proof_of_Consensus (observers_proven, to_recursive) where
 
 import Hetcons.Hetcons_Exception
     ( Hetcons_Exception(Hetcons_Exception_Invalid_Proof_of_Consensus) )
@@ -26,6 +26,7 @@ import Hetcons.Signed_Message
      ,Recursive_2b (Recursive_2b )
      ,Monad_Verify(verify)
      ,signed
+     ,signature
      ,original )
 import Hetcons.Value
     ( Value
@@ -108,16 +109,6 @@ class Observers_Provable a where
   --       each participant in that quorum received 1bs from the same quorum (according to that observer)
   observers_proven :: a -> (HashSet Participant_ID)
 
-class Get_Signature a where
-  signature :: (Verified a) -> Signed_Hash
-instance Get_Signature (Recursive_1a v) where
-  signature r1a = signed_Index_signature $ ((hetcons_Message_phase_1as $ original $ signed r1a) Vector.! (fromIntegral $ hetcons_Message_index $ original $ signed r1a))
-instance Get_Signature (Recursive_1b v) where
-  signature r1b = phase_1b_Indices_signature $ ((hetcons_Message_phase_1bs $ original $ signed r1b) Vector.! (fromIntegral $ hetcons_Message_index $ original $ signed r1b))
-instance Get_Signature (Recursive_2a v) where
-  signature r2a = signed_Indices_signature $ ((hetcons_Message_phase_2as $ original $ signed r2a) Vector.! (fromIntegral $ hetcons_Message_index $ original $ signed r2a))
-instance Get_Signature (Recursive_2b v) where
-  signature r2a = signed_Indices_signature $ ((hetcons_Message_phase_2as $ original $ signed r2a) Vector.! (fromIntegral $ hetcons_Message_index $ original $ signed r2a))
 
 -- | For which observers does:
 --     there exists a quorum (according to that observer) such that:

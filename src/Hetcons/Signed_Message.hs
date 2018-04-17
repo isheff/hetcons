@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Details the types, classes, and functions for signing and verifying stuff, including Recursive types.
 --   For each type of Thrift message, we have a Recursive type, which contains the verified versions of any messages contained in the original.
@@ -22,6 +23,8 @@ module Hetcons.Signed_Message
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
+    , Get_Signature
+       ,signature
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
@@ -175,13 +178,43 @@ data Verified a = Verified {
 -- | Verified things are equal precisely when their original signed messages are equal
 instance {-# OVERLAPPING #-} Eq (Verified Hetcons_Message) where
   (==) x y = (original x) == (original y)
-instance {-# OVERLAPPABLE #-} Eq (Verified a) where
-  (==) x y = (liftM original $ verified_signed x) == (liftM original $ verified_signed y)
+instance {-# OVERLAPPABLE #-} (Get_Signature_ByteString a) => Eq (Verified a) where
+  (==) x y = (signature_bytestring x) == (signature_bytestring y)
 -- | We can hash Verified things by hashing their signed message version
 instance {-# OVERLAPPING #-} Hashable (Verified Hetcons_Message) where
   hashWithSalt i = hashWithSalt i . original
-instance {-# OVERLAPPABLE #-} Hashable (Verified a) where
-  hashWithSalt i = hashWithSalt i . signed
+instance {-# OVERLAPPABLE #-} (Get_Signature_ByteString a) => Hashable (Verified a) where
+  hashWithSalt i = hashWithSalt i . signature_bytestring
+
+class Get_Signature a where
+  signature :: (Verified a) -> Signed_Hash
+instance Get_Signature (Recursive_1a v) where
+  signature r1a = signed_Index_signature $ ((hetcons_Message_phase_1as $ original $ signed r1a) ! (fromIntegral $ hetcons_Message_index $ original $ signed r1a))
+instance Get_Signature (Recursive_1b v) where
+  signature r1b = phase_1b_Indices_signature $ ((hetcons_Message_phase_1bs $ original $ signed r1b) ! (fromIntegral $ hetcons_Message_index $ original $ signed r1b))
+instance Get_Signature (Recursive_2a v) where
+  signature r2a = signed_Indices_signature $ ((hetcons_Message_phase_2as $ original $ signed r2a) ! (fromIntegral $ hetcons_Message_index $ original $ signed r2a))
+instance Get_Signature (Recursive_2b v) where
+  signature r2a = signed_Indices_signature $ ((hetcons_Message_phase_2as $ original $ signed r2a) ! (fromIntegral $ hetcons_Message_index $ original $ signed r2a))
+
+class Get_Signature_ByteString a where
+  signature_bytestring :: (Verified a) -> ByteString
+
+instance {-# OVERLAPPING #-} Get_Signature_ByteString (Recursive_Proof_of_Consensus v) where
+  signature_bytestring rp = 
+    let hetcons_message@Hetcons_Message
+           {hetcons_Message_phase_2as = phase_2as
+           ,hetcons_Message_phase_1bs = phase_1bs
+           ,hetcons_Message_index = index
+           } = original $ signed rp
+        signed_Indices_to_index_1a = phase_1b_Indices_index_1a . (phase_1bs!) . fromIntegral .  head . toList . signed_Indices_indices
+        r2as_with_matching_1a = filter ((== (signed_Indices_to_index_1a $ phase_2as!(fromIntegral index))) . signed_Indices_to_index_1a) $ toList phase_2as
+     in ByteString.concat $ sort $ map (signed_Hash_signature . signed_Indices_signature) r2as_with_matching_1a 
+
+instance {-# OVERLAPPABLE #-} (Get_Signature a) => Get_Signature_ByteString a where
+  signature_bytestring = signed_Hash_signature . signature
+
+
 -- | We print out verified stuff by printing the parsed version preceded by "VERIFIED: "
 instance (Show a) => Show (Verified a) where
   show = ("VERIFIED:  " ++) . show . original

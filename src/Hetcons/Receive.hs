@@ -14,7 +14,7 @@ import Hetcons.Hetcons_Exception (Hetcons_Exception(Hetcons_Exception_Invalid_Pr
 import Hetcons.Hetcons_State
     ( Participant_State, Observer_State, Hetcons_State )
 import Hetcons.Instances_1b_2a ( well_formed_2a )
-import Hetcons.Instances_Proof_of_Consensus ( observers_proven, signature )
+import Hetcons.Instances_Proof_of_Consensus ( observers_proven)
 import Hetcons.Receive_Message
     ( Sendable(send)
      ,Receivable
@@ -43,6 +43,7 @@ import Hetcons.Signed_Message
      ,Monad_Verify(verify)
      ,signed
      ,sign
+     ,signature
      ,original )
 import Hetcons.Value
     ( Contains_Value(extract_value)
@@ -82,7 +83,7 @@ import Data.Hashable (Hashable)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
 import qualified Data.HashSet as HashSet ( map, filter, empty )
 
--- Janky way to disable debug statemetns instead of import Control.Monad.Logger.CallStack ( logDebugSH )
+-- Janky way of silencing Debug instead of import Control.Monad.Logger.CallStack ( logDebugSH )
 logDebugSH _ = return () 
 
 
@@ -96,11 +97,11 @@ logDebugSH _ = return ()
 instance (Show v, Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
     { logInfoSH "Received 1A"
-    ; logDebugSH r1a
+    -- ; logDebugSH r1a
     ; let naive_r1b = Recursive_1b {recursive_1b_proposal = r1a
                                    ,recursive_1b_conflicting_phase2as = HashSet.empty}
     ; logDebugSH "created naive_r1b"
-    ; logDebugSH naive_r1b 
+    -- ; logDebugSH naive_r1b 
     ; state <- get_state
     ; logDebugSH "fetched state"
     ; logDebugSH $ size state
@@ -111,7 +112,7 @@ instance (Show v, Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Part
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
     ; let state_originals = HashSet.map original state
     ; logDebugSH "state_originals"
-    ; logDebugSH state_originals
+    -- ; logDebugSH state_originals
     ; let is_member_of_original_state = (not (null state_originals)) && (member naive_r1b state_originals) -- TODO: The first clause really should be unnecessary, but without it we hang forefer evaluating this. Why?
     ; logDebugSH "is_member_of_original_state"
     ; logDebugSH is_member_of_original_state
@@ -139,16 +140,15 @@ instance forall v . (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transa
          Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
     { logInfoSH "Received 1B"
-    ; logDebugSH r1b
+    -- ; logDebugSH r1b
     ; old_state <- get_state
     ; logDebugSH "old_state"
-    ; logDebugSH old_state
+    ; logDebugSH$ size old_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
     ; logDebugSH "conflicting_ballots"
-    ; logDebugSH conflicting_ballots
-         -- TODO: The "not null old_state" clause should be unnecessary, but for reasons unknown the program hangs forever here without it. Why?
-    ; if (((not (null old_state)) && (member r1b old_state)) || -- If we've received this 1b before, or received something of greater ballot number (below)
+    -- ; logDebugSH conflicting_ballots
+    ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
          then logDebugSH "we've received this 1B before"
@@ -164,9 +164,10 @@ instance forall v . (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transa
                  ; let potential_2a = Recursive_2a $
                          HashSet.filter ((((extract_1a r1b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 1bs with the same proposal
                          HashSet.filter ((((extract_value r1b) :: v) ==) . extract_value) state
-                 ; case well_formed_2a default_Hetcons_Message potential_2a of
+                 ; let well_formed = well_formed_2a default_Hetcons_Message potential_2a
+                 ; case well_formed of
                      (Right _)-> send potential_2a
-                     (Left _) -> return ()
+                     (Left _) -> logDebugSH $ "NOT WELL FORMED 2A - contains this number of 1bs:  " ++ (show $ size ((\(Recursive_2a x) -> x) potential_2a))
                  ; send r1b}} -- echo the 1b
 
 -- | Participant receives 2A
