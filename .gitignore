@@ -20,3 +20,4 @@ cabal.project.local
 src/Thrift/gen-hs/*
 codex.tags
 hscope.out
+hetcons-test.prof.html
