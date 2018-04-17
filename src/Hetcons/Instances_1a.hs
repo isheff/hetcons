@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | The properties of a 1A message,such as how to parse it, extract valuese from it, etc.
-module Hetcons.Instances_1a () where
+module Hetcons.Instances_1a (from_non_recursive) where
 
 import Hetcons.Quorums (Monad_Verify_Quorums, verify_quorums )
 import Hetcons.Signed_Message

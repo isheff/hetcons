@@ -74,7 +74,7 @@ import Charlotte_Types
 
 import Control.Monad ( mapM, mapM_ )
 import Control.Monad.Except ( MonadError(throwError) )
-import Control.Monad.Logger.CallStack ( logInfoSH )
+import Control.Monad.Logger.CallStack ( logInfoSH)
 import Crypto.Random ( drgNew )
 import qualified Data.ByteString.Lazy as ByteString (length)
 import Data.Foldable ( maximum )
@@ -82,6 +82,8 @@ import Data.Hashable (Hashable)
 import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
 import qualified Data.HashSet as HashSet ( map, filter, empty )
 
+-- Janky way to disable debug statemetns instead of import Control.Monad.Logger.CallStack ( logDebugSH )
+logDebugSH _ = return () 
 
 
 --------------------------------------------------------------------------------
@@ -91,19 +93,34 @@ import qualified Data.HashSet as HashSet ( map, filter, empty )
 -- | Participant receives 1A
 --   If we've seen anything with this Ballot number or higher before (featuring the same Quorums), then do nothing.
 --   Otherwise, send a 1B.
-instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
+instance (Show v, Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_1a v)) where
   receive r1a = do
     { logInfoSH "Received 1A"
+    ; logDebugSH r1a
     ; let naive_r1b = Recursive_1b {recursive_1b_proposal = r1a
                                    ,recursive_1b_conflicting_phase2as = HashSet.empty}
+    ; logDebugSH "created naive_r1b"
+    ; logDebugSH naive_r1b 
     ; state <- get_state
+    ; logDebugSH "fetched state"
+    ; logDebugSH $ size state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[naive_r1b]) . original ) state
+    ; logDebugSH "constructed conflicting ballots"
+    ; logDebugSH $ size conflicting_ballots
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
-    ; if ((member naive_r1b $ HashSet.map original state) || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
-         then return ()
-         else do { witness <- get_witness
+    ; let state_originals = HashSet.map original state
+    ; logDebugSH "state_originals"
+    ; logDebugSH state_originals
+    ; let is_member_of_original_state = (not (null state_originals)) && (member naive_r1b state_originals) -- TODO: The first clause really should be unnecessary, but without it we hang forefer evaluating this. Why?
+    ; logDebugSH "is_member_of_original_state"
+    ; logDebugSH is_member_of_original_state
+    ; if (is_member_of_original_state  || ((not (null conflicting_ballots)) && ((extract_ballot r1a) <= (maximum conflicting_ballots))))
+         then logDebugSH "We've seen this 1A before, or one with a greater ballot that conflicts"
+         else do { logDebugSH "I have not seen this 1A before."
+                 ; witness <- get_witness
                  ; validity_check <- valid witness r1a
+                 ; logDebugSH ("this witness / 1a is valid: " ++ (show validity_check))
                  ; if validity_check -- Checking validity here may seem odd, since we receive values inside other stuff, like 1bs.
                       then return () -- However, the first time we receive a value, we always must end up here.
                       else throwError $ Hetcons_Exception_Invalid_Proposal_1a default_Invalid_Proposal_1a {
@@ -111,28 +128,39 @@ instance (Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Participant_
                                          ,invalid_Proposal_1a_offending_witness = Just witness
                                          ,invalid_Proposal_1a_explanation = Just "This value is not itself considered valid."}
                  ; verified_conflicting_2as <- mapM (\x -> (to_Hetcons_Message x) >>= verify) $ toList $ conflicting_2as state r1a
-                 ; send (naive_r1b {recursive_1b_conflicting_phase2as = fromList verified_conflicting_2as})}}
+                 ; send (naive_r1b {recursive_1b_conflicting_phase2as = fromList verified_conflicting_2as})
+                 }
+    }
 
 -- | Participant receives 1B
 --   If we've received this 1B before, or one that conflicts but has a higher ballot number, do nothing.
 --   Otherwise, we try to assemble a 2A out of all the 1Bs we've received for this ballot, and if we have enough (if that 2A is valid), we send it.
-instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
+instance forall v . (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) =>
          Receivable (Participant_State v) v (Verified (Recursive_1b v)) where
   receive r1b = do
     { logInfoSH "Received 1B"
+    ; logDebugSH r1b
     ; old_state <- get_state
+    ; logDebugSH "old_state"
+    ; logDebugSH old_state
     -- TODO: non-pairwise conflicts
     ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
-    ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)
+    ; logDebugSH "conflicting_ballots"
+    ; logDebugSH conflicting_ballots
+         -- TODO: The "not null old_state" clause should be unnecessary, but for reasons unknown the program hangs forever here without it. Why?
+    ; if (((not (null old_state)) && (member r1b old_state)) || -- If we've received this 1b before, or received something of greater ballot number (below)
          ((not (null conflicting_ballots)) &&
          ((extract_ballot r1b) < (maximum conflicting_ballots))))
-         then return ()
-         else do { my_crypto_id <- get_my_crypto_id
+         then logDebugSH "we've received this 1B before"
+         else do { logDebugSH "we've not received this 1b before"
+                 ; my_crypto_id <- get_my_crypto_id
                  ; if (Just my_crypto_id) == (signed_Hash_crypto_id $ signature r1b) -- if this 1b is from me
                       then return ()
                       else receive ((extract_1a r1b) :: Verified (Recursive_1a v)) -- ensure we've received the 1a for this message before we store any 1bs
                  ; mapM_ receive ((extract_1bs $ original r1b) :: (HashSet (Verified (Recursive_1b v)))) -- receive all prior 1bs contained herein
                  ; state <- update_state (\s -> let new_state = insert r1b s in (new_state, new_state))
+                 ; logDebugSH "state updated"
+                 ; logDebugSH $ size state
                  ; let potential_2a = Recursive_2a $
                          HashSet.filter ((((extract_1a r1b) :: Verified (Recursive_1a v)) ==) . extract_1a) $ -- all the 1bs with the same proposal
                          HashSet.filter ((((extract_value r1b) :: v) ==) . extract_value) state
@@ -145,7 +173,7 @@ instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (P
 --   Upon receiving a 2A, send a corresponding 2B.
 --   Note that the only way for a participant to receive a 2A is for that participant to itself send it.
 --   It can't come in over the wire.
-instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
+instance (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_State v) v v)) => Receivable (Participant_State v) v (Verified (Recursive_2a v)) where
   -- | Recall that there is no actual way to receive a 2a other than sending it to yourself.
   --   Therefore, we can be assured that this 2a comes to us exactly once, and that all 1bs therein have been received.
   receive vr2a = do {logInfoSH "Received 2A"
@@ -160,11 +188,11 @@ instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Participant_
 --   If we've received this 2b before, do nothing.
 --   Otherwise, assemble all received 2Bs with the same proposal and value, and see if those form a valid Proof_of_Consensus
 --   If they do, send that Proof_of_Consensus
-instance forall v . (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
+instance forall v . (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Receivable (Observer_State v) v (Verified (Recursive_2b v)) where
   receive r2b = do
     { -- logInfoSH "Received a 2B" -- TODO: figure out why the app crashes when this is enabled
     ; old_state <- get_state
-    ; if (member r2b old_state)
+    ; if ((not (null old_state)) && (member r2b old_state))
          then return () -- Else, we make a Proof_of_Consensus using what we've received, and see if that's valid.
          else do { let state = insert r2b old_state
                  ; put_state state

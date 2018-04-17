@@ -101,13 +101,13 @@ new_observer run_logger cid pk doc =
 
 -- | Given an Observer Datum and a Port Number, boots up an Observer Server.
 --   Returns the ThreadId of the newly started server.
-observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => (Observer v) -> a -> IO ThreadId
+observer_server :: (Show v, Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => (Observer v) -> a -> IO ThreadId
 observer_server observer port = forkIO $ runCompactServer observer process $ fromIntegral port
 
 -- | Given a Cryptographic ID (public key), a Private key, and a port number, and a "Do on Consensus function,"
 --    boots up an Observer Server that runs that function on consensus.
 --   Returns the ThreadId of the newly started server.
-basic_observer_server :: (Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
+basic_observer_server :: (Show v, Integral a, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) =>
                          Crypto_ID -> ByteString -> a -> ((Verified (Recursive_Proof_of_Consensus v)) -> IO ()) -> IO ThreadId
 basic_observer_server cid pk port doc = do { observer <- new_observer runStdoutLoggingT cid pk doc
                                            ; observer_server observer port}
@@ -126,7 +126,7 @@ on_consensus proof = putStrLn $
         $ observers_proven proof
 
 -- | Observer Data are instances of the Thrift Hetcons_Observer_Iface class, meaning they fulfil the requirements of the Thrift interface:
-instance (Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Hetcons_Observer_Iface (Observer v) where
+instance (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction (Observer_State v) v v)) => Hetcons_Observer_Iface (Observer v) where
   -- | When pinged, the server returns ()
   ping _ = return ()
 

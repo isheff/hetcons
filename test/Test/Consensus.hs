@@ -5,6 +5,7 @@ module Test.Consensus (consensus_tests) where
 import Hetcons.Compact_Server (runCompactServer)
 import Hetcons.Hetcons_Exception ( Hetcons_Exception )
 import Hetcons.Hetcons_State ( Participant_State_Var, start_State )
+import qualified Hetcons.Instances_1a as Instances_1a (from_non_recursive)
 import Hetcons.Instances_Proof_of_Consensus ( observers_proven )
 import Hetcons.Observer
     ( Observer(Observer, do_on_consensus, observer_hetcons_server)
@@ -22,6 +23,7 @@ import Hetcons.Receive_Message
                     ,hetcons_Server_verify_2a, hetcons_Server_verify_1b
                     ,hetcons_Server_verify_1a, hetcons_Server_address_book
                     ,hetcons_Server_private_key, hetcons_Server_crypto_id
+                    ,hetcons_Server_log_chan
                     ,hetcons_Server_state_var) )
 import Hetcons.Send ()
 import Hetcons.Send_Message_IO
@@ -62,7 +64,19 @@ import Charlotte_Types
                        ,default_Public_Crypto_Key
      ,Crypto_ID(crypto_ID_public_crypto_key)
                ,default_Crypto_ID
+     ,Signed_Hash
      ,Signed_Message
+     ,Signed_Index
+       ,signed_Index_signature
+       ,signed_Index_index
+       ,default_Signed_Index
+     ,Hetcons_Message
+       ,hetcons_Message_proposals
+       ,hetcons_Message_phase_1as
+       ,hetcons_Message_phase_1bs
+       ,hetcons_Message_phase_2as
+       ,hetcons_Message_index
+       ,default_Hetcons_Message
      ,Phase_1b(phase_1b_proposal)
               ,default_Phase_1b
      ,Phase_2b(phase_2b_phase_1bs)
@@ -79,15 +93,16 @@ import Charlotte_Types
                                ,default_Observer_Trust_Constraint
      )
 
-import Control.Concurrent ( forkIO, ThreadId )
+import Control.Concurrent ( forkIO, ThreadId, newChan )
 import Control.Concurrent.MVar ( putMVar, takeMVar, newEmptyMVar )
 import Control.Exception ( SomeException, catch )
-import Control.Monad.Logger (runStdoutLoggingT)
+import Control.Monad.Logger (runStdoutLoggingT, unChanLoggingT)
 import Crypto.Random ( getSystemDRG, DRG, withDRG )
 import qualified Data.ByteString.Lazy as ByteString
     ( singleton, readFile, empty )
 import Data.ByteString.Lazy ( ByteString )
 import Data.HashSet ( insert, fromList, empty )
+import qualified Data.Vector as Vector (singleton)
 import Test.HUnit
     ( Test(TestList, TestLabel, TestCase), assertEqual, assertBool )
 import qualified Data.HashMap.Strict as HashMap ( fromList )
@@ -100,14 +115,7 @@ listGen :: (DRG g) => g -> [g]
 listGen g = g:(listGen (snd (withDRG g (return ()))))
 
 
-sample_payload :: Integer
-sample_payload = 1337
-
-sample_message :: IO (Either Hetcons_Exception Signed_Message)
-sample_message = sample_sign sample_payload
-
-
-sample_sign :: (Encodable a) => a -> IO (Either Hetcons_Exception Signed_Message)
+sample_sign :: ByteString -> IO (Either Hetcons_Exception Signed_Hash)
 sample_sign payload =
   do { gen <- getSystemDRG
      ; cert <- ByteString.readFile "test/cert.pem"
@@ -151,8 +159,8 @@ deStupidify (Right x) = do { y <- x
 
 data Dummy_Participant = Dummy_Participant {
   on_ping :: IO ()
- ,on_proposal_1a :: Signed_Message -> IO ()
- ,on_phase_1b :: Signed_Message -> IO ()
+ ,on_proposal_1a :: Hetcons_Message -> IO ()
+ ,on_phase_1b :: Hetcons_Message -> IO ()
 }
 instance Hetcons_Participant_Iface Dummy_Participant where
   ping = on_ping
@@ -165,61 +173,14 @@ dummy_participant_server port dummy = forkIO $ runCompactServer dummy process (f
 
 data Dummy_Observer = Dummy_Observer {
   dummy_observer_on_ping :: IO ()
- ,dummy_observer_on_phase_2b :: Signed_Message -> IO ()
+ ,dummy_observer_on_phase_2b :: Hetcons_Message -> IO ()
 }
 instance Hetcons_Observer_Iface Dummy_Observer where
   ping = dummy_observer_on_ping
   phase_2b = dummy_observer_on_phase_2b
 
-dummy_observer_server :: (Integral a) => a -> Dummy_Observer -> IO ThreadId
-dummy_observer_server port dummy = forkIO $ runCompactServer dummy Observer.process (fromIntegral port)
 
-launch_dummy_observer :: (Integral a) => a -> IO (a, Timestamp, Address_Book, ByteString)
-launch_dummy_observer port = do
-  { now <- current_nanoseconds
-  ; receipt_2b <- newEmptyMVar
-  ; address_book <- default_Address_Book
-  ; cert <- ByteString.readFile "test/cert.pem"
-  ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert (fromIntegral port)]
-  ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
-  ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
-  ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
-  ; (Right signed_2b) <- sample_sign $ default_Phase_2b { phase_2b_phase_1bs = fromList [signed_1b]}
-  ; let (Right (v2b :: (Verified (Recursive_2b Slot_Value)))) = verify signed_2b
-  ; dummy_observer <- dummy_observer_server port (Dummy_Observer { dummy_observer_on_ping = return ()
-                                                                 , dummy_observer_on_phase_2b = putMVar receipt_2b})
-  ; send_Message_IO address_book ByteString.empty v2b
-  ; takeMVar receipt_2b >>= assertEqual "received 2b is not sent 2b" signed_2b
-  ; return (port, now, address_book, cert)
-  }
 
-launch_observer :: (Integral a) => a -> IO (a, Timestamp, Address_Book, ByteString, ByteString)
-launch_observer port = do
-  { (used_port, now, address_book, cert) <- launch_dummy_observer port
-  ; let new_port = used_port + 1
-  ; private <- ByteString.readFile "test/key.pem"
-  ; proof_receipt <- newEmptyMVar
-  ; observer <- (basic_observer_server
-                  (default_Crypto_ID {
-                    crypto_ID_public_crypto_key =
-                      Just (default_Public_Crypto_Key {
-                              public_Crypto_Key_public_crypto_key_x509 = Just cert})})
-                  private
-                  (fromIntegral new_port)
-                  (putMVar proof_receipt :: ((Verified (Recursive_Proof_of_Consensus Slot_Value)) -> IO ())))
-  ; (Right signed_1a) <- sample_sign $ sample_1a now [sample_id cert (fromIntegral new_port)]
-  ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
-  ; (Right signed_1b) <- sample_sign $ default_Phase_1b { phase_1b_proposal = signed_1a }
-  ; let (Right (v1b :: (Verified (Recursive_1b Slot_Value)))) = verify signed_1b
-  ; (Right signed_2b) <- sample_sign $ default_Phase_2b { phase_2b_phase_1bs = fromList [signed_1b]}
-  ; let (Right (v2b :: (Verified (Recursive_2b Slot_Value)))) = verify signed_2b
-  ; send_Message_IO address_book ByteString.empty v2b
-  ; assertBool "have launched an observer" True
-  ; received_proof <- takeMVar proof_receipt
-  ; assertEqual "incorrect observers proven" ("localhost:"++(show $ fromIntegral new_port)++",") $
-      foldr (\n x -> x ++ (domain_name n) ++ ":"++ (show $ address_port_number $ participant_ID_address n) ++",") "" $ observers_proven received_proof
-  ; return (new_port, now, address_book, cert, private)
-  }
 
 -- | Separating this out into a separate variable helps the profiler identify how much time it took.
 test_4_participants =
@@ -248,6 +209,8 @@ test_4_participants =
                                                               ,hetcons_Server_private_key = private4}))
        ; participant_thread4<- participant_server participant4 85024
        ; observer_1_state <- start_State
+       ; chan <- newChan
+       ; forkIO $ (runStdoutLoggingT $ unChanLoggingT chan) >> return ()
        ; let observer1_datum = Observer {
            observer_hetcons_server = (Hetcons_Server {
                                        hetcons_Server_crypto_id = (participant_ID_crypto_id (ids!!0))
@@ -260,6 +223,7 @@ test_4_participants =
                                       ,hetcons_Server_verify_2b = hetcons_Server_verify_2b participant1
                                       ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1
                                       ,hetcons_Server_verify_quorums = hetcons_Server_verify_quorums participant1
+                                      ,hetcons_Server_log_chan = chan
                                       })
            ,do_on_consensus = putMVar proof_receipt}
        ; observer1 <- observer_server observer1_datum 85020
@@ -276,6 +240,7 @@ test_4_participants =
                                       ,hetcons_Server_verify_2b = hetcons_Server_verify_2b participant1
                                       ,hetcons_Server_verify_proof = hetcons_Server_verify_proof participant1
                                       ,hetcons_Server_verify_quorums = hetcons_Server_verify_quorums participant1
+                                      ,hetcons_Server_log_chan = chan
                                       })
            ,do_on_consensus = putMVar proof_receipt}
        ; observer2<- observer_server observer2_datum 85026
@@ -308,7 +273,9 @@ test_4_participants =
                                                                     ,observer_Trust_Constraint_observer_2 = ids!!6
                                                                     ,observer_Trust_Constraint_safe = fromList $ [        ids!!2, ids!!3, ids!!4]
                                                                     ,observer_Trust_Constraint_live = fromList $ [        ids!!2, ids!!3, ids!!4]}]}}
-       ; (Right signed_1a) <- sample_sign $ message_1a
+       ; (Right signature_1a) <- sample_sign $ encode message_1a
+       ; let signed_1a = default_Hetcons_Message{hetcons_Message_proposals = Vector.singleton message_1a
+                                                ,hetcons_Message_phase_1as = Vector.singleton default_Signed_Index{signed_Index_signature = signature_1a}}
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
        ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -363,7 +330,9 @@ consensus_tests = TestList [
                            ,proposal_1a_observers = Just default_Observers {
                               observers_observer_quorums = Just $ HashMap.fromList [(sample_id cert 85000,
                                                                     fromList [fromList [sample_id cert 85001]])]}}
-       ; (Right signed_1a) <- sample_sign $ message_1a
+       ; (Right signature_1a) <- sample_sign $ encode message_1a
+       ; let signed_1a = default_Hetcons_Message{hetcons_Message_proposals = Vector.singleton message_1a
+                                                ,hetcons_Message_phase_1as = Vector.singleton default_Signed_Index{signed_Index_signature = signature_1a}}
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
        ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -430,7 +399,9 @@ consensus_tests = TestList [
                                                                     ,observer_Trust_Constraint_observer_2 = ids!!6
                                                                     ,observer_Trust_Constraint_safe = fromList $ [ids!!1, ids!!2, ids!!3]
                                                                     ,observer_Trust_Constraint_live = fromList $ [       ids!!2, ids!!3]}]}}
-       ; (Right signed_1a) <- sample_sign $ message_1a
+       ; (Right signature_1a) <- sample_sign $ encode message_1a
+       ; let signed_1a = default_Hetcons_Message{hetcons_Message_proposals = Vector.singleton message_1a
+                                                ,hetcons_Message_phase_1as = Vector.singleton default_Signed_Index{signed_Index_signature = signature_1a}}
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
        ; send_thread <- forkIO (catch (catch (send_Message_IO address_book ByteString.empty v1a)
                                       (\(exception :: Hetcons_Exception) -> assertBool ("Hetcons Exception Caught: " ++ (show exception)) False))
@@ -505,7 +476,9 @@ consensus_tests = TestList [
                                                                     ,observer_Trust_Constraint_observer_2 = ids!!6
                                                                     ,observer_Trust_Constraint_safe = fromList $ [ids!!1, ids!!2, ids!!3]
                                                                     ,observer_Trust_Constraint_live = fromList $ [       ids!!2, ids!!3]}]}}
-       ; (Right signed_1a) <- sample_sign $ message_1a
+       ; (Right signature_1a) <- sample_sign $ encode message_1a
+       ; let signed_1a = default_Hetcons_Message{hetcons_Message_proposals = Vector.singleton message_1a
+                                                ,hetcons_Message_phase_1as = Vector.singleton default_Signed_Index{signed_Index_signature = signature_1a}}
        ; let (Right (v1a :: (Verified (Recursive_1a Slot_Value)))) = verify signed_1a
         -- There is a crash failure, so the send thread will actually get an Exception from Thrift.
         -- However, this should not interfere with Consensus beign reached.

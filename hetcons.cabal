@@ -75,13 +75,13 @@ test-suite hetcons-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   other-modules:       Test.Consensus
-                     , Test.Hetcons_Exception
-                     , Test.Observer
-                     , Test.Participant
-                     , Test.Quorums
-                     , Test.Signed_Message
+                     -- , Test.Hetcons_Exception
+                     -- , Test.Observer
+                     -- , Test.Participant
+                     -- , Test.Quorums
+                     -- , Test.Signed_Message
                      , Test.Util
-                     , Test.Witness
+                     -- , Test.Witness
   main-is:             Spec.hs
   build-depends:       base
                      , hetcons

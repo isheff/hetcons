@@ -61,6 +61,9 @@ import Data.Thyme.Time.Core
      ,fromMicroseconds
      ,fromGregorian )
 
+-- Janky way to disable debug statemetns instead of import Control.Monad.Logger.CallStack ( logDebugSH )
+logDebugSH _ = return () 
+
 -- | The participant Datum is just a Hetcons_Server with a Participant_State (defined in Hetcons_State)
 type Participant v = Hetcons_Server (Participant_State v) v
 
@@ -133,12 +136,21 @@ instance forall v . (Value v, Show v, Eq v, Hashable v, Parsable (Hetcons_Transa
 
   -- | When it gets a 1A, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   proposal_1a participant message witness
-    = do { (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
+    = do { (verified :: (Verified (Recursive_1a v))) <- run_Hetcons_Transaction_IO participant on_consensus witness (do
+                {logDebugSH message
+                ;verified <- verify message
+                ;logDebugSH verified
+                ;return verified
+                }) -- TODO: this doesn't need a TX
          ; delay_message verified
-         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
+         -- ; run_Hetcons_Transaction_IO participant on_consensus witness $ logDebugSH verified
+         -- ; delay_message verified
+         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified
+         }
 
   -- | When it gets a 1B, the participant verifies it, delays it until our clock reaches its timestamp, and then runs `receive` (in a Hetcons_Transaction for atomicity)
   phase_1b participant message witness
     = do { (verified :: (Verified (Recursive_1b v))) <- run_Hetcons_Transaction_IO participant on_consensus witness $ verify message -- TODO: this doesn't need a TX
          ; delay_message verified
-         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified}
+         ; run_Hetcons_Transaction_IO participant on_consensus witness $ receive verified
+         }

@@ -137,14 +137,17 @@ import Charlotte_Types
 
 import Crypto.Hash.Algorithms
     ( SHA224(SHA224), SHA256(SHA256), SHA384(SHA384), SHA512(SHA512) )
+import Control.Monad (liftM)
 import Control.Monad.Except ( MonadError(throwError) )
+import Control.Monad.Logger ( MonadLogger )
 import Crypto.Random ( DRG )
 import Data.ByteString.Lazy ( ByteString )
 import qualified Data.ByteString.Lazy as ByteString (concat)
 import Data.Foldable ( Foldable(maximum, null), toList, forM_ )
 import Data.List (sort)
+import Data.Maybe (fromJust)
 import Data.Vector ((!))
-import qualified Data.Vector as Vector (map)
+import qualified Data.Vector as Vector (map, empty)
 import GHC.Generics ( Generic )
 import Data.Hashable ( Hashable, hashWithSalt )
 import Data.HashSet ( HashSet, singleton, intersection )
@@ -155,6 +158,9 @@ import qualified EasyX509 as X509 ( sign, verify, Signer )
 import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
 import Thrift.Transport.Empty ( EmptyTransport(EmptyTransport) )
 
+-- Janky way to disable debug statemetns instead of import Control.Monad.Logger.CallStack ( logDebugSH )
+logDebugSH _ = return () 
+
 -- | For storing data we've verified to be correctly signed
 --   Note that the original data (unsigned and parsed) can be easily retreived, as can the signed Message itself.
 --   Note that we do not export any constructors for Verified.
@@ -163,14 +169,18 @@ data Verified a = Verified {
    -- | The original (parsed, but not "verified") datum
    verified_original :: a
    -- | The signed message from which this was parsed and verified
-  ,verified_signed :: Verified Hetcons_Message
+  ,verified_signed :: Maybe (Verified Hetcons_Message)
 
   }
 -- | Verified things are equal precisely when their original signed messages are equal
-instance Eq (Verified a) where
-  (==) x y = (signed x) == (signed y)
+instance {-# OVERLAPPING #-} Eq (Verified Hetcons_Message) where
+  (==) x y = (original x) == (original y)
+instance {-# OVERLAPPABLE #-} Eq (Verified a) where
+  (==) x y = (liftM original $ verified_signed x) == (liftM original $ verified_signed y)
 -- | We can hash Verified things by hashing their signed message version
-instance Hashable (Verified a) where
+instance {-# OVERLAPPING #-} Hashable (Verified Hetcons_Message) where
+  hashWithSalt i = hashWithSalt i . original
+instance {-# OVERLAPPABLE #-} Hashable (Verified a) where
   hashWithSalt i = hashWithSalt i . signed
 -- | We print out verified stuff by printing the parsed version preceded by "VERIFIED: "
 instance (Show a) => Show (Verified a) where
@@ -186,8 +196,12 @@ original = verified_original
 -- | The signed message from which this darum was parsed and verified.
 --   An accessor function for the `verified_signed field of Verified s.
 --   We use this instead of the field name because exporting the field name allows fields to be modified using GHC's foo { bar = baz } syntax.
-signed :: Verified a -> Verified Hetcons_Message
-signed = verified_signed
+class Signed a where
+  signed :: a -> Verified Hetcons_Message
+instance {-# OVERLAPPING #-} Signed (Verified Hetcons_Message) where
+  signed = id
+instance {-# OVERLAPPABLE #-} Signed (Verified a) where
+  signed = fromJust . verified_signed
 
 
 -- | TODO: With the advent of Hetcons_Message reformatting, this is no longer a sane thing to do. I'm removing this so we can fix stuff.
@@ -255,14 +269,17 @@ instance (Monad m) => From_Hetcons_Message (m Hetcons_Message) where
 class (Monad m) => To_Hetcons_Message m a where
   to_Hetcons_Message :: a -> (m Hetcons_Message)
 
-instance (Monad m) => To_Hetcons_Message m Hetcons_Message where
-  to_Hetcons_Message = return
+instance (Monad m, MonadLogger m) => To_Hetcons_Message m Hetcons_Message where
+  to_Hetcons_Message x = do { logDebugSH "to_Hetcons_Message Hetcons_Message"
+                            ; return x}
 
-instance (Monad m) => To_Hetcons_Message m (Verified Hetcons_Message) where
-  to_Hetcons_Message = return . original
+instance (Monad m, MonadLogger m) => To_Hetcons_Message m (Verified Hetcons_Message) where
+  to_Hetcons_Message x = do {logDebugSH "to_Hetcons_Message (Verified Hetcons_Message)"
+                            ;return $ original x}
 
-instance (Monad m) => To_Hetcons_Message m (Verified a) where
-  to_Hetcons_Message = return . original . signed
+instance (Monad m, MonadLogger m) => To_Hetcons_Message m (Verified a) where
+  to_Hetcons_Message x = do {logDebugSH "to_Hetcons_Message Verified"
+                            ;return $ original $ signed x}
 
 -- | verify is only way to construct a Verified object.
 --   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
@@ -300,12 +317,12 @@ sha2_length length_set =
 --   Otherwise, you get an exception.
 verify' :: (Monad_Verify a m, Encodable Proposal_1a, Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
 -- We first verify that the Hetcons_Message itself is good (all signatures correct and such)
-verify' message@(Hetcons_Message{
-                   hetcons_Message_proposals = proposals
+verify' message@(Hetcons_Message
+                  {hetcons_Message_proposals = proposals
                   ,hetcons_Message_phase_1as = phase_1as
                   ,hetcons_Message_phase_1bs = phase_1bs
                   ,hetcons_Message_phase_2as = phase_2as
-                  ,hetcons_Message_index = i}) = do
+                  }) = do
   {let binary_proposals = Vector.map encode proposals
   ;forM_ phase_1as (\(Signed_Index{signed_Index_index = index
                                   ,signed_Index_signature = signed_hash}) -> (
@@ -324,10 +341,10 @@ verify' message@(Hetcons_Message{
                                                                         $ toList indices)
                                         signed_hash))
   -- now that we've checked all the signatures, we can construct whatever data type is desired:
-  ;let verified = (Verified {verified_original = message, verified_signed = verified})
+  ;let verified = (Verified {verified_original = message, verified_signed = Nothing})
   ;x <- from_Hetcons_Message verified
   -- and if that construction doesn't throw any errors, we call it verified.
-  ;return (Verified {verified_original = x, verified_signed = verified})
+  ;return (Verified {verified_original = x, verified_signed = Just verified})
   }
 
 -- verify that a bytestring is signed correctly.

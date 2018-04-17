@@ -15,6 +15,8 @@ import Hetcons.Quorums ( Monad_Verify_Quorums
                            ,verify_quorums)
 import Hetcons.Signed_Message (Encodable
                                 ,encode
+                              ,From_Hetcons_Message
+                                ,from_Hetcons_Message
                               ,Parsable
                                 ,parse
                                 ,verify'
@@ -37,7 +39,7 @@ import Data.Text.Lazy (pack)
 
 -- TODO: this instance is used in testing only, so we should move it over to tests
 instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m
-                              ,MonadError Hetcons_Exception m, Parsable (m a))
+                              ,MonadError Hetcons_Exception m, From_Hetcons_Message (m a))
                                => Monad_Verify a m where
   verify = verify'
 

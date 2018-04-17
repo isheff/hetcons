@@ -83,6 +83,9 @@ import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format(formatTime, defaultTimeLocale)
 import Data.Tuple ( swap )
 
+-- Janky way to disable debug statemetns instead of import Control.Monad.Logger.CallStack ( logDebugSH )
+logDebugSH _ = return () 
+
 -- | Hetcons_Transaction is a Monad for constructing transactions in which a message is processed.
 --   From within Hetcons_Transaction, you can send messages (1a, 1b, 2a, 2b, proof_of_consensus), and
 --   change the Participant_State.
@@ -197,11 +200,13 @@ instance (Hetcons_State s, Value v) => MonadRandom (Hetcons_Transaction s v) whe
 --
 --     * a field which pulls the memoization cache from the Hetcons_Server
 memoize :: (Eq a, Hashable a, Hetcons_State s, Value v) => (a -> (Hetcons_Transaction s v b)) -> ((Hetcons_Server s v) -> (CMap.Map a b)) -> (a -> (Hetcons_Transaction s v b))
-memoize f m x = do { table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
+memoize f m x = do { logDebugSH "Memoized call to verify..."
+                   ; table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
                    ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
                    ; case cached of
                        Just y -> return y
-                       Nothing -> do { y <- f x
+                       Nothing -> do { logDebugSH "call to Verify is not cached"
+                                     ; y <- f x
                                      ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
                                      ; return y}}
 
@@ -298,7 +303,9 @@ run_Hetcons_Transaction_IO (server@Hetcons_Server{hetcons_Server_log_chan = log_
                                                                      ,hetcons_Transaction_Environment_transaction_state = start_transaction_state
                                                                      ,hetcons_Transaction_Environment_witness = witness}
                                                       ; runReaderT (runChanLoggingT log_chan $ unwrap (do
-                                                          { answer <- receive_message
+                                                          { logDebugSH "beginning hetcons transaction"
+                                                          ; answer <- receive_message
+                                                          ; logDebugSH "completed hetcons transaction"
                                                           ; final_transaction_state <- get_Hetcons_Transaction_State
                                                           ; final_state <- get_state
                                                           ; return (final_state, (answer, final_transaction_state))}))

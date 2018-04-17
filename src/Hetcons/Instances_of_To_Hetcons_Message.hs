@@ -72,11 +72,14 @@ import Data.Vector (Vector, (++), singleton, (!))
 import qualified Data.Vector as Vector (fromList, empty, singleton, length)
 import Prelude hiding ((++), foldr)
 
+-- Janky way to disable debug statemetns instead of import Control.Monad.Logger.CallStack ( logDebugSH )
+logDebugSH _ = return () 
 
 -- TODO: maybe let's not hard code sUPPORTED_SINGED_HASH_TYPE_DESCRIPTOR in here...
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (Hetcons_Transaction s v) (Recursive_1a v) where
   to_Hetcons_Message r1a = do
-    {let non_recursive = recursive_1a_non_recursive r1a
+    {logDebugSH "to_Hetcons_Message Recursive_1a"
+    ;let non_recursive = recursive_1a_non_recursive r1a
     ;crypto_id <- get_my_crypto_id
     ;private_key <- get_my_private_key
     ;generator <- drgNew
@@ -95,7 +98,8 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
 -- TODO: maybe let's not hard code sUPPORTED_SINGED_HASH_TYPE_DESCRIPTOR in here...
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (Hetcons_Transaction s v) (Recursive_1b v) where
   to_Hetcons_Message r1b = do
-    {hetcons_message_1a <- to_Hetcons_Message $ recursive_1b_proposal r1b -- this is a verified thing, so it will just pull the known signed version
+    {logDebugSH "to_Hetcons_Message Recursive_1b"
+    ;hetcons_message_1a <- to_Hetcons_Message $ recursive_1b_proposal r1b -- this is a verified thing, so it will just pull the known signed version
     ;hetcons_message_2as' <- mapM to_Hetcons_Message $ toList $ recursive_1b_conflicting_phase2as r1b
     ;let signature_of_2a h = signed_Hash_signature $ signed_Indices_signature ((hetcons_Message_phase_2as h)!(fromIntegral $ hetcons_Message_index h))
     ;let hetcons_message_2as = sortOn signature_of_2a $ toList hetcons_message_2as'
@@ -125,7 +129,8 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
 
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (Hetcons_Transaction s v) (Recursive_2a v) where
   to_Hetcons_Message (Recursive_2a r1bs) = do
-    {hetcons_message_1bs' <- mapM to_Hetcons_Message $ toList r1bs
+    {logDebugSH "to_Hetcons_Message Recursive_2a"
+    ;hetcons_message_1bs' <- mapM to_Hetcons_Message $ toList r1bs
     ;let indices_1b h = (hetcons_Message_phase_1bs h)!(fromIntegral $ hetcons_Message_index h)
     ;let signature_of_1b h = signed_Hash_signature $ phase_1b_Indices_signature $ indices_1b h
     ;let hetcons_message_1bs = sortOn signature_of_1b hetcons_message_1bs'
@@ -146,11 +151,12 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
     }
 
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (Hetcons_Transaction s v) (Recursive_2b v) where
-  to_Hetcons_Message (Recursive_2b r1bs) = to_Hetcons_Message (Recursive_2a r1bs)
+  to_Hetcons_Message (Recursive_2b r1bs) = logDebugSH "to_Hetons_Message Recursive_2b" >> to_Hetcons_Message (Recursive_2a r1bs)
 
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (Hetcons_Transaction s v) (Recursive_Proof_of_Consensus v) where
   -- must use foldr to ensure the "old element", which starts off as default_Hetcons_message, is on the right.
-  to_Hetcons_Message (Recursive_Proof_of_Consensus r2bs) = (mapM to_Hetcons_Message $ toList r2bs) >>= (return . (foldr fuse_Hetcons_Messages default_Hetcons_Message))
+  to_Hetcons_Message (Recursive_Proof_of_Consensus r2bs) = logDebugSH "to_Hetcons_Message Recursive_Proof_of_Consensus" >>
+                                                           (mapM to_Hetcons_Message $ toList r2bs) >>= (return . (foldr fuse_Hetcons_Messages default_Hetcons_Message))
 
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message
 fuse_Hetcons_Messages hetcons_message@Hetcons_Message
