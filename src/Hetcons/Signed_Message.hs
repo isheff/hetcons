@@ -255,6 +255,9 @@ instance (Monad m) => From_Hetcons_Message (m Hetcons_Message) where
 class (Monad m) => To_Hetcons_Message m a where
   to_Hetcons_Message :: a -> (m Hetcons_Message)
 
+instance (Monad m) => To_Hetcons_Message m Hetcons_Message where
+  to_Hetcons_Message = return
+
 instance (Monad m) => To_Hetcons_Message m (Verified Hetcons_Message) where
   to_Hetcons_Message = return . original
 
