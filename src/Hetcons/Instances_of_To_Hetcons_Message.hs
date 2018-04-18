@@ -175,9 +175,9 @@ fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       , hetcons_Message_phase_1as = phase_1as_2
                       , hetcons_Message_phase_1bs = phase_1bs_2
                       , hetcons_Message_phase_2as = phase_2as_2} =
-  let (proposals, _) = fuse_vectors id id proposals_1 proposals_2
+  let (proposals, proposals_2_lookup) = fuse_vectors id id proposals_1 proposals_2
       (phase_1as, phase_1as_2_lookup) = fuse_vectors (signed_Hash_signature . signed_Index_signature)
-                                                     (\x -> x{signed_Index_index = fromIntegral $ phase_1as_2_lookup!(fromIntegral $ signed_Index_index x)}) 
+                                                     (\x -> x{signed_Index_index = fromIntegral $ proposals_2_lookup!(fromIntegral $ signed_Index_index x)}) 
                                                      phase_1as_1
                                                      phase_1as_2
       (phase_1bs, phase_1bs_2_lookup) = fuse_vectors (signed_Hash_signature . phase_1b_Indices_signature)
