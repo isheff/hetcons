@@ -163,7 +163,7 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
 --   The index will be the index of the first input.
 --   Thus, it will decode exactly the same as the first input.
 --   The non-duplicate elements of the second input will be appended to the vector fields of the first.
---   The indices of the appended elements will be adjusted for the new vectors.
+--   The indices in the appended elements will be adjusted for the new vectors.
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message
 fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       { hetcons_Message_proposals = proposals_1
@@ -176,19 +176,25 @@ fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       , hetcons_Message_phase_1bs = phase_1bs_2
                       , hetcons_Message_phase_2as = phase_2as_2} =
   let (proposals, proposals_2_lookup) = fuse_vectors id id proposals_1 proposals_2
-      (phase_1as, phase_1as_2_lookup) = fuse_vectors (signed_Hash_signature . signed_Index_signature)
-                                                     (\x -> x{signed_Index_index = fromIntegral $ proposals_2_lookup!(fromIntegral $ signed_Index_index x)}) 
-                                                     phase_1as_1
-                                                     phase_1as_2
-      (phase_1bs, phase_1bs_2_lookup) = fuse_vectors (signed_Hash_signature . phase_1b_Indices_signature)
-                                                     (\x -> x{phase_1b_Indices_index_1a = fromIntegral $ phase_1as_2_lookup!(fromIntegral $ phase_1b_Indices_index_1a x)
-                                                             ,phase_1b_Indices_indices_2a = HashSet.map (fromIntegral . (phase_2as_2_lookup!) . fromIntegral) $ phase_1b_Indices_indices_2a x})
-                                                     phase_1bs_1
-                                                     phase_1bs_2
-      (phase_2as, phase_2as_2_lookup) = fuse_vectors (signed_Hash_signature . signed_Indices_signature)
-                                                     (\x -> x{signed_Indices_indices = HashSet.map (fromIntegral . (phase_1bs_2_lookup!) . fromIntegral) $ signed_Indices_indices x})
-                                                     phase_2as_1
-                                                     phase_2as_2
+      (phase_1as, phase_1as_2_lookup) =
+        fuse_vectors
+          (signed_Hash_signature . signed_Index_signature)
+          (\x -> x{signed_Index_index = fromIntegral $ proposals_2_lookup!(fromIntegral $ signed_Index_index x)}) 
+          phase_1as_1
+          phase_1as_2
+      (phase_1bs, phase_1bs_2_lookup) =
+        fuse_vectors
+          (signed_Hash_signature . phase_1b_Indices_signature)
+          (\x -> x{phase_1b_Indices_index_1a = fromIntegral $ phase_1as_2_lookup!(fromIntegral $ phase_1b_Indices_index_1a x)
+                  ,phase_1b_Indices_indices_2a = HashSet.map (fromIntegral . (phase_2as_2_lookup!) . fromIntegral) $ phase_1b_Indices_indices_2a x})
+          phase_1bs_1
+          phase_1bs_2
+      (phase_2as, phase_2as_2_lookup) =
+        fuse_vectors
+          (signed_Hash_signature . signed_Indices_signature)
+          (\x -> x{signed_Indices_indices = HashSet.map (fromIntegral . (phase_1bs_2_lookup!) . fromIntegral) $ signed_Indices_indices x})
+          phase_2as_1
+          phase_2as_2
    in hetcons_message
       { hetcons_Message_proposals = proposals
       , hetcons_Message_phase_1as = phase_1as
@@ -214,14 +220,14 @@ fuse_vectors representative proposals_2_transform proposals_1 proposals_2 =
       -- forall i . proposals!(proposals_2_lookup!i) = proposals_2!i
       -- along the way, we also make proposal_index_lookup, a reverse map of the vector proposals
       -- we do this by walking along proposals 2, construcing a backwards list (r_proposals_2) of all the proposals not yet seen (including in proposals_1)
-      -- We also keep a matching reverse list of the index in proposals of all the elements of proposals_2
+      -- We also keep a matching list of the index in proposals of all the elements of proposals_2
       -- we check these things by building the proposal_index_lookup
-      (num_proposals, r_proposals_2, proposal_index_lookup, r_proposals_2_lookup) =
-        foldr (\proposal (i, new_proposals, hashmap, r_prop2) -> (
+      (num_proposals, r_proposals_2, proposal_index_lookup, proposals_2_lookup) =
+        foldr (\proposal (i, new_proposals, hashmap, prop2) -> (
                 let r = representative proposal
                  in case HashMap.lookup r hashmap of
-                      Just j  -> (i,                                    new_proposals,            hashmap, j:r_prop2)
-                      Nothing -> (i+1, (proposals_2_transform proposal):new_proposals, insert r i hashmap, i:r_prop2)
+                      Just j  -> (i,                                    new_proposals,            hashmap, j:prop2)
+                      Nothing -> (i+1, (proposals_2_transform proposal):new_proposals, insert r i hashmap, i:prop2)
               ))
               ( length proposals_1
                ,[]
@@ -230,5 +236,5 @@ fuse_vectors representative proposals_2_transform proposals_1 proposals_2 =
               )
               proposals_2
       proposals = proposals_1 ++ (Vector.fromList $ reverse r_proposals_2)
-      proposals_2_lookup = Vector.fromList $ reverse r_proposals_2_lookup
-   in (proposals, proposals_2_lookup)
+      vector_proposals_2_lookup = Vector.fromList proposals_2_lookup
+   in (proposals, vector_proposals_2_lookup)
