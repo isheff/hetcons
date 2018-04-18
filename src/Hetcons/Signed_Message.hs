@@ -124,6 +124,7 @@ import Charlotte_Types
         ,hetcons_Message_phase_2as
         ,hetcons_Message_index
         ,default_Hetcons_Message
+        ,encode_Hetcons_Message
      ,Signed_Index (Signed_Index)
         ,signed_Index_index 
         ,signed_Index_signature 
@@ -485,6 +486,8 @@ class Encodable a where
   --   For testing purposes, Test.Util provides instance Serialize a => Encodable a
   encode :: a -> ByteString
 
+instance {-# OVERLAPPING #-} Encodable Hetcons_Message where
+  encode = encode_Hetcons_Message (CompactProtocol EmptyTransport)
 
 -- | builds a Signed_Message given a signing key, a matching certificate, something serializable, etc.
 sign ::(MonadError Hetcons_Exception m, X509.Signer signer, DRG gen) =>
