@@ -25,6 +25,7 @@ module Hetcons.Signed_Message
        ,signed
     , Get_Signature
        ,signature
+    , signature_bytestring
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in

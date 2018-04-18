@@ -212,24 +212,24 @@ memoize f m x = do { logDebugSH "Memoized call to verify..."
 
 -- | Memoization for verifying 1As in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_1a v) (Hetcons_Transaction s v) where
-  verify = memoize verify' hetcons_Server_verify_1a
+  verify x = logDebugSH "verifying 1A" >> memoize verify' hetcons_Server_verify_1a x
 
 -- | Memoization for verifying 1Bs in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_1b v) (Hetcons_Transaction s v) where
-  verify = memoize verify' hetcons_Server_verify_1b
+  verify x = logDebugSH "verifying 1B" >> memoize verify' hetcons_Server_verify_1b x
 
 -- | Memoization for verifying 2As in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_2a v) (Hetcons_Transaction s v) where
-  verify = memoize verify' hetcons_Server_verify_2a
+  verify x = logDebugSH "verifying 2A" >> memoize verify' hetcons_Server_verify_2a x
 
 -- | Memoization for verifying 2Bs in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_2b v) (Hetcons_Transaction s v) where
-  verify = memoize verify' hetcons_Server_verify_2b
+  verify x = logDebugSH "verifying 2B" >> memoize verify' hetcons_Server_verify_2b x
 
 -- | Memoization for verifying Proof_of_Consensus in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) =>
                              Monad_Verify (Recursive_Proof_of_Consensus v) (Hetcons_Transaction s v) where
-  verify = memoize verify' hetcons_Server_verify_proof
+  verify x = logDebugSH "verifying Proof_of_Consensus" >> memoize verify' hetcons_Server_verify_proof x
 
 -- | Memoization for verifying Quorums in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify_Quorums (Hetcons_Transaction s v) where

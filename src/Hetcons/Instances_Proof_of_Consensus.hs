@@ -47,7 +47,7 @@ import Charlotte_Types
     ( Participant_ID(participant_ID_crypto_id)
      ,Invalid_Proof_of_Consensus(invalid_Proof_of_Consensus_explanation
                                 ,invalid_Proof_of_Consensus_offending_proof_of_consensus)
-     ,Signed_Hash(signed_Hash_crypto_id)
+     ,signed_Hash_crypto_id
      ,signed_Index_signature
      ,signed_Indices_signature
      ,phase_1b_Indices_signature

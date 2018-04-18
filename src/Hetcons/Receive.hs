@@ -60,7 +60,7 @@ import Charlotte_Types
     ( Signed_Message(signed_Message_signature
                     ,signed_Message_payload)
      ,Phase_2a(phase_2a_phase_1bs)
-     ,Signed_Hash(signed_Hash_crypto_id)
+     ,signed_Hash_crypto_id
      ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
      ,Phase_2b(phase_2b_phase_1bs)
      ,Proof_of_Consensus(proof_of_Consensus_hetcons_message)

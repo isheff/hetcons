@@ -26,6 +26,7 @@ import Hetcons.Signed_Message
      ,Recursive_2b(Recursive_2b)
      ,Recursive_Proof_of_Consensus(Recursive_Proof_of_Consensus)
      ,sign
+     ,signature_bytestring
      ,Parsable
        ,parse
      ,Verified
@@ -67,7 +68,7 @@ import Data.Hashable ( Hashable, hashWithSalt )
 import Data.HashMap.Lazy ( HashMap, insert )
 import qualified Data.HashMap.Lazy as HashMap (fromList, lookup)
 import qualified Data.HashSet as HashSet (fromList, map)
-import Data.List (reverse, sortOn)
+import Data.List (reverse, sort, sortOn)
 import Data.Vector (Vector, (++), singleton, (!))
 import qualified Data.Vector as Vector (fromList, empty, singleton, length)
 import Prelude hiding ((++), foldr)
@@ -104,19 +105,20 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
     ;let signature_of_2a h = signed_Hash_signature $ signed_Indices_signature ((hetcons_Message_phase_2as h)!(fromIntegral $ hetcons_Message_index h))
     ;let hetcons_message_2as = sortOn signature_of_2a $ toList hetcons_message_2as'
     ;let hetcons_message = foldl fuse_Hetcons_Messages hetcons_message_1a hetcons_message_2as
+    ;let signed_index_1a = (hetcons_Message_phase_1as hetcons_message_1a)!(fromIntegral $ hetcons_Message_index hetcons_message_1a)
     ;crypto_id <- get_my_crypto_id
     ;private_key <- get_my_private_key
     ;generator <- drgNew
     ;let type_descriptor = sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
     ;signature <- sign crypto_id private_key type_descriptor generator $ ByteString.concat $
-      ((signed_Hash_signature $ signed_Index_signature ((hetcons_Message_phase_1as hetcons_message_1a)!(fromIntegral $ hetcons_Message_index hetcons_message_1a))):
+      ((signed_Hash_signature $ signed_Index_signature signed_index_1a):
        (map signature_of_2a hetcons_message_2as))
     ;let hetcons_message_with_1b_on_end =  fuse_Hetcons_Messages hetcons_message (
       -- In this message, we're not going to ensure anything but the 1b actually references the right stuff,
       -- since all that will be replaced by its equivalents from hetcons_message anyway.
            default_Hetcons_Message {
              hetcons_Message_proposals = Vector.empty
-            ,hetcons_Message_phase_1as = Vector.singleton ((hetcons_Message_phase_1as hetcons_message_1a)!(fromIntegral $ hetcons_Message_index hetcons_message_1a))
+            ,hetcons_Message_phase_1as = Vector.singleton signed_index_1a
             ,hetcons_Message_phase_1bs = Vector.singleton $ default_Phase_1b_Indices{
                 phase_1b_Indices_index_1a = 0
                ,phase_1b_Indices_indices_2a = HashSet.fromList $ map fromIntegral [0..((length hetcons_message_2as) - 1)]
@@ -124,21 +126,19 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
               }
             ,hetcons_Message_phase_2as = Vector.fromList $ map (\h -> (hetcons_Message_phase_2as h)!(fromIntegral $ hetcons_Message_index h)) hetcons_message_2as
            })
-    ; return hetcons_message_with_1b_on_end{hetcons_Message_index = fromIntegral $ Vector.length $ hetcons_Message_phase_1bs hetcons_message}
+    ; return hetcons_message_with_1b_on_end{hetcons_Message_index = fromIntegral $ (Vector.length $ hetcons_Message_phase_1bs hetcons_message_with_1b_on_end) - 1}
     }
 
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (Hetcons_Transaction s v) (Recursive_2a v) where
   to_Hetcons_Message (Recursive_2a r1bs) = do
     {logDebugSH "to_Hetcons_Message Recursive_2a"
-    ;hetcons_message_1bs' <- mapM to_Hetcons_Message $ toList r1bs
+    ;hetcons_message_1bs <- mapM to_Hetcons_Message $ toList r1bs
     ;let indices_1b h = (hetcons_Message_phase_1bs h)!(fromIntegral $ hetcons_Message_index h)
-    ;let signature_of_1b h = signed_Hash_signature $ phase_1b_Indices_signature $ indices_1b h
-    ;let hetcons_message_1bs = sortOn signature_of_1b hetcons_message_1bs'
     ;crypto_id <- get_my_crypto_id
     ;private_key <- get_my_private_key
     ;generator <- drgNew
     ;let type_descriptor = sUPPORTED_SIGNED_HASH_TYPE_DESCRIPTOR
-    ;signature <- sign crypto_id private_key type_descriptor generator $ ByteString.concat $ map signature_of_1b hetcons_message_1bs
+    ;signature <- sign crypto_id private_key type_descriptor generator $ ByteString.concat $ sort $ map signature_bytestring $ toList r1bs
     -- using foldr ensures that the "old value" (which in this case is the newly constructed Signed_Indices) will always be on the right
     -- this ensures that the newly constructed Signed_Indices will be the last in the list of 2as
     ;let hetcons_message = foldr fuse_Hetcons_Messages (default_Hetcons_Message{
@@ -158,6 +158,12 @@ instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => To_Hetcons_Message (H
   to_Hetcons_Message (Recursive_Proof_of_Consensus r2bs) = logDebugSH "to_Hetcons_Message Recursive_Proof_of_Consensus" >>
                                                            (mapM to_Hetcons_Message $ toList r2bs) >>= (return . (foldr fuse_Hetcons_Messages default_Hetcons_Message))
 
+-- | returns a Hetcons_Message which "fuses" two input ones.
+--   The vector fields of the first input will be prefixes of the vector fields of the output.
+--   The index will be the index of the first input.
+--   Thus, it will decode exactly the same as the first input.
+--   The non-duplicate elements of the second input will be appended to the vector fields of the first.
+--   The indices of the appended elements will be adjusted for the new vectors.
 fuse_Hetcons_Messages :: Hetcons_Message -> Hetcons_Message -> Hetcons_Message
 fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       { hetcons_Message_proposals = proposals_1
@@ -170,16 +176,16 @@ fuse_Hetcons_Messages hetcons_message@Hetcons_Message
                       , hetcons_Message_phase_1bs = phase_1bs_2
                       , hetcons_Message_phase_2as = phase_2as_2} =
   let (proposals, _) = fuse_vectors id id proposals_1 proposals_2
-      (phase_1as, phase_1as_2_lookup) = fuse_vectors signed_Index_signature
+      (phase_1as, phase_1as_2_lookup) = fuse_vectors (signed_Hash_signature . signed_Index_signature)
                                                      (\x -> x{signed_Index_index = fromIntegral $ phase_1as_2_lookup!(fromIntegral $ signed_Index_index x)}) 
                                                      phase_1as_1
                                                      phase_1as_2
-      (phase_1bs, phase_1bs_2_lookup) = fuse_vectors phase_1b_Indices_signature
+      (phase_1bs, phase_1bs_2_lookup) = fuse_vectors (signed_Hash_signature . phase_1b_Indices_signature)
                                                      (\x -> x{phase_1b_Indices_index_1a = fromIntegral $ phase_1as_2_lookup!(fromIntegral $ phase_1b_Indices_index_1a x)
                                                              ,phase_1b_Indices_indices_2a = HashSet.map (fromIntegral . (phase_2as_2_lookup!) . fromIntegral) $ phase_1b_Indices_indices_2a x})
                                                      phase_1bs_1
                                                      phase_1bs_2
-      (phase_2as, phase_2as_2_lookup) = fuse_vectors signed_Indices_signature
+      (phase_2as, phase_2as_2_lookup) = fuse_vectors (signed_Hash_signature . signed_Indices_signature)
                                                      (\x -> x{signed_Indices_indices = HashSet.map (fromIntegral . (phase_1bs_2_lookup!) . fromIntegral) $ signed_Indices_indices x})
                                                      phase_2as_1
                                                      phase_2as_2

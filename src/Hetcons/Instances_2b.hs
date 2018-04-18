@@ -45,7 +45,6 @@ import Charlotte_Types
     ( Participant_ID(participant_ID_crypto_id)
      ,Invalid_Phase_2b(invalid_Phase_2b_explanation
                       ,invalid_Phase_2b_offending_phase_2b)
-     ,Signed_Hash(signed_Hash_crypto_id)
      ,Signed_Message(signed_Message_signature)
      ,Phase_2b(phase_2b_phase_1bs)
               ,encode_Phase_2b

@@ -69,7 +69,7 @@ import Charlotte_Types
      ,Phase_1b(phase_1b_conflicting_phase2as, phase_1b_proposal)
               ,encode_Phase_1b
               ,default_Phase_1b
-     ,Signed_Hash(signed_Hash_crypto_id)
+     ,signed_Hash_crypto_id
      ,default_Phase_2a
      ,default_Invalid_Phase_2a
      ,default_Invalid_Phase_1b )
