@@ -28,6 +28,7 @@ module Hetcons.Receive_Message
     ,hetcons_Server_private_key
     ,hetcons_Server_address_book
     ,hetcons_Server_state_var
+    ,hetcons_Server_verify_hetcons_message
     ,hetcons_Server_verify_1a
     ,hetcons_Server_verify_1b
     ,hetcons_Server_verify_2a
@@ -54,10 +55,18 @@ import Hetcons.Signed_Message
      ,Recursive_2a
      ,Monad_Verify
        ,verify
-       ,verify' )
+       ,verify' 
+       ,verify_hetcons_message
+       ,signature_1a
+       ,signature_1b
+       ,signature_2a
+       ,signature_2b
+       ,signature_bytestring_proof_of_consensus
+     ,alter_hetcons_index
+     )
 import Hetcons.Value (Value)
 
-import Charlotte_Types ( Crypto_ID, Hetcons_Message, Proposal_1a, Observers, Value_Witness )
+import Charlotte_Types ( Crypto_ID, Hetcons_Message, hetcons_Message_index, Proposal_1a, Observers, Value_Witness, signed_Hash_signature )
 
 import Control.Concurrent.Chan ( Chan )
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
@@ -129,15 +138,17 @@ data (Hetcons_State s, Value v) => Hetcons_Server s v = Hetcons_Server {
   -- | References the Server's mutable state
  ,hetcons_Server_state_var :: MVar s
   -- | The Memoization Cache for verifying 1As
- ,hetcons_Server_verify_1a :: CMap.Map Hetcons_Message (Verified (Recursive_1a v))
+ ,hetcons_Server_verify_hetcons_message :: CMap.Map Hetcons_Message (Verified Hetcons_Message)
+  -- | The Memoization Cache for verifying 1As
+ ,hetcons_Server_verify_1a :: CMap.Map ByteString (Verified (Recursive_1a v))
   -- | The Memoization Cache for verifying 1Bs
- ,hetcons_Server_verify_1b :: CMap.Map Hetcons_Message (Verified (Recursive_1b v))
+ ,hetcons_Server_verify_1b :: CMap.Map ByteString (Verified (Recursive_1b v))
   -- | The Memoization Cache for verifying 2As
- ,hetcons_Server_verify_2a :: CMap.Map Hetcons_Message (Verified (Recursive_2a v))
+ ,hetcons_Server_verify_2a :: CMap.Map ByteString (Verified (Recursive_2a v))
   -- | The Memoization Cache for verifying 2Bs
- ,hetcons_Server_verify_2b :: CMap.Map Hetcons_Message (Verified (Recursive_2b v))
+ ,hetcons_Server_verify_2b :: CMap.Map ByteString (Verified (Recursive_2b v))
   -- | The Memoization Cache for verifying Proof_of_Consensus
- ,hetcons_Server_verify_proof :: CMap.Map Hetcons_Message (Verified (Recursive_Proof_of_Consensus v))
+ ,hetcons_Server_verify_proof :: CMap.Map ByteString (Verified (Recursive_Proof_of_Consensus v))
   -- | The Memoization Cache for computing Quorums
  ,hetcons_Server_verify_quorums :: CMap.Map Proposal_1a Observers
   -- | The Channel input to the logger
@@ -195,45 +206,50 @@ instance (Hetcons_State s, Value v) => MonadRandom (Hetcons_Transaction s v) whe
 
 -- | Helper function.
 --   Creates a monadic, memoized version of the given function, given:
---
+--     * a "representative" function, which gets a lookup key from the input to the memoized function
 --     * a function to memoize
---
 --     * a field which pulls the memoization cache from the Hetcons_Server
-memoize :: (Eq a, Hashable a, Hetcons_State s, Value v) => (a -> (Hetcons_Transaction s v b)) -> ((Hetcons_Server s v) -> (CMap.Map a b)) -> (a -> (Hetcons_Transaction s v b))
-memoize f m x = do { logDebugSH "Memoized call to verify..."
-                   ; table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
-                   ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup x table
-                   ; case cached of
-                       Just y -> return y
-                       Nothing -> do { logDebugSH "call to Verify is not cached"
-                                     ; y <- f x
-                                     ; Hetcons_Transaction $ liftIO $ insertIfAbsent x y table
-                                     ; return y}}
+memoize :: (Eq r, Hashable r, Hetcons_State s, Value v) => (a -> r) -> (a -> (Hetcons_Transaction s v b)) -> ((Hetcons_Server s v) -> (CMap.Map r b)) -> a -> (Hetcons_Transaction s v b)
+memoize r f m x = do { logDebugSH "Memoized call to verify..."
+                     ; let representative = r x
+                     ; table <- reader (m . hetcons_Transaction_Environment_hetcons_server)
+                     ; cached <- Hetcons_Transaction $ liftIO $ CMap.lookup representative table
+                     ; case cached of
+                         Just y -> return y
+                         Nothing -> do { logDebugSH "call to Verify is not cached"
+                                       ; y <- f x
+                                       ; Hetcons_Transaction $ liftIO $ insertIfAbsent representative y table
+                                       ; return y}}
+
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify Hetcons_Message (Hetcons_Transaction s v) where
+  verify x = do{ v <- memoize (\z -> z{hetcons_Message_index = 0}) verify_hetcons_message hetcons_Server_verify_hetcons_message x
+               ; return $ alter_hetcons_index (hetcons_Message_index x) v
+               }
 
 -- | Memoization for verifying 1As in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_1a v) (Hetcons_Transaction s v) where
-  verify x = logDebugSH "verifying 1A" >> memoize verify' hetcons_Server_verify_1a x
+  verify x = logDebugSH "verifying 1A" >> memoize (signed_Hash_signature . signature_1a) verify' hetcons_Server_verify_1a x
 
 -- | Memoization for verifying 1Bs in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_1b v) (Hetcons_Transaction s v) where
-  verify x = logDebugSH "verifying 1B" >> memoize verify' hetcons_Server_verify_1b x
+  verify x = logDebugSH "verifying 1B" >> memoize (signed_Hash_signature . signature_1b) verify' hetcons_Server_verify_1b x
 
 -- | Memoization for verifying 2As in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_2a v) (Hetcons_Transaction s v) where
-  verify x = logDebugSH "verifying 2A" >> memoize verify' hetcons_Server_verify_2a x
+  verify x = logDebugSH "verifying 2A" >> memoize (signed_Hash_signature . signature_2a) verify' hetcons_Server_verify_2a x
 
 -- | Memoization for verifying 2Bs in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) => Monad_Verify (Recursive_2b v) (Hetcons_Transaction s v) where
-  verify x = logDebugSH "verifying 2B" >> memoize verify' hetcons_Server_verify_2b x
+  verify x = logDebugSH "verifying 2B" >> memoize (signed_Hash_signature . signature_2b) verify' hetcons_Server_verify_2b x
 
 -- | Memoization for verifying Proof_of_Consensus in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v, Hashable v, Eq v, Parsable (Hetcons_Transaction s v v)) =>
                              Monad_Verify (Recursive_Proof_of_Consensus v) (Hetcons_Transaction s v) where
-  verify x = logDebugSH "verifying Proof_of_Consensus" >> memoize verify' hetcons_Server_verify_proof x
+  verify x = logDebugSH "verifying Proof_of_Consensus" >> memoize signature_bytestring_proof_of_consensus verify' hetcons_Server_verify_proof x
 
 -- | Memoization for verifying Quorums in a Hetcons Transaction
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify_Quorums (Hetcons_Transaction s v) where
-  verify_quorums = memoize verify_quorums' hetcons_Server_verify_quorums
+  verify_quorums = memoize id verify_quorums' hetcons_Server_verify_quorums
 
 
 

@@ -20,12 +20,19 @@ module Hetcons.Signed_Message
        ,verify
        ,verify'
        ,verify_bytestring
+       ,verify_hetcons_message
+    , alter_hetcons_index
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
     , Get_Signature
        ,signature
+       ,signature_1a
+       ,signature_1b
+       ,signature_2a
+       ,signature_2b
     , signature_bytestring
+    , signature_bytestring_proof_of_consensus
     , Recursive_1a(Recursive_1a)
        ,recursive_1a_non_recursive
        ,recursive_1a_filled_in
@@ -191,25 +198,32 @@ instance {-# OVERLAPPABLE #-} (Get_Signature_ByteString a) => Hashable (Verified
 class Get_Signature a where
   signature :: (Verified a) -> Signed_Hash
 instance Get_Signature (Recursive_1a v) where
-  signature r1a = signed_Index_signature $ ((hetcons_Message_phase_1as $ original $ signed r1a) ! (fromIntegral $ hetcons_Message_index $ original $ signed r1a))
+  signature = signature_1a . original . signed 
+signature_1a h1a = signed_Index_signature $ ((hetcons_Message_phase_1as h1a) ! (fromIntegral $ hetcons_Message_index h1a))
+
 instance Get_Signature (Recursive_1b v) where
-  signature r1b = phase_1b_Indices_signature $ ((hetcons_Message_phase_1bs $ original $ signed r1b) ! (fromIntegral $ hetcons_Message_index $ original $ signed r1b))
+  signature = signature_1b . original . signed
+signature_1b h1b = phase_1b_Indices_signature $ ((hetcons_Message_phase_1bs h1b) ! (fromIntegral $ hetcons_Message_index h1b))
+
 instance Get_Signature (Recursive_2a v) where
-  signature r2a = signed_Indices_signature $ ((hetcons_Message_phase_2as $ original $ signed r2a) ! (fromIntegral $ hetcons_Message_index $ original $ signed r2a))
+  signature = signature_2a . original . signed
+signature_2a h2a = signed_Indices_signature $ ((hetcons_Message_phase_2as h2a) ! (fromIntegral $ hetcons_Message_index h2a))
+
 instance Get_Signature (Recursive_2b v) where
-  signature r2a = signed_Indices_signature $ ((hetcons_Message_phase_2as $ original $ signed r2a) ! (fromIntegral $ hetcons_Message_index $ original $ signed r2a))
+  signature = signature_2b . original . signed
+signature_2b = signature_2a
 
 class Get_Signature_ByteString a where
   signature_bytestring :: (Verified a) -> ByteString
 
 instance {-# OVERLAPPING #-} Get_Signature_ByteString (Recursive_Proof_of_Consensus v) where
-  signature_bytestring rp = 
-    let hetcons_message@Hetcons_Message
-           {hetcons_Message_phase_2as = phase_2as
-           ,hetcons_Message_phase_1bs = phase_1bs
-           ,hetcons_Message_index = index
-           } = original $ signed rp
-        signed_Indices_to_index_1a = phase_1b_Indices_index_1a . (phase_1bs!) . fromIntegral .  head . toList . signed_Indices_indices
+  signature_bytestring = signature_bytestring_proof_of_consensus . original . signed 
+signature_bytestring_proof_of_consensus hetcons_message@Hetcons_Message
+                                                        {hetcons_Message_phase_2as = phase_2as
+                                                        ,hetcons_Message_phase_1bs = phase_1bs
+                                                        ,hetcons_Message_index = index
+                                                        } = 
+    let signed_Indices_to_index_1a = phase_1b_Indices_index_1a . (phase_1bs!) . fromIntegral .  head . toList . signed_Indices_indices
         r2as_with_matching_1a = filter ((== (signed_Indices_to_index_1a $ phase_2as!(fromIntegral index))) . signed_Indices_to_index_1a) $ toList phase_2as
      in ByteString.concat $ sort $ map (signed_Hash_signature . signed_Indices_signature) r2as_with_matching_1a 
 
@@ -347,12 +361,11 @@ sha2_length length_set =
          else return $ fromIntegral $ maximum lengths
 
 
--- | This is the only pure way to construct a Verified object.
---   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+-- | This is the only pure way to construct a Verified Hetcons_Message.
 --   Otherwise, you get an exception.
-verify' :: (Monad_Verify a m, Encodable Proposal_1a, Monad_Verify_Quorums m, Monad_Verify a m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
+verify_hetcons_message :: (Encodable Proposal_1a, Monad_Verify_Quorums m,  MonadError Hetcons_Exception m) => Hetcons_Message -> m (Verified Hetcons_Message)
 -- We first verify that the Hetcons_Message itself is good (all signatures correct and such)
-verify' message@(Hetcons_Message
+verify_hetcons_message message@(Hetcons_Message
                   {hetcons_Message_proposals = proposals
                   ,hetcons_Message_phase_1as = phase_1as
                   ,hetcons_Message_phase_1bs = phase_1bs
@@ -376,10 +389,20 @@ verify' message@(Hetcons_Message
                                                                         $ toList indices)
                                         signed_hash))
   -- now that we've checked all the signatures, we can construct whatever data type is desired:
-  ;let verified = (Verified {verified_original = message, verified_signed = Nothing})
-  ;x <- from_Hetcons_Message verified
-  -- and if that construction doesn't throw any errors, we call it verified.
-  ;return (Verified {verified_original = x, verified_signed = Just verified})
+  ;return Verified{verified_original = message, verified_signed = Nothing}
+  }
+
+alter_hetcons_index :: (Integral a) => a -> (Verified Hetcons_Message) -> (Verified Hetcons_Message)
+alter_hetcons_index i v = Verified{verified_original = (original v){hetcons_Message_index = fromIntegral i}, verified_signed = Nothing}
+
+-- | This is the only pure way to construct a Verified object.
+--   If all goes well, you get a verified version of the Parsable type (e.g. Recursive_1b) specified.
+--   Otherwise, you get an exception.
+verify' :: (Monad_Verify Hetcons_Message m, From_Hetcons_Message (m a)) => Hetcons_Message -> m (Verified a)
+verify' hetcons_message = do
+  {verified_hetcons_message <- verify hetcons_message
+  ;value <- from_Hetcons_Message verified_hetcons_message
+  ;return Verified{verified_original = value, verified_signed = Just verified_hetcons_message}
   }
 
 -- verify that a bytestring is signed correctly.

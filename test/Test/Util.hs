@@ -17,6 +17,7 @@ import Hetcons.Signed_Message (Encodable
                                 ,encode
                               ,From_Hetcons_Message
                                 ,from_Hetcons_Message
+                              ,verify_hetcons_message
                               ,Parsable
                                 ,parse
                                 ,verify'
@@ -28,7 +29,7 @@ import Hetcons.Signed_Message (Encodable
                               ,Recursive_Proof_of_Consensus
                               ,Monad_Verify)
 
-import Charlotte_Types (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus
+import Charlotte_Types (Proposal_1a, Phase_1b, Phase_2a, Phase_2b, Proof_of_Consensus, Hetcons_Message
                      ,default_Unparsable_Hashable_Message
                      ,unparsable_Hashable_Message_explanation
                      ,unparsable_Hashable_Message_message )
@@ -37,7 +38,11 @@ import Control.Monad.Except ( MonadError, throwError )
 import Data.Serialize ( Serialize, encodeLazy, decodeLazy )
 import Data.Text.Lazy (pack)
 
--- TODO: this instance is used in testing only, so we should move it over to tests
+-- this instance is used in testing only
+instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m
+                              ,MonadError Hetcons_Exception m)
+                               => Monad_Verify Hetcons_Message m where
+  verify = verify_hetcons_message
 instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m
                               ,MonadError Hetcons_Exception m, From_Hetcons_Message (m a))
                                => Monad_Verify a m where
