@@ -70,7 +70,7 @@ import Data.Foldable (length, toList)
 import Data.Hashable (Hashable)
 import Data.HashMap.Lazy ( HashMap )
 import Data.Int (Int64)
-import qualified Data.HashSet as HashSet (map, filter)
+import qualified Data.HashSet as HashSet (map, filter, member)
 import Data.HashSet (HashSet, fromList)
 import Data.Vector (elemIndex, (!))
 import Thrift.Protocol.Compact ( CompactProtocol(CompactProtocol) )
@@ -102,9 +102,9 @@ class Value v where
                  , Monad_Verify (Recursive_2b v) m
                  , Monad_Verify (Recursive_Proof_of_Consensus v) m) => Value_Witness -> v -> (m Bool)
 
-  -- | Does this set of entities contain conflicitng values?
-  --   In this case, do any two of them have the same value_slot and observers?
-  value_conflicts :: (Foldable f) => (f (Verified (Recursive_1a v))) -> Bool
+  -- | Does this new entity conflict with this set of accepted entities?
+  --   In this case, does it repeat the same value_slot and observers?
+  value_conflicts :: (Foldable f) => (Verified (Recursive_1a v)) -> (f (Verified (Recursive_1a v))) -> Bool
 
   -- | The state of a Participant maintains a set of known received Recursive_1bs.
   --   Each time it is saved, this is run.
@@ -126,25 +126,26 @@ valid :: forall a v m. ( Monad_Verify_Quorums m
 valid witness = ((value_valid witness) :: v -> m Bool) . (extract_value  :: (Verified (a v)) -> v)
 -- valid _ = True -- For now, everything is acceptable.
 
-class Conflictable a where
-  conflicts :: a -> Bool
+class Conflictable v a where
+  conflicts :: v -> (a v) -> Bool
 
-instance {-# OVERLAPPING #-} forall a v . (Value v, Contains_1a (Verified (a v)) v,  Hashable (Verified (a v)), Eq (Verified (a v))) => Conflictable (HashSet (Verified (a v))) where
-  conflicts = value_conflicts . (HashSet.map (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v))))
+instance {-# OVERLAPPING #-} forall a v . (Value v, Contains_1a (Verified (a v)) v,  Hashable (Verified (a v)), Eq (Verified (a v))) => Conflictable (Verified (a v)) HashSet where
+  conflicts n s = value_conflicts ((extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v))) n)
+                                  ((HashSet.map (extract_1a :: (Verified (a v)) -> (Verified (Recursive_1a v)))) s)
 
-instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v,  Hashable (a v), Eq (a v)) => Conflictable (HashSet (a v)) where
-  conflicts = value_conflicts . (HashSet.map (extract_1a :: (a v) -> (Verified (Recursive_1a v))))
+instance {-# OVERLAPPABLE #-} forall a v . (Value v, Contains_1a (a v) v,  Hashable (a v), Eq (a v)) => Conflictable (a v) HashSet where
+  conflicts n s = let e = (extract_1a :: (a v) -> (Verified (Recursive_1a v)))
+                   in value_conflicts (e n) $ HashSet.map e s
 
 
 
 instance Value Slot_Value where
   value_valid _ _ = return True
 -- Are there the same number of values in this set as there are distinct slot numbers, for each different observer value?
-  value_conflicts x =
-    any (\s -> ((length s) /= (length (HashSet.map (slot_Value_slot . recursive_1a_value . original) s)))) $
-        map (\y -> fromList $ filter (((proposal_1a_observers $ recursive_1a_filled_in $ original  y) ==) . (proposal_1a_observers . recursive_1a_filled_in . original))
-                                     (toList x))
-            (toList x)
+  value_conflicts n x =
+    let get_slot = slot_Value_slot . recursive_1a_value . original
+        get_observers = proposal_1a_observers . recursive_1a_filled_in . original
+     in not $ HashSet.member (get_slot n) $ fromList $ map get_slot $ filter ((== (get_observers n)) . get_observers) $ toList x 
   garbage_collect = id
 
 -- | Encode a Proposal_1a to a bytestring using Thrift

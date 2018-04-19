@@ -80,8 +80,8 @@ import Crypto.Random ( drgNew )
 import qualified Data.ByteString.Lazy as ByteString (length)
 import Data.Foldable ( maximum )
 import Data.Hashable (Hashable)
-import Data.HashSet ( HashSet, toList, member, insert, fromList, size )
-import qualified Data.HashSet as HashSet ( map, filter, empty )
+import Data.HashSet ( HashSet, toList, member, insert, fromList, size, singleton )
+import qualified Data.HashSet as HashSet ( map, filter, empty)
 
 -- Janky way of silencing Debug instead of import Control.Monad.Logger.CallStack ( logDebugSH )
 logDebugSH _ = return () 
@@ -106,7 +106,7 @@ instance (Show v, Value v, Eq v, Hashable v, Parsable (Hetcons_Transaction (Part
     ; logDebugSH "fetched state"
     ; logDebugSH $ size state
     -- TODO: non-pairwise conflicts
-    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[naive_r1b]) . original ) state
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts naive_r1b . singleton . original) state
     ; logDebugSH "constructed conflicting ballots"
     ; logDebugSH $ size conflicting_ballots
       -- If we've seen this 1a before, or we've seen one with a greater ballot that conflicts
@@ -145,7 +145,7 @@ instance forall v . (Show v, Value v, Hashable v, Eq v, Parsable (Hetcons_Transa
     ; logDebugSH "old_state"
     ; logDebugSH$ size old_state
     -- TODO: non-pairwise conflicts
-    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts . fromList . (:[r1b])) old_state
+    ; let conflicting_ballots = HashSet.map extract_ballot $ HashSet.filter (conflicts r1b . singleton) old_state
     ; logDebugSH "conflicting_ballots"
     -- ; logDebugSH conflicting_ballots
     ; if ((member r1b old_state) || -- If we've received this 1b before, or received something of greater ballot number (below)

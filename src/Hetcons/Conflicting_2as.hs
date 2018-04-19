@@ -46,7 +46,7 @@ conflicting_2as old_1bs new_message =
   let naive_1b = Recursive_1b {
                    recursive_1b_proposal = new_message
                   ,recursive_1b_conflicting_phase2as = empty}
-      quorums_1bs = filter (conflicts . (\y -> fromList [naive_1b, original y])) $ toList old_1bs -- TODO: non-pairwise conflicts
+      quorums_1bs = filter (\y -> conflicts naive_1b $ singleton $ original y) $ toList old_1bs -- TODO: non-pairwise conflicts
       with_both = map (\x -> filter (\y -> ((((extract_value x) :: v) == ((extract_value y) :: v)) &&
                                            ((((extract_1a x) :: Verified (Recursive_1a v)) == ((extract_1a y) :: Verified (Recursive_1a v)))))) quorums_1bs) quorums_1bs
       potential_2as = map (Recursive_2a . fromList) with_both

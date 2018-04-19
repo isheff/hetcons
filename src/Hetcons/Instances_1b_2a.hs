@@ -135,11 +135,11 @@ instance {-# OVERLAPPING #-} (Value v) => Contains_Value (Recursive_1b v) v wher
 
 -- | Throws a Hetcons_Exception of the 1B is not well formed.
 --   A 1b is "well formed" if all the 2A s it contains conflict with this 1B.
-well_formed_1b :: (MonadError Hetcons_Exception m, Value v) => Hetcons_Message -> (Recursive_1b v) -> m ()
+well_formed_1b :: forall m v . (MonadError Hetcons_Exception m, Value v) => Hetcons_Message -> (Recursive_1b v) -> m ()
 well_formed_1b hetcons_message (Recursive_1b {
                   recursive_1b_proposal = proposal
                  ,recursive_1b_conflicting_phase2as = conflicting_phase2as})
-  = mapM_ (\x -> if not $ conflicts $ fromList [proposal, extract_1a x]
+  = mapM_ (\x -> if not $ conflicts proposal $ fromList [(extract_1a x) :: Verified (Recursive_1a v)]
                 then throwError $ Hetcons_Exception_Invalid_Phase_1b (default_Invalid_Phase_1b {
                        invalid_Phase_1b_offending_phase_1b = hetcons_message
                        ,invalid_Phase_1b_explanation = Just $ pack "not all contained phase_2as conflict with the proposal."

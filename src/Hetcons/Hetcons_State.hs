@@ -92,11 +92,8 @@ instance State_by_Observers Recursive_2b where
   state_by_observers s = (HashSet.map (\x -> (HashSet.filter ((x ==) . extract_observer_quorums) s)) -- 2bs per COG
                                       (HashSet.map extract_observer_quorums s)) -- all the COGs
 
--- | Are there any conflicting proposals in this state?
---   Bear in mind that two proposals with different COGs NEVER CONFLICT.
---   We make no guarantees about different COGs.
---   This is not implemented in a computationally efficient manner.
-conflicting_state :: (Value v) => (Participant_State v) -> Bool
+-- | Does this proposal conflict with proposals in this state?
+conflicting_state :: (Value v) => (Verified (Recursive_1b v)) -> (Participant_State v) -> Bool
 conflicting_state = conflicts
 
 -- | A reference to a new state containing all of the elements fo the given input
