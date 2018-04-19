@@ -25,6 +25,8 @@ module Hetcons.Signed_Message
     , Verified() -- Note that we do not export any constructors for Verified. The only way data should end up in this type is if it's passed through the Verify function.
        ,original
        ,signed
+    , Monad_Verify_ByteString
+       ,memoized_verify_bytestring
     , Get_Signature
        ,signature
        ,signature_1a
@@ -360,10 +362,12 @@ sha2_length length_set =
                 ,no_Supported_Hash_Sha2_Descriptor_Provided_explanation = Just  "I do not support that length of SHA2 hash"}
          else return $ fromIntegral $ maximum lengths
 
+class (MonadError Hetcons_Exception m) => Monad_Verify_ByteString m where
+  memoized_verify_bytestring :: ByteString -> Signed_Hash -> m ()
 
 -- | This is the only pure way to construct a Verified Hetcons_Message.
 --   Otherwise, you get an exception.
-verify_hetcons_message :: (Encodable Proposal_1a, Monad_Verify_Quorums m,  MonadError Hetcons_Exception m) => Hetcons_Message -> m (Verified Hetcons_Message)
+verify_hetcons_message :: (Encodable Proposal_1a, Monad_Verify_Quorums m, Monad_Verify_ByteString m, MonadError Hetcons_Exception m) => Hetcons_Message -> m (Verified Hetcons_Message)
 -- We first verify that the Hetcons_Message itself is good (all signatures correct and such)
 verify_hetcons_message message@(Hetcons_Message
                   {hetcons_Message_proposals = proposals
@@ -374,18 +378,18 @@ verify_hetcons_message message@(Hetcons_Message
   {let binary_proposals = Vector.map encode proposals
   ;forM_ phase_1as (\(Signed_Index{signed_Index_index = index
                                   ,signed_Index_signature = signed_hash}) -> (
-                      verify_bytestring (binary_proposals!(fromIntegral index)) signed_hash))
+                      memoized_verify_bytestring (binary_proposals!(fromIntegral index)) signed_hash))
   ;forM_ phase_1bs (\(Phase_1b_Indices  { phase_1b_Indices_index_1a = index_1a
                                         , phase_1b_Indices_indices_2a = indices_2a
                                         , phase_1b_Indices_signature = signed_hash}) -> (
-                      verify_bytestring (ByteString.concat
+                      memoized_verify_bytestring (ByteString.concat
                                           ((signed_Hash_signature $ signed_Index_signature $ phase_1as!(fromIntegral index_1a)):
                                            (sort $ map (signed_Hash_signature . signed_Indices_signature . (phase_2as!) . fromIntegral)
                                                        $ toList indices_2a)))
                                         signed_hash))
   ;forM_ phase_2as (\(Signed_Indices{signed_Indices_indices = indices
                                     ,signed_Indices_signature = signed_hash}) -> (
-                      verify_bytestring (ByteString.concat $ sort $ map (signed_Hash_signature . phase_1b_Indices_signature . (phase_1bs!) . fromIntegral)
+                      memoized_verify_bytestring (ByteString.concat $ sort $ map (signed_Hash_signature . phase_1b_Indices_signature . (phase_1bs!) . fromIntegral)
                                                                         $ toList indices)
                                         signed_hash))
   -- now that we've checked all the signatures, we can construct whatever data type is desired:

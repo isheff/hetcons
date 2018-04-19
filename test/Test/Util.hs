@@ -18,6 +18,9 @@ import Hetcons.Signed_Message (Encodable
                               ,From_Hetcons_Message
                                 ,from_Hetcons_Message
                               ,verify_hetcons_message
+                              , Monad_Verify_ByteString
+                                 ,memoized_verify_bytestring
+                                 ,verify_bytestring
                               ,Parsable
                                 ,parse
                                 ,verify'
@@ -39,13 +42,13 @@ import Data.Serialize ( Serialize, encodeLazy, decodeLazy )
 import Data.Text.Lazy (pack)
 
 -- this instance is used in testing only
-instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m
-                              ,MonadError Hetcons_Exception m)
-                               => Monad_Verify Hetcons_Message m where
+instance {-# OVERLAPPABLE #-} (MonadError Hetcons_Exception m) => Monad_Verify_ByteString m where
+  memoized_verify_bytestring = verify_bytestring
+
+instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m, MonadError Hetcons_Exception m) => Monad_Verify Hetcons_Message m where
   verify = verify_hetcons_message
-instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m
-                              ,MonadError Hetcons_Exception m, From_Hetcons_Message (m a))
-                               => Monad_Verify a m where
+
+instance {-# OVERLAPPABLE #-} (Monad_Verify_Quorums m, MonadError Hetcons_Exception m, From_Hetcons_Message (m a)) => Monad_Verify a m where
   verify = verify'
 
 

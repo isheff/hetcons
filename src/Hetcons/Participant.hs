@@ -16,6 +16,7 @@ import Hetcons.Receive_Message
         ,hetcons_Server_private_key
         ,hetcons_Server_address_book
         ,hetcons_Server_state_var
+        ,hetcons_Server_verify_bytestring
         ,hetcons_Server_verify_hetcons_message
         ,hetcons_Server_verify_1a
         ,hetcons_Server_verify_1b
@@ -73,6 +74,7 @@ new_participant :: (Value v) => (LoggingT IO a -> IO a) -> Crypto_ID -> ByteStri
 new_participant run_logger cid pk =
   do { ab <- default_Address_Book
      ; sv <- start_State
+     ; vb <- CMap.empty
      ; vh <- CMap.empty
      ; v1a <- CMap.empty
      ; v1b <- CMap.empty
@@ -87,6 +89,7 @@ new_participant run_logger cid pk =
            ,hetcons_Server_private_key = pk
            ,hetcons_Server_address_book = ab
            ,hetcons_Server_state_var = sv
+           ,hetcons_Server_verify_bytestring = vb
            ,hetcons_Server_verify_hetcons_message = vh
            ,hetcons_Server_verify_1a = v1a
            ,hetcons_Server_verify_1b = v1b

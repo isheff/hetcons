@@ -24,6 +24,7 @@ import Hetcons.Receive_Message
                     ,hetcons_Server_verify_1a, hetcons_Server_address_book
                     ,hetcons_Server_private_key, hetcons_Server_crypto_id
                     ,hetcons_Server_log_chan
+                    ,hetcons_Server_verify_bytestring
                     ,hetcons_Server_verify_hetcons_message
                     ,hetcons_Server_state_var) )
 import Hetcons.Send ()
@@ -218,6 +219,7 @@ test_4_participants =
                                       ,hetcons_Server_private_key = private
                                       ,hetcons_Server_address_book = hetcons_Server_address_book participant1
                                       ,hetcons_Server_state_var = observer_1_state
+                                      ,hetcons_Server_verify_bytestring = hetcons_Server_verify_bytestring participant1
                                       ,hetcons_Server_verify_hetcons_message = hetcons_Server_verify_hetcons_message participant1
                                       ,hetcons_Server_verify_1a = hetcons_Server_verify_1a participant1
                                       ,hetcons_Server_verify_1b = hetcons_Server_verify_1b participant1
@@ -236,6 +238,7 @@ test_4_participants =
                                       ,hetcons_Server_private_key = private6
                                       ,hetcons_Server_address_book = hetcons_Server_address_book participant1
                                       ,hetcons_Server_state_var = observer_2_state
+                                      ,hetcons_Server_verify_bytestring = hetcons_Server_verify_bytestring participant1
                                       ,hetcons_Server_verify_hetcons_message = hetcons_Server_verify_hetcons_message participant1
                                       ,hetcons_Server_verify_1a = hetcons_Server_verify_1a participant1
                                       ,hetcons_Server_verify_1b = hetcons_Server_verify_1b participant1

@@ -28,6 +28,7 @@ module Hetcons.Receive_Message
     ,hetcons_Server_private_key
     ,hetcons_Server_address_book
     ,hetcons_Server_state_var
+    ,hetcons_Server_verify_bytestring
     ,hetcons_Server_verify_hetcons_message
     ,hetcons_Server_verify_1a
     ,hetcons_Server_verify_1b
@@ -57,16 +58,19 @@ import Hetcons.Signed_Message
        ,verify
        ,verify' 
        ,verify_hetcons_message
+       ,verify_bytestring
        ,signature_1a
        ,signature_1b
        ,signature_2a
        ,signature_2b
        ,signature_bytestring_proof_of_consensus
      ,alter_hetcons_index
+    , Monad_Verify_ByteString
+       ,memoized_verify_bytestring
      )
 import Hetcons.Value (Value)
 
-import Charlotte_Types ( Crypto_ID, Hetcons_Message, hetcons_Message_index, Proposal_1a, Observers, Value_Witness, signed_Hash_signature )
+import Charlotte_Types ( Crypto_ID, Signed_Hash, Hetcons_Message, hetcons_Message_index, Proposal_1a, Observers, Value_Witness, signed_Hash_signature )
 
 import Control.Concurrent.Chan ( Chan )
 import qualified Control.Concurrent.Map as CMap ( Map, lookup )
@@ -137,7 +141,9 @@ data (Hetcons_State s, Value v) => Hetcons_Server s v = Hetcons_Server {
  ,hetcons_Server_address_book :: Address_Book
   -- | References the Server's mutable state
  ,hetcons_Server_state_var :: MVar s
-  -- | The Memoization Cache for verifying 1As
+  -- | The Memoization Cache for verifying bytestring with signed hashes
+ ,hetcons_Server_verify_bytestring :: CMap.Map (ByteString, Signed_Hash) (Either Hetcons_Exception ())
+  -- | The Memoization Cache for verifying Hetcons_Message s
  ,hetcons_Server_verify_hetcons_message :: CMap.Map Hetcons_Message (Verified Hetcons_Message)
   -- | The Memoization Cache for verifying 1As
  ,hetcons_Server_verify_1a :: CMap.Map ByteString (Verified (Recursive_1a v))
@@ -220,6 +226,15 @@ memoize r f m x = do { logDebugSH "Memoized call to verify..."
                                        ; y <- f x
                                        ; Hetcons_Transaction $ liftIO $ insertIfAbsent representative y table
                                        ; return y}}
+
+    
+instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify_ByteString (Hetcons_Transaction s v) where
+  memoized_verify_bytestring bytestring signed_hash = do
+    {cached <- memoize id (\(b, h) -> return $ verify_bytestring b h) hetcons_Server_verify_bytestring (bytestring, signed_hash)
+    ;case cached of
+      Right _ -> return ()
+      Left e -> throwError e
+    }
 
 instance {-# OVERLAPPING #-} (Hetcons_State s, Value v) => Monad_Verify Hetcons_Message (Hetcons_Transaction s v) where
   verify x = do{ v <- memoize (\z -> z{hetcons_Message_index = 0}) verify_hetcons_message hetcons_Server_verify_hetcons_message x
