@@ -39,7 +39,7 @@ packages:
 - '.'
 - location:
     git: git@github.com:isheff/Charlotte.git
-    commit: 162630f6468bbe2febd387d0da86c07594229f02
+    commit: 11bd3374bb47c2c04ee50aa19b0e09a9fbd01129
   extra-dep: true
 - location:
     git: git@github.com:isheff/EasyX509.git
