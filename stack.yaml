@@ -39,7 +39,7 @@ packages:
 - '.'
 - location:
     git: git@github.com:isheff/Charlotte.git
-    commit: c38e17a5c50a2af2847b5e4115c6f500cdc30326
+    commit: f3640e51a3d2b4f2e56ed59f896b7a2e86137434
   extra-dep: true
 - location:
     git: git@github.com:isheff/EasyX509.git
@@ -47,7 +47,7 @@ packages:
   extra-dep: true
 - location:
     git: git@github.com:apache/thrift.git
-    commit: c1f5fc17ed98d443b5b56d0bdfa3d9e38a31c032 
+    commit: 606f1ef31447526b908244933d5b716397a6bad8 
   subdirs:
   - lib/hs
   extra-dep: true
